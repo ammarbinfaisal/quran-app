@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useSettings } from "@/context/SettingsContext";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,15 @@ const API_TRANSLATORS = [
 
 export function SettingsClient() {
   const { settings, updateSettings } = useSettings();
+
+  function selectionStyle(selected: boolean): CSSProperties {
+    return {
+      borderColor: selected ? "var(--primary)" : "var(--border)",
+      background: selected
+        ? "color-mix(in oklab, var(--primary) 8%, transparent)"
+        : undefined,
+    };
+  }
 
   function toggleTranslator(id: number) {
     const current = settings.apiTranslators;
@@ -40,6 +50,70 @@ export function SettingsClient() {
     <div className="max-w-lg mx-auto w-full px-4 py-6 space-y-8">
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Theme
+        </h2>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => updateSettings({ theme: "warm" })}
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={selectionStyle(settings.theme === "warm")}
+          >
+            <div>
+              <p className="text-sm font-medium">Warm</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Soft beige background with warm accents
+              </p>
+            </div>
+            <span
+              className="w-7 h-7 rounded-full border"
+              style={{ background: "#f7f1e4", borderColor: "rgba(20, 20, 20, 0.18)" }}
+              aria-hidden="true"
+            />
+          </button>
+
+          <button
+            onClick={() => updateSettings({ theme: "white" })}
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={selectionStyle(settings.theme === "white")}
+          >
+            <div>
+              <p className="text-sm font-medium">White</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Clean white with green accent
+              </p>
+            </div>
+            <span
+              className="w-7 h-7 rounded-full border"
+              style={{ background: "#ffffff", borderColor: "rgba(45, 106, 79, 0.55)" }}
+              aria-hidden="true"
+            />
+          </button>
+
+          <button
+            onClick={() => updateSettings({ theme: "dark" })}
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={selectionStyle(settings.theme === "dark")}
+          >
+            <div>
+              <p className="text-sm font-medium">Dark</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Black background (#0e0e0e)
+              </p>
+            </div>
+            <span
+              className="w-7 h-7 rounded-full border"
+              style={{ background: "#0e0e0e", borderColor: "rgba(245, 245, 245, 0.18)" }}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Reading Mode
         </h2>
 
@@ -47,16 +121,7 @@ export function SettingsClient() {
           <button
             onClick={() => updateSettings({ translationCode: "n" })}
             className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
-            style={{
-              borderColor:
-                settings.translationCode === "n"
-                  ? "hsl(var(--primary))"
-                  : "hsl(var(--border))",
-              background:
-                settings.translationCode === "n"
-                  ? "hsl(var(--primary) / 0.05)"
-                  : undefined,
-            }}
+            style={selectionStyle(settings.translationCode === "n")}
           >
             <div>
               <p className="text-sm font-medium">Arabic Only</p>
@@ -73,16 +138,7 @@ export function SettingsClient() {
               })
             }
             className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
-            style={{
-              borderColor:
-                settings.translationCode !== "n"
-                  ? "hsl(var(--primary))"
-                  : "hsl(var(--border))",
-              background:
-                settings.translationCode !== "n"
-                  ? "hsl(var(--primary) / 0.05)"
-                  : undefined,
-            }}
+            style={selectionStyle(settings.translationCode !== "n")}
           >
             <div>
               <p className="text-sm font-medium">Arabic + Translation</p>
@@ -161,16 +217,7 @@ export function SettingsClient() {
               key={variant.code}
               onClick={() => updateSettings({ mushafCode: variant.code })}
               className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
-              style={{
-                borderColor:
-                  settings.mushafCode === variant.code
-                    ? "hsl(var(--primary))"
-                    : "hsl(var(--border))",
-                background:
-                  settings.mushafCode === variant.code
-                    ? "hsl(var(--primary) / 0.05)"
-                    : undefined,
-              }}
+              style={selectionStyle(settings.mushafCode === variant.code)}
             >
               <div>
                 <p className="text-sm font-medium">{variant.label}</p>

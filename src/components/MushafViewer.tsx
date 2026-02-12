@@ -107,6 +107,8 @@ export function MushafViewer({
     settings.mushafCode === routeMushafCode &&
     settings.translationCode === routeTranslationCode;
 
+  const viewerTheme = settings.theme === "dark" ? "dark" : "light";
+
   return (
     <>
       <div
@@ -124,7 +126,7 @@ export function MushafViewer({
             width={dimensions.width}
             height={dimensions.height}
             mushafLayout={settings.mushafLayout}
-            theme="light"
+            theme={viewerTheme}
             onWordClick={handleWordClick}
             onPageChange={handlePageChange}
           />

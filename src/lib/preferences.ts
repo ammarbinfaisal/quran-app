@@ -6,6 +6,8 @@ export const SETTINGS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export type RendererMushafLayout = "hafs-v2" | "hafs-v4" | "hafs-unicode";
 
+export type Theme = "warm" | "white" | "dark";
+
 export type MushafCode = "v1" | "v2" | "t4" | "ut" | "i5" | "i6" | "qh" | "tj";
 export type TranslationCode = "n" | "d" | `tr${number}`;
 
@@ -108,6 +110,7 @@ export interface Settings {
   mushafCode: MushafCode;
   translationCode: TranslationCode;
   mushafLayout: RendererMushafLayout;
+  theme: Theme;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -117,10 +120,12 @@ export const DEFAULT_SETTINGS: Settings = {
   mushafCode: "v2",
   translationCode: "tr20",
   mushafLayout: "hafs-v2",
+  theme: "warm",
 };
 
 const mushafCodeSchema = type('"v1"|"v2"|"t4"|"ut"|"i5"|"i6"|"qh"|"tj"');
 const rendererLayoutSchema = type('"hafs-v2"|"hafs-v4"|"hafs-unicode"');
+const themeSchema = type('"warm"|"white"|"dark"');
 const settingsSnapshotSchema = type({
   "apiTranslators?": "number[]",
   "showAbuIyaad?": "boolean",
@@ -128,6 +133,7 @@ const settingsSnapshotSchema = type({
   "mushafCode?": '"v1"|"v2"|"t4"|"ut"|"i5"|"i6"|"qh"|"tj"',
   "translationCode?": "string",
   "mushafLayout?": '"hafs-v2"|"hafs-v4"|"hafs-unicode"',
+  "theme?": '"warm"|"white"|"dark"',
 });
 
 interface SettingsSnapshot {
@@ -137,6 +143,7 @@ interface SettingsSnapshot {
   mushafCode?: MushafCode;
   translationCode?: string;
   mushafLayout?: RendererMushafLayout;
+  theme?: Theme;
 }
 
 function isArkErrors(value: unknown): value is InstanceType<typeof type.errors> {
@@ -150,6 +157,11 @@ function asMushafCode(input: unknown): MushafCode | null {
 
 function asRendererLayout(input: unknown): RendererMushafLayout | null {
   const parsed = rendererLayoutSchema(input);
+  return isArkErrors(parsed) ? null : parsed;
+}
+
+function asTheme(input: unknown): Theme | null {
+  const parsed = themeSchema(input);
   return isArkErrors(parsed) ? null : parsed;
 }
 
@@ -223,6 +235,7 @@ export function normalizeSettings(input: Partial<Settings>): Settings {
     mushafCode,
     translationCode,
     mushafLayout: resolveRendererLayout(mushafCode),
+    theme: input.theme ?? DEFAULT_SETTINGS.theme,
   };
 }
 
@@ -232,6 +245,7 @@ function parseSettingsValue(input: unknown): Settings {
 
   const mushafCode = asMushafCode(parsed.mushafCode);
   const mushafLayout = asRendererLayout(parsed.mushafLayout);
+  const theme = asTheme(parsed.theme);
 
   return normalizeSettings({
     apiTranslators: parsed.apiTranslators,
@@ -240,6 +254,7 @@ function parseSettingsValue(input: unknown): Settings {
     mushafCode: mushafCode ?? undefined,
     mushafLayout: mushafLayout ?? undefined,
     translationCode: asTranslationCode(parsed.translationCode) ?? undefined,
+    theme: theme ?? undefined,
   });
 }
 
@@ -335,27 +350,37 @@ export type ReaderRouteParseResult =
 export function parseReaderRouteSegments(
   segments: string[] | undefined
 ): ReaderRouteParseResult {
-  if (!segments || segments.length === 0) {
+  const decoded = segments
+    ? segments.map((s) => {
+        try {
+          return decodeURIComponent(s);
+        } catch {
+          return s;
+        }
+      })
+    : undefined;
+
+  if (!decoded || decoded.length === 0) {
     return { kind: "bare" };
   }
 
-  if (segments.length === 1) {
-    const ayah = parseAyah(segments[0]);
+  if (decoded.length === 1) {
+    const ayah = parseAyah(decoded[0]);
     if (!ayah) return { kind: "invalid", reason: "Invalid ayah segment" };
     return { kind: "bare", ayah };
   }
 
-  if (segments.length === 3 && segments[0] === "r") {
-    const tokens = parseCanonicalTokens(segments[1], segments[2]);
+  if (decoded.length === 3 && decoded[0] === "r") {
+    const tokens = parseCanonicalTokens(decoded[1], decoded[2]);
     if (!tokens) return { kind: "invalid", reason: "Invalid canonical reader tokens" };
     return { kind: "canonical", ...tokens };
   }
 
-  if (segments.length === 4 && segments[1] === "r") {
-    const ayah = parseAyah(segments[0]);
+  if (decoded.length === 4 && decoded[1] === "r") {
+    const ayah = parseAyah(decoded[0]);
     if (!ayah) return { kind: "invalid", reason: "Invalid ayah segment" };
 
-    const tokens = parseCanonicalTokens(segments[2], segments[3]);
+    const tokens = parseCanonicalTokens(decoded[2], decoded[3]);
     if (!tokens) return { kind: "invalid", reason: "Invalid canonical reader tokens" };
 
     return { kind: "canonical", ayah, ...tokens };

@@ -56,78 +56,98 @@ export function HomeClient({ chapters, juzs }: HomeClientProps) {
         </div>
 
         <TabsContent value="chapters" className="flex-1 mt-0">
-          <div className="divide-y divide-border">
-            {chapters.map((ch) => (
-              <Link
-                key={ch.id}
-                href={buildCanonicalReaderPath({
-                  surah: ch.id,
-                  mushafCode: settings.mushafCode,
-                  translationCode: settings.translationCode,
-                })}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 active:bg-muted transition-colors"
-              >
-                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-primary">{ch.id}</span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm text-foreground truncate">
-                      {ch.nameSimple}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
-                      {ch.revelationPlace === "makkah" ? "Makki" : "Madani"}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {ch.translatedName?.name} · {ch.versesCount} verses
-                  </span>
-                </div>
-
-                <span
-                  className="text-lg font-medium text-foreground shrink-0"
-                  style={{ fontFamily: "serif", direction: "rtl" }}
-                  translate="no"
+          <div className="max-w-6xl mx-auto w-full px-4 py-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {chapters.map((ch) => (
+                <Link
+                  key={ch.id}
+                  href={buildCanonicalReaderPath({
+                    surah: ch.id,
+                    mushafCode: settings.mushafCode,
+                    translationCode: settings.translationCode,
+                  })}
+                  className="group relative flex items-center justify-between gap-4 rounded-xl border border-border bg-card/70 px-4 py-4 transition-colors hover:bg-card"
                 >
-                  {ch.nameArabic}
-                </span>
-              </Link>
-            ))}
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-11 h-11 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rotate-45 rounded-lg bg-muted/70 border border-border flex items-center justify-center">
+                        <span className="-rotate-45 text-sm font-semibold text-foreground">
+                          {ch.id}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-foreground truncate">
+                          {ch.nameSimple}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 h-4 shrink-0"
+                        >
+                          {ch.revelationPlace === "makkah" ? "Makki" : "Madani"}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground truncate block">
+                        {ch.translatedName?.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span
+                      className="text-lg font-medium text-foreground block"
+                      style={{ fontFamily: "serif", direction: "rtl" }}
+                      translate="no"
+                    >
+                      {ch.nameArabic}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {ch.versesCount} ayahs
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="juzs" className="flex-1 mt-0">
-          <div className="divide-y divide-border">
-            {juzs.map((juz) => {
-              const surahNums = Object.keys(juz.verseMapping);
-              const firstSurah = surahNums[0];
-              const lastSurah = surahNums[surahNums.length - 1];
-              const rangeLabel =
-                firstSurah === lastSurah
-                  ? `Surah ${firstSurah}`
-                  : `Surah ${firstSurah}–${lastSurah}`;
+          <div className="max-w-6xl mx-auto w-full px-4 py-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {juzs.map((juz) => {
+                const surahNums = Object.keys(juz.verseMapping);
+                const firstSurah = surahNums[0];
+                const lastSurah = surahNums[surahNums.length - 1];
+                const rangeLabel =
+                  firstSurah === lastSurah
+                    ? `Surah ${firstSurah}`
+                    : `Surah ${firstSurah}–${lastSurah}`;
 
-              return (
-                <Link
-                  key={juz.id}
-                  href={`/juz/${juz.juzNumber}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 active:bg-muted transition-colors"
-                >
-                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-primary">{juz.juzNumber}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-sm text-foreground">
-                      Juz {juz.juzNumber}
-                    </span>
-                    <p className="text-xs text-muted-foreground">
-                      {rangeLabel} · {juz.versesCount} verses
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={juz.id}
+                    href={`/juz/${juz.juzNumber}`}
+                    className="group flex items-center justify-between gap-4 rounded-xl border border-border bg-card/70 px-4 py-4 transition-colors hover:bg-card"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-semibold text-primary">{juz.juzNumber}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-sm text-foreground block">
+                          Juz {juz.juzNumber}
+                        </span>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {rangeLabel} · {juz.versesCount} verses
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
