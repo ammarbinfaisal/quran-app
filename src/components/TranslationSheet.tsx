@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,6 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useSettings } from "@/context/SettingsContext";
 import { TRANSLATOR_LABELS } from "@/lib/constants";
+import { getTranslationIdsForApi } from "@/lib/preferences";
 import abuIyaadData from "@/data/abu-iyaad.json";
 
 interface TranslationEntry {
@@ -20,7 +21,7 @@ interface TranslationEntry {
 }
 
 interface TranslationSheetProps {
-  verseKey: string | null; // e.g. "2:255" — null = closed
+  verseKey: string | null;
   onClose: () => void;
 }
 
@@ -34,33 +35,64 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  const translationIds = useMemo(
+    () => getTranslationIdsForApi(settings),
+    [settings]
+  );
+
   useEffect(() => {
     if (!verseKey) return;
 
-    setTranslations([]);
-    setError(false);
-    setLoading(true);
+    let cancelled = false;
 
-    const ids = settings.apiTranslators.join(",");
+    if (translationIds.length === 0) {
+      Promise.resolve().then(() => {
+        if (cancelled) return;
+        setTranslations([]);
+        setError(false);
+        setLoading(false);
+      });
+      return;
+    }
+
+    const ids = translationIds.join(",");
+
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setTranslations([]);
+      setError(false);
+      setLoading(true);
+    });
+
     fetch(`/api/translations/${encodeURIComponent(verseKey)}?translators=${ids}`)
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         setTranslations(data.translations ?? []);
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [verseKey, settings.apiTranslators]);
+      .catch(() => {
+        if (cancelled) return;
+        setError(true);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verseKey, translationIds]);
 
   const abuIyaad = verseKey
     ? (abuIyaadData as Record<string, string>)[verseKey] ?? null
     : null;
 
-  // Build ordered list of entries to display
   function buildEntries() {
-    const entries: { label: string; text: string; isAbuIyaad?: boolean }[] = [];
+    const entries: { label: string; text: string }[] = [];
 
     if (settings.preferAbuIyaad && settings.showAbuIyaad && abuIyaad) {
-      entries.push({ label: "Abu Iyaad", text: abuIyaad, isAbuIyaad: true });
+      entries.push({ label: "Abu Iyaad", text: abuIyaad });
     }
 
     for (const t of translations) {
@@ -69,7 +101,7 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
     }
 
     if (!settings.preferAbuIyaad && settings.showAbuIyaad && abuIyaad) {
-      entries.push({ label: "Abu Iyaad", text: abuIyaad, isAbuIyaad: true });
+      entries.push({ label: "Abu Iyaad", text: abuIyaad });
     }
 
     return entries;
@@ -79,7 +111,7 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
     <Sheet open={!!verseKey} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
-        className="max-h-[75dvh] overflow-y-auto rounded-t-2xl"
+        className="max-h-[75dvh] overflow-y-auto rounded-t-2xl inset-x-0 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-[600px] sm:rounded-t-2xl"
       >
         <SheetHeader className="pb-2">
           <SheetTitle className="text-base">
@@ -107,10 +139,7 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                   {entry.label}
                 </p>
-                <p
-                  className="text-sm leading-7 text-foreground"
-                  translate="no"
-                >
+                <p className="text-sm leading-7 text-foreground" translate="no">
                   {entry.text}
                 </p>
               </div>

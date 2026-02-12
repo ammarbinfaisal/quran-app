@@ -5,17 +5,15 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { TRANSLATOR_IDS, TRANSLATOR_LABELS } from "@/lib/constants";
-import type { Settings } from "@/lib/types";
-
-const MUSHAF_LAYOUTS: { value: Settings["mushafLayout"]; label: string; desc: string }[] = [
-  { value: "hafs-v2", label: "Hafs (Standard)", desc: "Default Uthmani script" },
-  { value: "hafs-v4", label: "Hafs v4", desc: "With tajweed color markings" },
-  { value: "hafs-unicode", label: "Unicode", desc: "Digital Khatt Unicode" },
-];
+import { MUSHAF_VARIANTS } from "@/lib/preferences";
 
 const API_TRANSLATORS = [
   { id: TRANSLATOR_IDS.SAHEEH_INTERNATIONAL, label: TRANSLATOR_LABELS[20] },
-  { id: TRANSLATOR_IDS.KHAN_AL_HILALI, label: "Khan & al-Hilali (Dr. Mohsin Khan and Shaykh Taqi ud-Deen al-Hilali)" },
+  {
+    id: TRANSLATOR_IDS.KHAN_AL_HILALI,
+    label:
+      "Khan & al-Hilali (Dr. Mohsin Khan and Shaykh Taqi ud-Deen al-Hilali)",
+  },
 ];
 
 export function SettingsClient() {
@@ -26,14 +24,78 @@ export function SettingsClient() {
     const next = current.includes(id)
       ? current.filter((t) => t !== id)
       : [...current, id];
-    // Must have at least one translator selected
+
     if (next.length === 0) return;
-    updateSettings({ apiTranslators: next });
+
+    updateSettings({
+      apiTranslators: next,
+      translationCode:
+        settings.translationCode === "n"
+          ? (`tr${id}` as const)
+          : (`tr${next[0]}` as const),
+    });
   }
 
   return (
     <div className="max-w-lg mx-auto w-full px-4 py-6 space-y-8">
-      {/* Translations section */}
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Reading Mode
+        </h2>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => updateSettings({ translationCode: "n" })}
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={{
+              borderColor:
+                settings.translationCode === "n"
+                  ? "hsl(var(--primary))"
+                  : "hsl(var(--border))",
+              background:
+                settings.translationCode === "n"
+                  ? "hsl(var(--primary) / 0.05)"
+                  : undefined,
+            }}
+          >
+            <div>
+              <p className="text-sm font-medium">Arabic Only</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Canonical route code: <code>t:n</code>
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() =>
+              updateSettings({
+                translationCode: `tr${settings.apiTranslators[0]}` as const,
+              })
+            }
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={{
+              borderColor:
+                settings.translationCode !== "n"
+                  ? "hsl(var(--primary))"
+                  : "hsl(var(--border))",
+              background:
+                settings.translationCode !== "n"
+                  ? "hsl(var(--primary) / 0.05)"
+                  : undefined,
+            }}
+          >
+            <div>
+              <p className="text-sm font-medium">Arabic + Translation</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Canonical route code: <code>{`t:${settings.translationCode}`}</code>
+              </p>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <Separator />
+
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Translations
@@ -56,7 +118,6 @@ export function SettingsClient() {
 
         <Separator />
 
-        {/* Abu Iyaad */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <Label htmlFor="show-abu-iyaad" className="text-sm leading-5 cursor-pointer flex-1">
@@ -89,34 +150,36 @@ export function SettingsClient() {
 
       <Separator />
 
-      {/* Mushaf layout */}
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Mushaf Script
         </h2>
 
         <div className="space-y-3">
-          {MUSHAF_LAYOUTS.map((layout) => (
+          {MUSHAF_VARIANTS.map((variant) => (
             <button
-              key={layout.value}
-              onClick={() => updateSettings({ mushafLayout: layout.value })}
+              key={variant.code}
+              onClick={() => updateSettings({ mushafCode: variant.code })}
               className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
               style={{
                 borderColor:
-                  settings.mushafLayout === layout.value
+                  settings.mushafCode === variant.code
                     ? "hsl(var(--primary))"
                     : "hsl(var(--border))",
                 background:
-                  settings.mushafLayout === layout.value
+                  settings.mushafCode === variant.code
                     ? "hsl(var(--primary) / 0.05)"
                     : undefined,
               }}
             >
               <div>
-                <p className="text-sm font-medium">{layout.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{layout.desc}</p>
+                <p className="text-sm font-medium">{variant.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  <code>{`m:${variant.code}`}</code> · mushaf {variant.mushafId}
+                  {variant.lines ? ` · ${variant.lines.replace("_", " ")}` : ""}
+                </p>
               </div>
-              {settings.mushafLayout === layout.value && (
+              {settings.mushafCode === variant.code && (
                 <svg
                   width="18"
                   height="18"

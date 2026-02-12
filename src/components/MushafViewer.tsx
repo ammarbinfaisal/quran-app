@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { TranslationSheet } from "./TranslationSheet";
 import { useSettings } from "@/context/SettingsContext";
+import { type MushafCode, type TranslationCode } from "@/lib/preferences";
 
 const OpenQuranView = dynamic(
   () => import("open-quran-view/view/react").then((m) => m.OpenQuranView),
@@ -15,7 +16,7 @@ function MushafSkeleton() {
     <div className="flex items-center justify-center w-full min-h-[60dvh]">
       <div className="flex flex-col items-center gap-3 text-muted-foreground">
         <div className="w-8 h-8 border-2 border-current border-t-transparent rounded-full animate-spin opacity-40" />
-        <span className="text-sm">Loading mushaf…</span>
+        <span className="text-sm">Loading mushaf...</span>
       </div>
     </div>
   );
@@ -24,24 +25,54 @@ function MushafSkeleton() {
 interface MushafViewerProps {
   startPage: number;
   endPage?: number;
-  initialAyah?: string; // e.g. "2:255" — scroll to this ayah on load
+  initialAyah?: string;
+  routeMushafCode: MushafCode;
+  routeTranslationCode: TranslationCode;
 }
 
-export function MushafViewer({ startPage, endPage, initialAyah }: MushafViewerProps) {
-  const { settings } = useSettings();
+export function MushafViewer({
+  startPage,
+  endPage,
+  initialAyah,
+  routeMushafCode,
+  routeTranslationCode,
+}: MushafViewerProps) {
+  const { settings, hydrated, updateSettings } = useSettings();
   const [page, setPage] = useState(startPage);
   const [selectedVerse, setSelectedVerse] = useState<string | null>(
     initialAyah ?? null
   );
   const [dimensions, setDimensions] = useState({ width: 390, height: 700 });
 
-  // Responsive sizing
+  useEffect(() => {
+    setPage(startPage);
+  }, [startPage]);
+
+  useEffect(() => {
+    if (
+      settings.mushafCode !== routeMushafCode ||
+      settings.translationCode !== routeTranslationCode
+    ) {
+      updateSettings({
+        mushafCode: routeMushafCode,
+        translationCode: routeTranslationCode,
+      });
+    }
+  }, [
+    routeMushafCode,
+    routeTranslationCode,
+    settings.mushafCode,
+    settings.translationCode,
+    updateSettings,
+  ]);
+
   useEffect(() => {
     function measure() {
       const w = Math.min(window.innerWidth, 600);
-      const h = window.innerHeight - 56; // subtract navbar
+      const h = window.innerHeight - 56;
       setDimensions({ width: w, height: h });
     }
+
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
@@ -65,18 +96,35 @@ export function MushafViewer({ startPage, endPage, initialAyah }: MushafViewerPr
     [startPage, endPage]
   );
 
+  const canRenderMushaf =
+    hydrated &&
+    settings.mushafCode === routeMushafCode &&
+    settings.translationCode === routeTranslationCode;
+
   return (
     <>
-      <div className="flex justify-center">
-        <OpenQuranView
-          page={page}
-          width={dimensions.width}
-          height={dimensions.height}
-          mushafLayout={settings.mushafLayout}
-          theme="light"
-          onWordClick={handleWordClick}
-          onPageChange={handlePageChange}
-        />
+      <div
+        className="flex justify-center"
+        onMouseOver={(e) => {
+          const el = e.target as HTMLElement;
+          if (el.getAttribute("role") === "button") {
+            el.style.background = "transparent";
+          }
+        }}
+      >
+        {canRenderMushaf ? (
+          <OpenQuranView
+            page={page}
+            width={dimensions.width}
+            height={dimensions.height}
+            mushafLayout={settings.mushafLayout}
+            theme="light"
+            onWordClick={handleWordClick}
+            onPageChange={handlePageChange}
+          />
+        ) : (
+          <MushafSkeleton />
+        )}
       </div>
 
       <TranslationSheet

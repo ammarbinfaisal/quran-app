@@ -2,14 +2,21 @@
   "name": "quran",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1.3.1",
+  "engines": {
+    "bun": ">=1.3.1"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "bunx --bun next dev",
+    "build": "bunx --bun next build",
+    "start": "bunx --bun next start",
+    "lint": "bunx --bun eslint",
+    "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts",
+    "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample"
   },
   "dependencies": {
     "@quranjs/api": "^2.1.0",
+    "arktype": "^2.1.29",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
@@ -18,10 +25,12 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.3.9",
     "@types/node": "^25.2.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",

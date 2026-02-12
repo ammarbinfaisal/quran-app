@@ -25,26 +25,11 @@ export interface Translation {
 }
 
 export interface AyahTranslations {
-  verseKey: string; // e.g. "2:255"
+  verseKey: string;
   saheeh?: string;
   khanHilali?: string;
   abuIyaad?: string;
 }
 
-// Settings stored in localStorage
-export interface Settings {
-  // Which API translators to show (can pick one or both)
-  apiTranslators: number[]; // subset of [20, 85]
-  // Whether to show Abu Iyaad when available (always shown alongside selected)
-  showAbuIyaad: boolean;
-  // If Abu Iyaad is available for a verse, prefer showing it first
-  preferAbuIyaad: boolean;
-  mushafLayout: "hafs-v2" | "hafs-v4" | "hafs-unicode";
-}
-
-export const DEFAULT_SETTINGS: Settings = {
-  apiTranslators: [20], // Saheeh International by default
-  showAbuIyaad: true,
-  preferAbuIyaad: true,
-  mushafLayout: "hafs-v2",
-};
+export type { Settings } from "@/lib/preferences";
+export { DEFAULT_SETTINGS } from "@/lib/preferences";

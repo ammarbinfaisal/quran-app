@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useSettings } from "@/context/SettingsContext";
+import { buildCanonicalReaderPath } from "@/lib/preferences";
 
 interface Chapter {
   id: number;
@@ -31,6 +31,8 @@ interface HomeClientProps {
 }
 
 export function HomeClient({ chapters, juzs }: HomeClientProps) {
+  const { settings } = useSettings();
+
   return (
     <div className="flex flex-col min-h-dvh bg-background">
       <NavBar title="Quran" />
@@ -58,15 +60,17 @@ export function HomeClient({ chapters, juzs }: HomeClientProps) {
             {chapters.map((ch) => (
               <Link
                 key={ch.id}
-                href={`/${ch.id}`}
+                href={buildCanonicalReaderPath({
+                  surah: ch.id,
+                  mushafCode: settings.mushafCode,
+                  translationCode: settings.translationCode,
+                })}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 active:bg-muted transition-colors"
               >
-                {/* Number badge */}
                 <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-xs font-semibold text-primary">{ch.id}</span>
                 </div>
 
-                {/* Names */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-foreground truncate">
@@ -81,7 +85,6 @@ export function HomeClient({ chapters, juzs }: HomeClientProps) {
                   </span>
                 </div>
 
-                {/* Arabic name */}
                 <span
                   className="text-lg font-medium text-foreground shrink-0"
                   style={{ fontFamily: "serif", direction: "rtl" }}

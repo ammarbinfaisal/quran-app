@@ -1,26 +1,23 @@
-import { notFound } from "next/navigation";
-import { getQuranClient } from "@/lib/quran-client";
+import { notFound, redirect } from "next/navigation";
+import { fetchChapters, type Chapter } from "@/lib/quran-client";
 import { NavBar } from "@/components/NavBar";
 import { MushafViewer } from "@/components/MushafViewer";
 import { TOTAL_SURAHS } from "@/lib/constants";
-import type { Chapter } from "@quranjs/api";
+import {
+  buildCanonicalReaderPath,
+  parseReaderRouteSegments,
+} from "@/lib/preferences";
+import { getServerSettings } from "@/lib/preferences-server";
 
-export const dynamic = "force-static";
-export const revalidate = false;
+export const dynamic = "force-dynamic";
 
-// Cache all chapters once across static generation
-let _chapters: Chapter[] | null = null;
+let chaptersCache: Chapter[] | null = null;
+
 async function getAllChapters(): Promise<Chapter[]> {
-  if (!_chapters) {
-    _chapters = await getQuranClient().chapters.findAll();
+  if (!chaptersCache) {
+    chaptersCache = await fetchChapters();
   }
-  return _chapters;
-}
-
-export async function generateStaticParams() {
-  return Array.from({ length: TOTAL_SURAHS }, (_, i) => ({
-    surah: String(i + 1),
-  }));
+  return chaptersCache;
 }
 
 interface PageProps {
@@ -28,22 +25,41 @@ interface PageProps {
 }
 
 export default async function SurahPage({ params }: PageProps) {
-  const { surah: surahParam, ayah: ayahParam } = await params;
+  const { surah: surahParam, ayah: routeSegments } = await params;
   const surahNum = Number(surahParam);
 
   if (!surahNum || surahNum < 1 || surahNum > TOTAL_SURAHS) {
     notFound();
   }
 
+  const route = parseReaderRouteSegments(routeSegments);
+
+  if (route.kind === "invalid") {
+    notFound();
+  }
+
+  const settings = await getServerSettings();
+
+  if (route.kind === "bare") {
+    redirect(
+      buildCanonicalReaderPath({
+        surah: surahNum,
+        ayah: route.ayah,
+        mushafCode: settings.mushafCode,
+        translationCode: settings.translationCode,
+      })
+    );
+  }
+
   const chapters = await getAllChapters();
   const chapter = chapters.find((c) => c.id === surahNum);
-  if (!chapter) notFound();
+  if (!chapter) {
+    notFound();
+  }
 
   const startPage: number = chapter.pages[0] ?? 1;
   const endPage: number = chapter.pages[1] ?? startPage;
-
-  const ayahNum = ayahParam?.[0] ? Number(ayahParam[0]) : undefined;
-  const initialAyah = ayahNum ? `${surahNum}:${ayahNum}` : undefined;
+  const initialAyah = route.ayah ? `${surahNum}:${route.ayah}` : undefined;
 
   return (
     <div className="flex flex-col min-h-dvh bg-background">
@@ -52,6 +68,8 @@ export default async function SurahPage({ params }: PageProps) {
         startPage={startPage}
         endPage={endPage}
         initialAyah={initialAyah}
+        routeMushafCode={route.mushafCode}
+        routeTranslationCode={route.translationCode}
       />
     </div>
   );

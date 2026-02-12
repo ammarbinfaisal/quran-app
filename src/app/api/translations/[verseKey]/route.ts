@@ -1,38 +1,48 @@
+import { type } from "arktype";
 import { NextResponse } from "next/server";
-import { getQuranClient } from "@/lib/quran-client";
-import type { VerseKey } from "@quranjs/api";
 
-// GET /api/translations/2:255?translators=20,85
+const BASE = "https://api.quran.com/api/v4";
+
+const translatorQuerySchema = type("string");
+
+function parseTranslatorIds(raw: string | null): number[] {
+  const parsed = translatorQuerySchema(raw ?? "");
+  if (parsed instanceof type.errors) return [20];
+
+  const ids = parsed
+    .split(",")
+    .map((v) => Number(v))
+    .filter((v) => Number.isInteger(v) && v > 0);
+
+  return ids.length > 0 ? Array.from(new Set(ids)) : [20];
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ verseKey: string }> }
 ) {
   const { verseKey } = await params;
   const { searchParams } = new URL(request.url);
-  const translatorsParam = searchParams.get("translators") ?? "20";
-  const translatorIds = translatorsParam
-    .split(",")
-    .map(Number)
-    .filter(Boolean);
+  const translatorIds = parseTranslatorIds(searchParams.get("translators"));
 
   try {
-    const client = getQuranClient();
-    const verse = await client.verses.findByKey(verseKey as VerseKey, {
-      translations: translatorIds,
-      translationFields: { resourceName: true, verseKey: true },
-    });
+    const res = await fetch(
+      `${BASE}/verses/by_key/${encodeURIComponent(verseKey)}?translations=${translatorIds.join(",")}&fields=translations`,
+      { cache: "force-cache" }
+    );
+
+    if (!res.ok) {
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const translations = ((verse as any).translations ?? []).map((t: {
-      resourceId?: number;
-      resourceName?: string;
-      text: string;
-      verseKey?: string;
-    }) => ({
-      resourceId: t.resourceId,
-      resourceName: t.resourceName,
+    const translations = (data.verse?.translations ?? []).map((t: any) => ({
+      resourceId: t.resource_id,
+      resourceName: t.resource_name ?? null,
       text: t.text,
-      verseKey: t.verseKey ?? verseKey,
+      verseKey,
     }));
 
     return NextResponse.json({ translations });
