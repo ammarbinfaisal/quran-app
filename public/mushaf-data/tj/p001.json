@@ -1,5 +1,17 @@
 {
   "page": 1,
   "mushafCode": "tj",
-  "lines": []
+  "lines": [
+    {
+      "lineNumber": 1,
+      "words": [
+        {
+          "text": "الحمد",
+          "verseKey": "1:2",
+          "x": 12,
+          "width": 36
+        }
+      ]
+    }
+  ]
 }

@@ -41,3 +41,15 @@ Reason: Ensures consistent runtime execution path and aligns build/dev/lint flow
 ## 10) Asset generation bootstrap
 Decision: Add `scripts/generate-mushaf-assets.ts` that generates manifest and optional sample assets (`--seed-sample`) now.
 Reason: This gives a concrete, runnable contract for Phase 2 without committing to incomplete large data downloads during this pass.
+
+## 11) Protobuf runtime implementation choice
+Decision: Use `protobufjs` with an inline schema in `src/lib/mushaf/proto.ts` for encode/decode now.
+Reason: It enables real protobuf payload generation/decoding immediately without introducing a separate codegen toolchain in this phase.
+
+## 12) Loader fallback order
+Decision: Runtime mushaf loader now attempts `.pb` first, then falls back to `.json` for compatibility/debug.
+Reason: This aligns with the locked packaging policy while keeping a safe path during incremental asset rollout.
+
+## 13) Prefetch integration point
+Decision: Trigger adjacent-page payload prefetch in `MushafViewer` on `{mushafCode, page}` changes.
+Reason: It is the narrowest point that has both route-selected mushaf and current page state, minimizing duplicated prefetch logic.

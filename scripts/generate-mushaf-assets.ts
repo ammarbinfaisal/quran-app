@@ -1,7 +1,21 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  encodeMushafPagePayload,
+  type MushafPagePayload,
+} from "../src/lib/mushaf/proto";
+import type { MushafCode } from "../src/lib/preferences";
 
-const MUSHAF_CODES = ["v1", "v2", "t4", "ut", "i5", "i6", "qh", "tj"] as const;
+const MUSHAF_CODES: readonly MushafCode[] = [
+  "v1",
+  "v2",
+  "t4",
+  "ut",
+  "i5",
+  "i6",
+  "qh",
+  "tj",
+];
 
 async function writeText(path: string, content: string) {
   await Bun.write(path, content);
@@ -15,6 +29,26 @@ function getArgFlag(flag: string): boolean {
   return process.argv.includes(flag);
 }
 
+function samplePayload(code: MushafCode): MushafPagePayload {
+  return {
+    page: 1,
+    mushafCode: code,
+    lines: [
+      {
+        lineNumber: 1,
+        words: [
+          {
+            text: "\u0627\u0644\u062d\u0645\u062f",
+            verseKey: "1:2",
+            x: 12,
+            width: 36,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 async function writeSampleAssets(root: string) {
   for (const code of MUSHAF_CODES) {
     const dataDir = resolve(root, "public", "mushaf-data", code);
@@ -23,13 +57,10 @@ async function writeSampleAssets(root: string) {
     await ensureDir(dataDir);
     await ensureDir(fontDir);
 
-    await writeText(
-      resolve(dataDir, "p001.json"),
-      JSON.stringify({ page: 1, mushafCode: code, lines: [] }, null, 2)
-    );
+    const payload = samplePayload(code);
 
-    // Placeholder protobuf bytes until Phase 2 fetch/encode is enabled.
-    await Bun.write(resolve(dataDir, "p001.pb"), new Uint8Array([]));
+    await writeText(resolve(dataDir, "p001.json"), JSON.stringify(payload, null, 2));
+    await Bun.write(resolve(dataDir, "p001.pb"), encodeMushafPagePayload(payload));
   }
 }
 

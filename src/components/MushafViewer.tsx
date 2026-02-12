@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { TranslationSheet } from "./TranslationSheet";
 import { useSettings } from "@/context/SettingsContext";
+import { preloadNeighborPages } from "@/lib/mushaf/loader";
 import { type MushafCode, type TranslationCode } from "@/lib/preferences";
 
 const OpenQuranView = dynamic(
@@ -77,6 +78,11 @@ export function MushafViewer({
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, []);
+
+  useEffect(() => {
+    // Warm current/adjacent page payloads in background.
+    void preloadNeighborPages(routeMushafCode, page);
+  }, [routeMushafCode, page]);
 
   const handleWordClick = useCallback(
     (word: { id: number; surahNumber?: number; ayahNumber?: number }) => {
