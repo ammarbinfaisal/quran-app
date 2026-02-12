@@ -208,6 +208,42 @@ export function SettingsClient() {
 
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Navigation
+        </h2>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => updateSettings({ mushafNavigation: "scroll" })}
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={selectionStyle(settings.mushafNavigation === "scroll")}
+          >
+            <div>
+              <p className="text-sm font-medium">Scroll (Default)</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Scroll vertically; page advances at top/bottom
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => updateSettings({ mushafNavigation: "swipe" })}
+            className="w-full text-left flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+            style={selectionStyle(settings.mushafNavigation === "swipe")}
+          >
+            <div>
+              <p className="text-sm font-medium">Swipe / Left-Right</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Swipe to change pages
+              </p>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Mushaf Script
         </h2>
 

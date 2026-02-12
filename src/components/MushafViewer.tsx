@@ -5,8 +5,6 @@ import {
   useCallback,
   useEffect,
   useRef,
-  type WheelEvent,
-  type TouchEvent,
 } from "react";
 import dynamic from "next/dynamic";
 import { TranslationSheet } from "./TranslationSheet";
@@ -50,9 +48,10 @@ export function MushafViewer({
   const [selectedVerse, setSelectedVerse] = useState<string | null>(
     initialAyah ?? null
   );
-  const [dimensions, setDimensions] = useState({ width: 390, height: 552 });
-  const lastWheelNavAt = useRef(0);
-  const touchStartY = useRef<number | null>(null);
+  const [dimensions, setDimensions] = useState({ width: 390, height: 552, maxH: 552 });
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const isNavigatingRef = useRef(false);
+  const navDirectionRef = useRef<"next" | "prev" | null>(null);
 
   useEffect(() => {
     setPage(startPage);
@@ -81,23 +80,37 @@ export function MushafViewer({
       // Keep the viewer aspect ratio stable to avoid non-uniform scaling.
       // open-quran-view defaults to 600x850.
       const PAGE_RATIO = 850 / 600;
-      const availableW = Math.max(280, Math.min(window.innerWidth - 24, 760));
-      const availableH = Math.max(360, window.innerHeight - 56);
+      const maxH = Math.max(360, window.innerHeight - 56);
+
+      const maxW = settings.mushafNavigation === "scroll" ? 980 : 760;
+      const availableW = Math.max(280, Math.min(window.innerWidth - 16, maxW));
 
       let w = availableW;
       let h = Math.round(w * PAGE_RATIO);
-      if (h > availableH) {
-        h = availableH;
+
+      // In swipe mode, keep the full page visible (no internal scroll).
+      if (settings.mushafNavigation === "swipe" && h > maxH) {
+        h = maxH;
         w = Math.round(h / PAGE_RATIO);
       }
 
-      setDimensions({ width: w, height: h });
+      setDimensions({ width: w, height: h, maxH });
     }
 
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, []);
+  }, [settings.mushafNavigation]);
+
+  useEffect(() => {
+    // When switching modes, reset scroll position/state.
+    isNavigatingRef.current = false;
+    navDirectionRef.current = null;
+    const el = scrollRef.current;
+    if (el && settings.mushafNavigation === "scroll") {
+      el.scrollTop = 0;
+    }
+  }, [settings.mushafNavigation]);
 
   useEffect(() => {
     // Warm current/adjacent page payloads in background.
@@ -128,41 +141,54 @@ export function MushafViewer({
     [withinRange]
   );
 
-  const handleWheel = useCallback(
-    (e: WheelEvent) => {
-      // Use vertical scroll to navigate pages (disable left/right paging).
-      const now = Date.now();
-      if (now - lastWheelNavAt.current < 220) return;
-      if (Math.abs(e.deltaY) < 16) return;
-
-      const dir = e.deltaY > 0 ? 1 : -1;
-      lastWheelNavAt.current = now;
-      e.preventDefault();
-      shiftPage(dir);
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      setPage((current) => (withinRange(nextPage) ? nextPage : current));
     },
-    [shiftPage]
+    [withinRange]
   );
 
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    touchStartY.current = e.touches[0]?.clientY ?? null;
-  }, []);
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (isNavigatingRef.current) return;
 
-  const handleTouchEnd = useCallback(
-    (e: TouchEvent) => {
-      const startY = touchStartY.current;
-      touchStartY.current = null;
-      if (startY == null) return;
+    const threshold = 28;
+    const atTop = el.scrollTop <= threshold;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
 
-      const endY = e.changedTouches[0]?.clientY;
-      if (typeof endY !== "number") return;
+    if (atBottom && withinRange(page + 1)) {
+      isNavigatingRef.current = true;
+      navDirectionRef.current = "next";
+      shiftPage(1);
+      return;
+    }
 
-      const delta = startY - endY;
-      if (Math.abs(delta) < 48) return;
-      const dir = delta > 0 ? 1 : -1;
-      shiftPage(dir);
-    },
-    [shiftPage]
-  );
+    if (atTop && withinRange(page - 1)) {
+      isNavigatingRef.current = true;
+      navDirectionRef.current = "prev";
+      shiftPage(-1);
+    }
+  }, [page, shiftPage, withinRange]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const dir = navDirectionRef.current;
+    navDirectionRef.current = null;
+
+    // After page change, position scroll so navigation feels continuous.
+    requestAnimationFrame(() => {
+      if (dir === "next") {
+        el.scrollTop = 0;
+      } else if (dir === "prev") {
+        el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      }
+
+      isNavigatingRef.current = false;
+    });
+  }, [page]);
 
   const canRenderMushaf =
     hydrated &&
@@ -175,10 +201,6 @@ export function MushafViewer({
     <>
       <div
         className="flex justify-center oqv-container"
-        style={{ touchAction: "pan-y" }}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
         onMouseOver={(e) => {
           const el = e.target as HTMLElement;
           if (el.getAttribute("role") === "button") {
@@ -186,22 +208,51 @@ export function MushafViewer({
           }
         }}
       >
-        {canRenderMushaf ? (
-          <OpenQuranView
-            key={`${settings.mushafLayout}:${viewerTheme}`}
-            page={page}
-            width={dimensions.width}
-            height={dimensions.height}
-            mushafLayout={settings.mushafLayout}
-            theme={viewerTheme}
-            className="oqv-view"
-            onWordClick={handleWordClick}
-            onPageChange={() => {
-              // Intentionally ignore built-in paging (we use scroll).
-            }}
-          />
+        {settings.mushafNavigation === "scroll" ? (
+          <div
+            ref={scrollRef}
+            className="w-full overflow-y-auto scrollbar-none"
+            style={{ maxHeight: dimensions.maxH }}
+            onScroll={handleScroll}
+          >
+            <div className="flex justify-center py-2">
+              {canRenderMushaf ? (
+                <OpenQuranView
+                  key={`${settings.mushafLayout}:${viewerTheme}`}
+                  page={page}
+                  width={dimensions.width}
+                  height={dimensions.height}
+                  mushafLayout={settings.mushafLayout}
+                  theme={viewerTheme}
+                  className="oqv-view"
+                  onWordClick={handleWordClick}
+                  onPageChange={() => {
+                    // Intentionally ignore built-in paging (we use scroll).
+                  }}
+                />
+              ) : (
+                <MushafSkeleton />
+              )}
+            </div>
+          </div>
         ) : (
-          <MushafSkeleton />
+          <div className="flex justify-center py-2">
+            {canRenderMushaf ? (
+              <OpenQuranView
+                key={`${settings.mushafLayout}:${viewerTheme}`}
+                page={page}
+                width={dimensions.width}
+                height={dimensions.height}
+                mushafLayout={settings.mushafLayout}
+                theme={viewerTheme}
+                className="oqv-view"
+                onWordClick={handleWordClick}
+                onPageChange={handlePageChange}
+              />
+            ) : (
+              <MushafSkeleton />
+            )}
+          </div>
         )}
       </div>
 

@@ -8,6 +8,8 @@ export type RendererMushafLayout = "hafs-v2" | "hafs-v4" | "hafs-unicode";
 
 export type Theme = "warm" | "white" | "dark";
 
+export type MushafNavigation = "scroll" | "swipe";
+
 export type MushafCode = "v1" | "v2" | "t4" | "ut" | "i5" | "i6" | "qh" | "tj";
 export type TranslationCode = "n" | "d" | `tr${number}`;
 
@@ -110,6 +112,7 @@ export interface Settings {
   mushafCode: MushafCode;
   translationCode: TranslationCode;
   mushafLayout: RendererMushafLayout;
+  mushafNavigation: MushafNavigation;
   theme: Theme;
 }
 
@@ -120,12 +123,14 @@ export const DEFAULT_SETTINGS: Settings = {
   mushafCode: "v2",
   translationCode: "tr20",
   mushafLayout: "hafs-v2",
+  mushafNavigation: "scroll",
   theme: "warm",
 };
 
 const mushafCodeSchema = type('"v1"|"v2"|"t4"|"ut"|"i5"|"i6"|"qh"|"tj"');
 const rendererLayoutSchema = type('"hafs-v2"|"hafs-v4"|"hafs-unicode"');
 const themeSchema = type('"warm"|"white"|"dark"');
+const mushafNavigationSchema = type('"scroll"|"swipe"');
 const settingsSnapshotSchema = type({
   "apiTranslators?": "number[]",
   "showAbuIyaad?": "boolean",
@@ -133,6 +138,7 @@ const settingsSnapshotSchema = type({
   "mushafCode?": '"v1"|"v2"|"t4"|"ut"|"i5"|"i6"|"qh"|"tj"',
   "translationCode?": "string",
   "mushafLayout?": '"hafs-v2"|"hafs-v4"|"hafs-unicode"',
+  "mushafNavigation?": '"scroll"|"swipe"',
   "theme?": '"warm"|"white"|"dark"',
 });
 
@@ -143,6 +149,7 @@ interface SettingsSnapshot {
   mushafCode?: MushafCode;
   translationCode?: string;
   mushafLayout?: RendererMushafLayout;
+  mushafNavigation?: MushafNavigation;
   theme?: Theme;
 }
 
@@ -162,6 +169,11 @@ function asRendererLayout(input: unknown): RendererMushafLayout | null {
 
 function asTheme(input: unknown): Theme | null {
   const parsed = themeSchema(input);
+  return isArkErrors(parsed) ? null : parsed;
+}
+
+function asMushafNavigation(input: unknown): MushafNavigation | null {
+  const parsed = mushafNavigationSchema(input);
   return isArkErrors(parsed) ? null : parsed;
 }
 
@@ -235,6 +247,7 @@ export function normalizeSettings(input: Partial<Settings>): Settings {
     mushafCode,
     translationCode,
     mushafLayout: resolveRendererLayout(mushafCode),
+    mushafNavigation: input.mushafNavigation ?? DEFAULT_SETTINGS.mushafNavigation,
     theme: input.theme ?? DEFAULT_SETTINGS.theme,
   };
 }
@@ -245,6 +258,7 @@ function parseSettingsValue(input: unknown): Settings {
 
   const mushafCode = asMushafCode(parsed.mushafCode);
   const mushafLayout = asRendererLayout(parsed.mushafLayout);
+  const mushafNavigation = asMushafNavigation(parsed.mushafNavigation);
   const theme = asTheme(parsed.theme);
 
   return normalizeSettings({
@@ -254,6 +268,7 @@ function parseSettingsValue(input: unknown): Settings {
     mushafCode: mushafCode ?? undefined,
     mushafLayout: mushafLayout ?? undefined,
     translationCode: asTranslationCode(parsed.translationCode) ?? undefined,
+    mushafNavigation: mushafNavigation ?? undefined,
     theme: theme ?? undefined,
   });
 }
