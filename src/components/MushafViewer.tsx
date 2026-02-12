@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type WheelEvent,
+  type TouchEvent,
+} from "react";
 import dynamic from "next/dynamic";
 import { TranslationSheet } from "./TranslationSheet";
 import { useSettings } from "@/context/SettingsContext";
@@ -43,7 +50,9 @@ export function MushafViewer({
   const [selectedVerse, setSelectedVerse] = useState<string | null>(
     initialAyah ?? null
   );
-  const [dimensions, setDimensions] = useState({ width: 390, height: 700 });
+  const [dimensions, setDimensions] = useState({ width: 390, height: 552 });
+  const lastWheelNavAt = useRef(0);
+  const touchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     setPage(startPage);
@@ -69,8 +78,19 @@ export function MushafViewer({
 
   useEffect(() => {
     function measure() {
-      const w = Math.min(window.innerWidth, 600);
-      const h = window.innerHeight - 56;
+      // Keep the viewer aspect ratio stable to avoid non-uniform scaling.
+      // open-quran-view defaults to 600x850.
+      const PAGE_RATIO = 850 / 600;
+      const availableW = Math.max(280, Math.min(window.innerWidth - 24, 760));
+      const availableH = Math.max(360, window.innerHeight - 56);
+
+      let w = availableW;
+      let h = Math.round(w * PAGE_RATIO);
+      if (h > availableH) {
+        h = availableH;
+        w = Math.round(h / PAGE_RATIO);
+      }
+
       setDimensions({ width: w, height: h });
     }
 
@@ -93,13 +113,55 @@ export function MushafViewer({
     []
   );
 
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      if (!endPage || (newPage >= startPage && newPage <= endPage)) {
-        setPage(newPage);
-      }
-    },
+  const withinRange = useCallback(
+    (p: number) => !endPage || (p >= startPage && p <= endPage),
     [startPage, endPage]
+  );
+
+  const shiftPage = useCallback(
+    (delta: number) => {
+      setPage((current) => {
+        const next = current + delta;
+        return withinRange(next) ? next : current;
+      });
+    },
+    [withinRange]
+  );
+
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      // Use vertical scroll to navigate pages (disable left/right paging).
+      const now = Date.now();
+      if (now - lastWheelNavAt.current < 220) return;
+      if (Math.abs(e.deltaY) < 16) return;
+
+      const dir = e.deltaY > 0 ? 1 : -1;
+      lastWheelNavAt.current = now;
+      e.preventDefault();
+      shiftPage(dir);
+    },
+    [shiftPage]
+  );
+
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    touchStartY.current = e.touches[0]?.clientY ?? null;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      const startY = touchStartY.current;
+      touchStartY.current = null;
+      if (startY == null) return;
+
+      const endY = e.changedTouches[0]?.clientY;
+      if (typeof endY !== "number") return;
+
+      const delta = startY - endY;
+      if (Math.abs(delta) < 48) return;
+      const dir = delta > 0 ? 1 : -1;
+      shiftPage(dir);
+    },
+    [shiftPage]
   );
 
   const canRenderMushaf =
@@ -112,7 +174,11 @@ export function MushafViewer({
   return (
     <>
       <div
-        className="flex justify-center"
+        className="flex justify-center oqv-container"
+        style={{ touchAction: "pan-y" }}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         onMouseOver={(e) => {
           const el = e.target as HTMLElement;
           if (el.getAttribute("role") === "button") {
@@ -122,13 +188,17 @@ export function MushafViewer({
       >
         {canRenderMushaf ? (
           <OpenQuranView
+            key={`${settings.mushafLayout}:${viewerTheme}`}
             page={page}
             width={dimensions.width}
             height={dimensions.height}
             mushafLayout={settings.mushafLayout}
             theme={viewerTheme}
+            className="oqv-view"
             onWordClick={handleWordClick}
-            onPageChange={handlePageChange}
+            onPageChange={() => {
+              // Intentionally ignore built-in paging (we use scroll).
+            }}
           />
         ) : (
           <MushafSkeleton />

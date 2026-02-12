@@ -119,7 +119,7 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4 pb-6">
+        <div className="space-y-4 pb-6 px-4">
           {loading && (
             <div className="space-y-2">
               <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
