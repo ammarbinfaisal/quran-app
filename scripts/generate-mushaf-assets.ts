@@ -10,7 +10,8 @@ const TIMEOUT_MS = 15_000;
 
 // CDN Base URLs
 const FONT_BASE = "https://static.qurancdn.com/fonts/quran/hafs";
-const DATA_BASE = "https://quran.fullstacktics.com/mushaf-data"; // Pointing to your source or a secondary CDN
+const DATA_BASE = "https://quran.fullstacktics.com/mushaf-data"; 
+const FALLBACK_DATA_BASE = "https://quran.com/mushaf-data"; 
 
 // ---- Stats Tracker ----
 type ErrorBucket = "404 (Not Found)" | "500 (Server Error)" | "Network/Timeout" | "Other";
@@ -85,23 +86,45 @@ async function main() {
 
       // 1. Font Download (.woff2)
       jobs.push(limit(async () => {
-        const url = `${FONT_BASE}/${code}/woff2/p${paddedPage}.woff2`;
         const dest = path.join(fontDir, `p${paddedPage}.woff2`);
-        await downloadFile(url, dest, pageStats);
+        await tryDownload(
+          [
+            `${FONT_BASE}/${code}/woff2/p${page}.woff2`,
+            `${FONT_BASE}/${code}/woff2/p${paddedPage}.woff2`
+          ],
+          dest,
+          pageStats
+        );
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
 
       // 2. JSON Layout Download (.json)
       jobs.push(limit(async () => {
-        const url = `${DATA_BASE}/${code}/p${paddedPage}.json`;
         const dest = path.join(dataDir, `p${paddedPage}.json`);
-        await downloadFile(url, dest, pageStats);
+        await tryDownload(
+          [
+            `${DATA_BASE}/${code}/p${page}.json`,
+            `${DATA_BASE}/${code}/p${paddedPage}.json`,
+            `${FALLBACK_DATA_BASE}/${code}/p${page}.json`,
+            `${FALLBACK_DATA_BASE}/${code}/p${paddedPage}.json`
+          ],
+          dest,
+          pageStats
+        );
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
 
       // 3. Protobuf Download (.pb)
       jobs.push(limit(async () => {
-        const url = `${DATA_BASE}/${code}/p${paddedPage}.pb`;
         const dest = path.join(dataDir, `p${paddedPage}.pb`);
-        await downloadFile(url, dest, pageStats);
+        await tryDownload(
+          [
+            `${DATA_BASE}/${code}/p${page}.pb`,
+            `${DATA_BASE}/${code}/p${paddedPage}.pb`,
+            `${FALLBACK_DATA_BASE}/${code}/p${page}.pb`,
+            `${FALLBACK_DATA_BASE}/${code}/p${paddedPage}.pb`
+          ],
+          dest,
+          pageStats
+        );
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
     }
   }
@@ -111,32 +134,34 @@ async function main() {
   printAllSummaries(statsByCode);
 }
 
-// ---- File Downloader ----
-async function downloadFile(url: string, dest: string, stats: CodeStats) {
+async function tryDownload(urls: string[], dest: string, stats: CodeStats): Promise<boolean> {
+  // Check if already exists first
   try {
     if (await Bun.file(dest).exists()) {
       stats.skipped++;
-      return;
+      return true;
     }
-  } catch { /* proceed to download */ }
+  } catch { }
 
+  for (const url of urls) {
+    if (await downloadFile(url, dest)) {
+      stats.success++;
+      return true;
+    }
+  }
+  stats.errors["Other"]++; 
+  return false;
+}
+
+async function downloadFile(url: string, dest: string) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (res.ok) {
       await Bun.write(dest, res);
-      stats.success++;
-    } else {
-      if (res.status === 404) stats.errors["404 (Not Found)"]++;
-      else if (res.status >= 500) stats.errors["500 (Server Error)"]++;
-      else stats.errors["Other"]++;
+      return true;
     }
-  } catch (e: any) {
-    if (e?.name === "TimeoutError" || e?.code === "ECONNRESET") {
-      stats.errors["Network/Timeout"]++;
-    } else {
-      stats.errors["Other"]++;
-    }
-  }
+  } catch { }
+  return false;
 }
 
 // ---- Utilities ----
@@ -154,8 +179,6 @@ function printAllSummaries(statsByCode: Map<MushafCode, CodeStats>) {
       success: s.success,
       skipped: s.skipped,
       errors: Object.values(s.errors).reduce((a, b) => a + b, 0),
-      "404": s.errors["404 (Not Found)"],
-      timeout: s.errors["Network/Timeout"],
     };
   }
   console.table(table);

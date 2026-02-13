@@ -16,8 +16,9 @@ export async function getMushafPagePayload(
   try {
     const { protoUrl } = getPagePayloadUrls(mushafCode, page);
     // protoUrl is like "/mushaf-data/v1/p001.pb"
-    // We need to map this to the filesystem path: process.cwd() + "/public" + protoUrl
-    const filePath = path.join(process.cwd(), "public", protoUrl);
+    // We must ensure path.join doesn't treat the leading slash as an absolute root
+    const relativePath = protoUrl.startsWith("/") ? protoUrl.slice(1) : protoUrl;
+    const filePath = path.join(process.cwd(), "public", relativePath);
 
     const buffer = await fs.readFile(filePath);
     return decodeMushafPagePayloadFromProto(buffer);
