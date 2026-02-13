@@ -82,8 +82,19 @@ export class MushafRuntime {
     private readonly opts?: {
       pagePayloadCacheLimit?: number;
       fontCacheBudgetBytes?: number;
+      lowStorageMode?: boolean;
     }
   ) {}
+
+  private getEffectivePageLimit() {
+    if (this.opts?.lowStorageMode) return 5;
+    return this.opts?.pagePayloadCacheLimit ?? DEFAULT_PAGE_PAYLOAD_CACHE_LIMIT;
+  }
+
+  private getEffectiveFontBudget() {
+    if (this.opts?.lowStorageMode) return 1024 * 1024 * 5; // 5MB
+    return this.opts?.fontCacheBudgetBytes ?? DEFAULT_FONT_CACHE_BUDGET_BYTES;
+  }
 
   getDebugSnapshot() {
     return {
@@ -92,8 +103,7 @@ export class MushafRuntime {
       pagePayloadCache: this.pages.size,
       fontCacheEntries: this.fonts.size,
       fontCacheBytes: this.fontBytesInCache,
-      fontCacheBudgetBytes:
-        this.opts?.fontCacheBudgetBytes ?? DEFAULT_FONT_CACHE_BUDGET_BYTES,
+      fontCacheBudgetBytes: this.getEffectiveFontBudget(),
     };
   }
 
@@ -102,6 +112,35 @@ export class MushafRuntime {
     this.cancelUnpinnedInFlight();
     this.evictPagePayloadsIfNeeded();
     void this.evictFontsIfNeeded();
+  }
+
+  seedPagePayload(payload: MushafPagePayload) {
+    const page = payload.page;
+    if (this.pages.has(page)) return;
+
+    this.pages.set(page, {
+      status: "ready",
+      payload,
+      controller: null,
+      snapshot: { status: "ready", payload },
+    });
+    this.pageLru.touch(page);
+    this.emitPage(page);
+  }
+
+  seedFont(page: number) {
+    if (this.fonts.has(page)) return;
+    const family = getPageFontFamily(this.mushafCode, page);
+    this.fonts.set(page, {
+      status: "ready",
+      family,
+      fontFace: null,
+      bytes: 0,
+      controller: null,
+      snapshot: { status: "ready", family },
+    });
+    this.fontLru.touch(page);
+    this.emitFont(page);
   }
 
   subscribePagePayload(page: number, cb: Listener): () => void {
@@ -314,7 +353,7 @@ export class MushafRuntime {
   }
 
   private evictPagePayloadsIfNeeded() {
-    const limit = this.opts?.pagePayloadCacheLimit ?? DEFAULT_PAGE_PAYLOAD_CACHE_LIMIT;
+    const limit = this.getEffectivePageLimit();
     if (this.pages.size <= limit) return;
 
     for (const page of this.pageLru.keysOldestFirst()) {
@@ -329,7 +368,7 @@ export class MushafRuntime {
   }
 
   private async evictFontsIfNeeded() {
-    const budget = this.opts?.fontCacheBudgetBytes ?? DEFAULT_FONT_CACHE_BUDGET_BYTES;
+    const budget = this.getEffectiveFontBudget();
     if (this.fontBytesInCache <= budget) return;
 
     for (const page of this.fontLru.keysOldestFirst()) {

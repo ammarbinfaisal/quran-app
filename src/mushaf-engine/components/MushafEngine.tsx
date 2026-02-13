@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSettings } from "@/context/SettingsContext";
 import type { MushafCode, TranslationCode } from "@/lib/preferences";
+import type { MushafPagePayload } from "@/lib/mushaf/proto";
 import { TranslationSheet } from "@/components/TranslationSheet";
 import { MushafScrollView } from "@/mushaf-engine/components/MushafScrollView";
 import { MushafSwipeView } from "@/mushaf-engine/components/MushafSwipeView";
@@ -14,12 +15,21 @@ export function MushafEngine(props: {
   initialAyah?: string;
   routeMushafCode: MushafCode;
   routeTranslationCode: TranslationCode;
+  initialData?: MushafPagePayload | null;
+  initialFontStyles?: string;
 }) {
-  const { startPage, endPage, initialAyah, routeMushafCode, routeTranslationCode } =
-    props;
+  const { 
+    startPage, 
+    endPage, 
+    initialAyah, 
+    routeMushafCode, 
+    routeTranslationCode,
+    initialData,
+    initialFontStyles
+  } = props;
 
   const { settings, hydrated, updateSettings } = useSettings();
-  const runtime = useMushafRuntime(routeMushafCode);
+  const runtime = useMushafRuntime(routeMushafCode, initialData);
 
   const [selectedVerse, setSelectedVerse] = useState<string | null>(initialAyah ?? null);
   const onVerseSelect = useCallback((verseKey: string) => {
@@ -58,6 +68,9 @@ export function MushafEngine(props: {
 
   return (
     <>
+      {initialFontStyles && (
+        <style dangerouslySetInnerHTML={{ __html: initialFontStyles }} />
+      )}
       <div className="flex-1 min-h-0 flex justify-center">
         <div className="w-full max-w-6xl flex-1 min-h-0">
           {canRender ? (
@@ -69,6 +82,7 @@ export function MushafEngine(props: {
                 runtime={runtime}
                 onVerseSelect={onVerseSelect}
                 showDebug={showDebug}
+                lowDataMode={settings.lowDataMode}
               />
             ) : (
               <MushafSwipeView
@@ -78,6 +92,7 @@ export function MushafEngine(props: {
                 runtime={runtime}
                 onVerseSelect={onVerseSelect}
                 showDebug={showDebug}
+                lowDataMode={settings.lowDataMode}
               />
             )
           ) : (
