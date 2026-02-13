@@ -81,25 +81,26 @@ async function main() {
 
     for (let page = range.start; page <= range.end; page++) {
       const pageStats = statsByCode.get(code)!;
+      const paddedPage = String(page).padStart(3, "0");
 
       // 1. Font Download (.woff2)
       jobs.push(limit(async () => {
-        const url = `${FONT_BASE}/${code}/woff2/p${page}.woff2`;
-        const dest = path.join(fontDir, `p${String(page).padStart(3, "0")}.woff2`);
+        const url = `${FONT_BASE}/${code}/woff2/p${paddedPage}.woff2`;
+        const dest = path.join(fontDir, `p${paddedPage}.woff2`);
         await downloadFile(url, dest, pageStats);
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
 
       // 2. JSON Layout Download (.json)
       jobs.push(limit(async () => {
-        const url = `${DATA_BASE}/${code}/p${page}.json`;
-        const dest = path.join(dataDir, `p${String(page).padStart(3, "0")}.json`);
+        const url = `${DATA_BASE}/${code}/p${paddedPage}.json`;
+        const dest = path.join(dataDir, `p${paddedPage}.json`);
         await downloadFile(url, dest, pageStats);
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
 
       // 3. Protobuf Download (.pb)
       jobs.push(limit(async () => {
-        const url = `${DATA_BASE}/${code}/p${page}.pb`;
-        const dest = path.join(dataDir, `p${String(page).padStart(3, "0")}.pb`);
+        const url = `${DATA_BASE}/${code}/p${paddedPage}.pb`;
+        const dest = path.join(dataDir, `p${paddedPage}.pb`);
         await downloadFile(url, dest, pageStats);
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
     }
