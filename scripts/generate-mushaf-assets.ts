@@ -85,21 +85,21 @@ async function main() {
       // 1. Font Download (.woff2)
       jobs.push(limit(async () => {
         const url = `${FONT_BASE}/${code}/woff2/p${page}.woff2`;
-        const dest = path.join(fontDir, `p${page}.woff2`); // No padding to match requests
+        const dest = path.join(fontDir, `p${String(page).padStart(3, "0")}.woff2`);
         await downloadFile(url, dest, pageStats);
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
 
       // 2. JSON Layout Download (.json)
       jobs.push(limit(async () => {
         const url = `${DATA_BASE}/${code}/p${page}.json`;
-        const dest = path.join(dataDir, `p${page}.json`);
+        const dest = path.join(dataDir, `p${String(page).padStart(3, "0")}.json`);
         await downloadFile(url, dest, pageStats);
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
 
       // 3. Protobuf Download (.pb)
       jobs.push(limit(async () => {
         const url = `${DATA_BASE}/${code}/p${page}.pb`;
-        const dest = path.join(dataDir, `p${page}.pb`);
+        const dest = path.join(dataDir, `p${String(page).padStart(3, "0")}.pb`);
         await downloadFile(url, dest, pageStats);
       }).finally(() => { doneTasks++; updateProgress(doneTasks, totalTasks); }));
     }
