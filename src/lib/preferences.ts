@@ -114,6 +114,8 @@ export interface Settings {
   mushafLayout: RendererMushafLayout;
   mushafNavigation: MushafNavigation;
   theme: Theme;
+  lowDataMode: boolean;
+  lowStorageMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -125,6 +127,8 @@ export const DEFAULT_SETTINGS: Settings = {
   mushafLayout: "hafs-v2",
   mushafNavigation: "scroll",
   theme: "warm",
+  lowDataMode: false,
+  lowStorageMode: false,
 };
 
 const mushafCodeSchema = type('"v1"|"v2"|"t4"|"ut"|"i5"|"i6"|"qh"|"tj"');
@@ -140,6 +144,8 @@ const settingsSnapshotSchema = type({
   "mushafLayout?": '"hafs-v2"|"hafs-v4"|"hafs-unicode"',
   "mushafNavigation?": '"scroll"|"swipe"',
   "theme?": '"warm"|"white"|"dark"',
+  "lowDataMode?": "boolean",
+  "lowStorageMode?": "boolean",
 });
 
 interface SettingsSnapshot {
@@ -151,6 +157,8 @@ interface SettingsSnapshot {
   mushafLayout?: RendererMushafLayout;
   mushafNavigation?: MushafNavigation;
   theme?: Theme;
+  lowDataMode?: boolean;
+  lowStorageMode?: boolean;
 }
 
 function isArkErrors(value: unknown): value is InstanceType<typeof type.errors> {
@@ -249,6 +257,8 @@ export function normalizeSettings(input: Partial<Settings>): Settings {
     mushafLayout: resolveRendererLayout(mushafCode),
     mushafNavigation: input.mushafNavigation ?? DEFAULT_SETTINGS.mushafNavigation,
     theme: input.theme ?? DEFAULT_SETTINGS.theme,
+    lowDataMode: input.lowDataMode ?? DEFAULT_SETTINGS.lowDataMode,
+    lowStorageMode: input.lowStorageMode ?? DEFAULT_SETTINGS.lowStorageMode,
   };
 }
 
@@ -270,6 +280,8 @@ function parseSettingsValue(input: unknown): Settings {
     translationCode: asTranslationCode(parsed.translationCode) ?? undefined,
     mushafNavigation: mushafNavigation ?? undefined,
     theme: theme ?? undefined,
+    lowDataMode: parsed.lowDataMode,
+    lowStorageMode: parsed.lowStorageMode,
   });
 }
 

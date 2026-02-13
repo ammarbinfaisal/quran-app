@@ -14,6 +14,7 @@ export function MushafSwipeView(props: {
   onVerseSelect: (verseKey: string) => void;
   maxPageWidthPx?: number;
   showDebug?: boolean;
+  lowDataMode?: boolean;
 }) {
   const {
     mushafCode,
@@ -23,6 +24,7 @@ export function MushafSwipeView(props: {
     onVerseSelect,
     maxPageWidthPx = DEFAULT_MAX_PAGE_WIDTH_SWIPE_PX,
     showDebug = false,
+    lowDataMode = false,
   } = props;
 
   const [page, setPage] = useState(startPage);
@@ -40,8 +42,23 @@ export function MushafSwipeView(props: {
 
   useEffect(() => {
     runtime.setPinnedPages(pinned);
-    runtime.prefetch(pinned);
-  }, [runtime, pinned]);
+
+    if (lowDataMode) return;
+
+    // Detect slow connection
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conn = (navigator as any).connection;
+    if (conn) {
+      if (conn.saveData) return;
+      if (["slow-2g", "2g", "3g"].includes(conn.effectiveType)) return;
+    }
+
+    const timeout = setTimeout(() => {
+      runtime.prefetch(pinned);
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [runtime, pinned, lowDataMode]);
 
   const debug = runtime.getDebugSnapshot();
 

@@ -30,6 +30,7 @@ export function MushafScrollView(props: {
   maxPageWidthPx?: number;
   pageGapPx?: number;
   showDebug?: boolean;
+  lowDataMode?: boolean;
 }) {
   const {
     mushafCode,
@@ -42,6 +43,7 @@ export function MushafScrollView(props: {
     maxPageWidthPx = DEFAULT_MAX_PAGE_WIDTH_SCROLL_PX,
     pageGapPx = DEFAULT_PAGE_GAP_PX,
     showDebug = false,
+    lowDataMode = false,
   } = props;
 
   const totalCount = Math.max(1, endPage - startPage + 1);
@@ -77,9 +79,49 @@ export function MushafScrollView(props: {
   useEffect(() => {
     runtime.setPinnedPages(pinnedPages);
 
-    const ordered = range.direction === "down" ? pinnedPages : pinnedPages.slice().reverse();
-    runtime.prefetch(ordered);
-  }, [runtime, pinnedPages, range.direction]);
+    // Skip prefetching if low data mode is active
+    if (lowDataMode) return;
+
+    // Detect slow connection
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conn = (navigator as any).connection;
+    if (conn) {
+      if (conn.saveData) return;
+      if (["slow-2g", "2g", "3g"].includes(conn.effectiveType)) return;
+    }
+
+    const ordered =
+      range.direction === "down" ? pinnedPages : pinnedPages.slice().reverse();
+
+    // Prefetch immediate neighbors that aren't already pinned
+    const neighbors: number[] = [];
+    if (range.direction === "down") {
+      const next = pinnedPages[pinnedPages.length - 1] + 1;
+      if (next <= endPage) neighbors.push(next);
+      const nextNext = next + 1;
+      if (nextNext <= endPage) neighbors.push(nextNext);
+    } else {
+      const prev = pinnedPages[0] - 1;
+      if (prev >= startPage) neighbors.push(prev);
+      const prevPrev = prev - 1;
+      if (prevPrev >= startPage) neighbors.push(prevPrev);
+    }
+
+    const toPrefetch = [...ordered, ...neighbors];
+    const timeout = setTimeout(() => {
+      runtime.prefetch(toPrefetch);
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [
+    runtime,
+    pinnedPages,
+    range.direction,
+    lowDataMode,
+    range.firstVisibleIndex,
+    endPage,
+    startPage,
+  ]);
 
   usePinchZoom({
     enabled: true,
