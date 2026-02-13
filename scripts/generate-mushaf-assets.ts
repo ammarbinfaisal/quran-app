@@ -1,148 +1,93 @@
 import { mkdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import {
-  encodeMushafPagePayload,
-  type MushafPagePayload,
-} from "../src/lib/mushaf/proto";
+import path from "node:path";
+import { TOTAL_PAGES } from "../src/lib/constants";
 import type { MushafCode } from "../src/lib/preferences";
 
-const MUSHAF_CODES: readonly MushafCode[] = [
-  "v1",
-  "v2",
-  "t4",
-  "ut",
-  "i5",
-  "i6",
-  "qh",
-  "tj",
-];
+const MUSHAF_CODES: MushafCode[] = ["v1", "v2", "t4", "ut", "i5", "i6", "qh", "tj"];
+const CONCURRENCY = 10;
 
-async function writeText(path: string, content: string) {
-  await Bun.write(path, content);
-}
-
-async function ensureDir(path: string) {
-  await mkdir(path, { recursive: true });
-}
-
-function getArgFlag(flag: string): boolean {
-  return process.argv.includes(flag);
-}
-
-function samplePayload(code: MushafCode): MushafPagePayload {
-  return {
-    page: 1,
-    mushafCode: code,
-    lines: [
-      {
-        lineNumber: 1,
-        words: [
-          {
-            text: "\u0627\u0644\u062d\u0645\u062f",
-            verseKey: "1:2",
-            x: 12,
-            width: 36,
-          },
-        ],
-      },
-    ],
-  };
-}
-
-async function writeSampleAssets(root: string) {
-  for (const code of MUSHAF_CODES) {
-    const dataDir = resolve(root, "public", "mushaf-data", code);
-    const fontDir = resolve(root, "public", "mushaf-fonts", code);
-
-    await ensureDir(dataDir);
-    await ensureDir(fontDir);
-
-    const payload = samplePayload(code);
-
-    await writeText(resolve(dataDir, "p001.json"), JSON.stringify(payload, null, 2));
-    await Bun.write(resolve(dataDir, "p001.pb"), encodeMushafPagePayload(payload));
+// Error tracker object
+const stats = {
+  success: 0,
+  errors: {
+    "404 (Not Found)": 0,
+    "500 (Server Error)": 0,
+    "Network/Timeout": 0,
+    "Other": 0,
   }
-}
-
-function manifestTemplate() {
-  return `import { TOTAL_PAGES } from "@/lib/constants";
-import type { MushafCode } from "@/lib/preferences";
-
-// Generated contract for local mushaf page/font assets.
-// scripts/generate-mushaf-assets.ts can rewrite this file.
-
-export type MushafManifestEntry = {
-  pageDataPath: string;
-  pageProtoPath: string;
-  fontPath?: string;
 };
-
-export type MushafManifest = Record<number, MushafManifestEntry>;
-
-const mushafCodes: readonly MushafCode[] = [
-  "v1",
-  "v2",
-  "t4",
-  "ut",
-  "i5",
-  "i6",
-  "qh",
-  "tj",
-];
-
-function createManifestForCode(code: MushafCode): MushafManifest {
-  const entries: MushafManifest = {};
-
-  for (let page = 1; page <= TOTAL_PAGES; page += 1) {
-    const pageId = String(page).padStart(3, "0");
-    entries[page] = {
-      pageDataPath: \`/mushaf-data/\${code}/p\${pageId}.json\`,
-      pageProtoPath: \`/mushaf-data/\${code}/p\${pageId}.pb\`,
-      fontPath: \`/mushaf-fonts/\${code}/p\${pageId}.woff2\`,
-    };
-  }
-
-  return entries;
-}
-
-export const MUSHAF_MANIFESTS: Record<MushafCode, MushafManifest> = {
-  v1: createManifestForCode(mushafCodes[0]),
-  v2: createManifestForCode(mushafCodes[1]),
-  t4: createManifestForCode(mushafCodes[2]),
-  ut: createManifestForCode(mushafCodes[3]),
-  i5: createManifestForCode(mushafCodes[4]),
-  i6: createManifestForCode(mushafCodes[5]),
-  qh: createManifestForCode(mushafCodes[6]),
-  tj: createManifestForCode(mushafCodes[7]),
-};
-`;
-}
-
-function getProjectRoot() {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(scriptDir, "..");
-}
 
 async function main() {
-  const root = getProjectRoot();
-  const generatedManifestPath = resolve(root, "src", "generated", "mushaf-manifest.ts");
+  const code = (getArg("--code") as MushafCode) || usageAndExit("Missing --code");
+  const outDir = path.join(process.cwd(), "public/mushaf-fonts", code);
+  await mkdir(outDir, { recursive: true });
 
-  await ensureDir(resolve(root, "src", "generated"));
-  await ensureDir(resolve(root, "public", "mushaf-data"));
-  await ensureDir(resolve(root, "public", "mushaf-fonts"));
+  const range = hasFlag("--all") ? { start: 1, end: TOTAL_PAGES } : parsePageRange(getArg("--pages") || "1-1");
+  const baseUrl = `https://static.qurancdn.com/fonts/quran/hafs/${code}/woff2`;
 
-  await writeText(generatedManifestPath, manifestTemplate());
+  console.log(`🚀 Syncing ${code} fonts [Pages ${range.start}-${range.end}]...`);
 
-  if (getArgFlag("--seed-sample")) {
-    await writeSampleAssets(root);
-    console.log("Seeded sample mushaf assets for page 001.");
+  const queue = Array.from({ length: range.end - range.start + 1 }, (_, i) => range.start + i);
+  
+  // Process in chunks to maintain concurrency
+  for (let i = 0; i < queue.length; i += CONCURRENCY) {
+    const chunk = queue.slice(i, i + CONCURRENCY);
+    await Promise.all(chunk.map(page => download(baseUrl, outDir, page)));
+    process.stdout.write(`\rProgress: ${stats.success + Object.values(stats.errors).reduce((a, b) => a + b)} / ${queue.length}`);
   }
 
-  console.log("Generated src/generated/mushaf-manifest.ts");
+  printSummary(code);
 }
 
-main().catch((error) => {
-  console.error(error);
+async function download(base: string, out: string, page: number) {
+  const url = `${base}/p${page}.woff2`;
+  const dest = path.join(out, `p${String(page).padStart(3, "0")}.woff2`);
+  
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) }); // 10s timeout
+    
+    if (res.ok) {
+      await Bun.write(dest, res);
+      stats.success++;
+    } else {
+      if (res.status === 404) stats.errors["404 (Not Found)"]++;
+      else if (res.status >= 500) stats.errors["500 (Server Error)"]++;
+      else stats.errors["Other"]++;
+    }
+  } catch (e: any) {
+    if (e.name === "TimeoutError" || e.code === "ECONNRESET") {
+      stats.errors["Network/Timeout"]++;
+    } else {
+      stats.errors["Other"]++;
+    }
+  }
+}
+
+function printSummary(code: string) {
+  console.log(`\n\n--- 📊 Download Summary for ${code} ---`);
+  console.log(`✅ Successful: ${stats.success}`);
+  
+  const hasErrors = Object.values(stats.errors).some(v => v > 0);
+  if (hasErrors) {
+    console.table(stats.errors);
+    if (stats.errors["404 (Not Found)"] > 0) {
+      console.log(`💡 Tip: 404s for "${code}" suggest this Mushaf variant isn't hosted on this CDN.`);
+    }
+  } else {
+    console.log("⭐ Perfect run! No errors encountered.");
+  }
+}
+
+// --- Standard Helpers ---
+function getArg(name: string) { return process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null; }
+function hasFlag(name: string) { return process.argv.includes(name); }
+function parsePageRange(input: string) {
+  const [s, e] = input.split("-").map(Number);
+  return { start: s || 1, end: e || s || 1 };
+}
+function usageAndExit(msg: string): never {
+  console.error(`❌ ${msg}\nUsage: bun script.ts --code v1 --all`);
   process.exit(1);
-});
+}
+
+main();
