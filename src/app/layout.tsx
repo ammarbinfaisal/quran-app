@@ -3,6 +3,7 @@ import "./globals.css";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { getServerSettings } from "@/lib/preferences-server";
 import { ThemeSync } from "@/components/ThemeSync";
+import { PreferenceRedirector } from "@/components/PreferenceRedirector";
 
 export const metadata: Metadata = {
   title: "Quran",
@@ -35,12 +36,27 @@ export default async function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
         <meta name="theme-color" content={themeColor} />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body>
         <SettingsProvider initialSettings={initialSettings}>
           <ThemeSync />
+          <PreferenceRedirector />
           {children}
         </SettingsProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
