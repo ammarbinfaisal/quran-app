@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   encodeMushafPagePayload,
   type MushafPagePayload,
@@ -118,8 +119,13 @@ export const MUSHAF_MANIFESTS: Record<MushafCode, MushafManifest> = {
 `;
 }
 
+function getProjectRoot() {
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  return resolve(scriptDir, "..");
+}
+
 async function main() {
-  const root = process.cwd();
+  const root = getProjectRoot();
   const generatedManifestPath = resolve(root, "src", "generated", "mushaf-manifest.ts");
 
   await ensureDir(resolve(root, "src", "generated"));

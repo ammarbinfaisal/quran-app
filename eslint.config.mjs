@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reference-only subtree (not part of this app's build/lint).
+    "qcom-front/**",
+    "ss_evidence/**",
   ]),
 ]);
 
