@@ -135,9 +135,10 @@ async function main() {
 }
 
 async function tryDownload(urls: string[], dest: string, stats: CodeStats): Promise<boolean> {
+  const force = hasFlag("--force");
   // Check if already exists first
   try {
-    if (await Bun.file(dest).exists()) {
+    if (!force && await Bun.file(dest).exists()) {
       stats.skipped++;
       return true;
     }
@@ -191,7 +192,10 @@ function parseCodesArg(codesArg: string | null, codeArg: string | null): MushafC
   return raw.split(",").map((s) => s.trim()) as MushafCode[];
 }
 
-function getArg(name: string) { return process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null; }
+function getArg(name: string) {
+  const idx = process.argv.lastIndexOf(name);
+  return idx !== -1 ? process.argv[idx + 1] : null;
+}
 function hasFlag(name: string) { return process.argv.includes(name); }
 function parsePageRange(input: string) {
   const [s, e] = input.split("-").map(Number);

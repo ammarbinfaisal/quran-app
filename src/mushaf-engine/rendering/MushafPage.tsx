@@ -89,21 +89,21 @@ function MushafTextLayer(props: {
       .map((line) => {
         const topPct = (line.lineNumber - 1) * topPctPerLine;
         const words = line.words.map((w, idx) => {
-          const leftPct = (w.x / coordWidth) * 100;
+          const rightPct = (w.x / coordWidth) * 100;
           const widthPct = (w.width / coordWidth) * 100;
           return (
             <span
               key={`${line.lineNumber}:${idx}:${w.verseKey}`}
               className="absolute top-0 whitespace-nowrap"
               style={{
-                left: `${leftPct}%`,
+                right: `${rightPct}%`,
                 width: `${widthPct}%`,
                 fontSize: "clamp(14px, 2.2vw, 28px)",
                 lineHeight: 1,
                 cursor: "pointer",
                 pointerEvents: "auto",
                 userSelect: "none",
-                textAlign: "right",
+                textAlign: "center",
               }}
               role="button"
               tabIndex={0}
