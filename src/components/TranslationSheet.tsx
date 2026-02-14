@@ -11,7 +11,24 @@ import { Separator } from "@/components/ui/separator";
 import { useSettings } from "@/context/SettingsContext";
 import { TRANSLATOR_LABELS } from "@/lib/constants";
 import { getTranslationIdsForApi } from "@/lib/preferences";
-import abuIyaadData from "@/data/abu-iyaad.json";
+
+// Lazy-loaded Abu Iyaad data. The JSON is 434KB — loading it eagerly
+// as a static import adds it to the initial bundle even when the
+// translation sheet is never opened. This lazy approach only fetches
+// the data when the sheet opens and the setting is enabled.
+let abuIyaadCache: Record<string, string> | null = null;
+let abuIyaadPromise: Promise<Record<string, string>> | null = null;
+
+function loadAbuIyaad(): Promise<Record<string, string>> {
+  if (abuIyaadCache) return Promise.resolve(abuIyaadCache);
+  if (!abuIyaadPromise) {
+    abuIyaadPromise = import("@/data/abu-iyaad.json").then((mod) => {
+      abuIyaadCache = mod.default as Record<string, string>;
+      return abuIyaadCache;
+    });
+  }
+  return abuIyaadPromise;
+}
 
 interface TranslationEntry {
   resourceId: number;
@@ -32,6 +49,7 @@ function stripHtml(html: string): string {
 export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
   const { settings } = useSettings();
   const [translations, setTranslations] = useState<TranslationEntry[]>([]);
+  const [abuIyaad, setAbuIyaad] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -39,6 +57,24 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
     () => getTranslationIdsForApi(settings),
     [settings]
   );
+
+  // Load Abu Iyaad data lazily when sheet opens and setting is enabled
+  useEffect(() => {
+    if (!verseKey || !settings.showAbuIyaad) {
+      setAbuIyaad(null);
+      return;
+    }
+
+    let cancelled = false;
+    loadAbuIyaad().then((data) => {
+      if (cancelled) return;
+      setAbuIyaad(data[verseKey] ?? null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verseKey, settings.showAbuIyaad]);
 
   useEffect(() => {
     if (!verseKey) return;
@@ -83,10 +119,6 @@ export function TranslationSheet({ verseKey, onClose }: TranslationSheetProps) {
       cancelled = true;
     };
   }, [verseKey, translationIds]);
-
-  const abuIyaad = verseKey
-    ? (abuIyaadData as Record<string, string>)[verseKey] ?? null
-    : null;
 
   function buildEntries() {
     const entries: { label: string; text: string }[] = [];

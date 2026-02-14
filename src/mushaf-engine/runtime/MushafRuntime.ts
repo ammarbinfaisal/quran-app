@@ -217,9 +217,11 @@ export class MushafRuntime {
 
     void (async () => {
       const { protoUrl, jsonUrl } = getPagePayloadUrls(this.mushafCode, page);
+      // Prefer JSON on client — it avoids loading protobufjs runtime (~50KB).
+      // Proto is used server-side (smaller wire size for SSG inlining).
       const payload =
-        (await loadPayloadFromProto(protoUrl, controller.signal)) ??
-        (await loadPayloadFromJson(jsonUrl, controller.signal));
+        (await loadPayloadFromJson(jsonUrl, controller.signal)) ??
+        (await loadPayloadFromProto(protoUrl, controller.signal));
       if (controller.signal.aborted) return;
 
       const next = this.pages.get(page);
