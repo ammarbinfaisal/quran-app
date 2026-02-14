@@ -1,11 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const projectRoot = dirname(fileURLToPath(import.meta.url));
-const serverScript = resolve(projectRoot, "scripts", "start-next-dev-server.ts");
-const webServerCommand = `bun ${JSON.stringify(serverScript)} 3100`;
-const useWebServer = process.env.PLAYWRIGHT_WEB_SERVER === "1";
+const baseURL = process.env.BASE_URL || "http://127.0.0.1:3100";
 
 export default defineConfig({
   testDir: "./tests",
@@ -14,9 +9,9 @@ export default defineConfig({
   fullyParallel: true,
   retries: 0,
   use: {
-    baseURL: useWebServer ? "http://127.0.0.1:3100" : undefined,
-    trace: "off",
-    screenshot: "off",
+    baseURL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
     video: "off",
   },
   projects: [
@@ -24,13 +19,15 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 5"] },
+    },
   ],
-  webServer: useWebServer
-    ? {
-        command: webServerCommand,
-        url: "http://127.0.0.1:3100",
-        reuseExistingServer: false,
-        timeout: 120_000,
-      }
-    : undefined,
+  webServer: {
+    command: "bunx --bun next start -p 3100",
+    url: "http://127.0.0.1:3100",
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 });
