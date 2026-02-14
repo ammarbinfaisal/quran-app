@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quran App
 
-## Getting Started
+A high-performance, PWA-ready Quran Mushaf reader built with Next.js 16, TypeScript, and Protobuf. Optimized for "practical perfection" in rendering speed, layout stability, and offline capability.
 
-First, run the development server:
+## 🚀 Performance Architecture
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### 1. URL Normalization & Redirection
+To ensure a zero-flash experience and optimal SEO/Caching, the app enforces canonical URLs based on user preferences.
+
+```mermaid
+graph TD
+    A[User Requests /15] --> B{Middleware}
+    B -- "Cookie Exists?" --> C{Path is Bare?}
+    C -- Yes --> D[307 Redirect to /15/r/m:v2/t:tr20]
+    C -- No --> E[Render Page]
+    B -- "No Cookie" --> E
+    
+    E --> F[Client Hydration]
+    F --> G{localStorage Preference?}
+    G -- "Different from URL?" --> H[Router.replace to Canonical]
+    G -- "Matches URL" --> I[Stay & Render]
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Server-Side Data Inlining (SSG/ISR)
+Critical Mushaf data and font styles are inlined during the build process to eliminate the "Loading..." state on first paint.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```mermaid
+graph TD
+    A[Next.js Build / Request] --> B[Calculate Start Page]
+    B --> C[FS: Read .pb Protobuf]
+    C --> D[Decode & Inline Payload]
+    B --> E[FS: Get Font Path]
+    E --> F[Generate @font-face style]
+    
+    D --> G[HTML Response]
+    F --> G
+    
+    G --> H[Browser Receives HTML]
+    H --> I[Font Starts Downloading immediately]
+    H --> J[React Hydrates]
+    J --> K[MushafRuntime seeded with Inlined Data]
+    K --> L[Instant Render - No Network Waterfall]
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Preemptive Caching & Network Awareness
+The app intelligently prefetches neighboring pages based on scroll direction and network quality.
 
-## Learn More
+```mermaid
+graph TD
+    A[User Scrolls/Swipes] --> B[Update Visible Range]
+    B --> C{Low Data Mode?}
+    C -- Yes --> D[Skip Prefetch]
+    C -- No --> E{Slow Connection?}
+    E -- Yes --> D
+    E -- No --> F[Delay 400ms]
+    F --> G[Prefetch Next/Prev 2 Pages]
+    G --> H[Populate MushafRuntime Cache]
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠 Features
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **SSG & ISR**: Static Site Generation for all 114 Surahs and 30 Juz.
+- **Protobuf Pipeline**: Compact binary payloads for mushaf layouts.
+- **PWA**: Installable on mobile/desktop with offline support via Service Workers.
+- **Adaptive Modes**:
+  - **Low Data Mode**: Disables all background prefetching.
+  - **Low Storage Mode**: Reduces memory and font cache budgets (auto-eviction).
+- **Redirection Middleware**: Server-side normalization to avoid the "default preference flash".
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📦 Getting Started
 
-## Deploy on Vercel
+### Prerequisites
+- [Bun](https://bun.sh) (Recommended) or Node.js
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installation
+```bash
+bun install
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Asset Generation
+Before running the app, you must sync the Mushaf assets (Fonts, JSON, Protobuf):
+```bash
+# Sync all variants for all pages
+bun run generate:mushaf-assets --codes all --all
+
+# Or sync specific variant/pages
+bun run generate:mushaf-assets --codes v2 --pages 1-10
+```
+
+### Development
+```bash
+bun run dev
+```
+
+### Build & Production
+```bash
+bun run build
+bun run start
+```
+
+## 📜 Documentation
+
+- [Performance Decisions](./docs/perf-decisions.md)
+- [Revision Guidelines](./docs/revision-dos.md)

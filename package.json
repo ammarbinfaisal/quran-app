@@ -13,7 +13,7 @@
     "lint": "bunx --bun eslint",
     "test:e2e": "bunx --bun playwright test",
     "perf:mushaf-scroll": "bunx --bun playwright test tests/perf/mushaf-scroll.perf.spec.ts",
-    "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts --codes all --all",
+    "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts",
     "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample"
   },
   "dependencies": {
