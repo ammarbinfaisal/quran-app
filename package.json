@@ -8,13 +8,14 @@
   },
   "scripts": {
     "dev": "bunx --bun next dev",
-    "build": "bunx --bun next build",
+    "build": "bun scripts/generate-mushaf-assets.ts --all && bunx --bun next build",
     "start": "bunx --bun next start",
     "lint": "bunx --bun eslint",
     "test:e2e": "bunx --bun playwright test",
     "perf:mushaf-scroll": "bunx --bun playwright test tests/perf/mushaf-scroll.perf.spec.ts",
     "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts",
-    "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample"
+    "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample",
+    "fetch:qcf-fonts": "bun scripts/fetch-qcf-fonts.ts"
   },
   "dependencies": {
     "@quranjs/api": "^2.1.0",

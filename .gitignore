@@ -45,6 +45,10 @@ qcom-front/
 test-results/
 playwright-report/
 
+# generated mushaf assets (regenerated at build time)
+public/mushaf-data/
+public/mushaf-fonts/
+
 # perf evidence (keep folder)
 ss_evidence/*
 !ss_evidence/.gitkeep

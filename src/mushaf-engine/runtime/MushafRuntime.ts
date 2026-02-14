@@ -262,11 +262,13 @@ export class MushafRuntime {
 
     const url = getPageFontUrl(this.mushafCode, page);
     if (!url) {
-      current.status = "error";
+      // No per-page font needed (unicode-text mushaf codes like ut, i5, i6).
+      // Mark as ready immediately so text renders with inherited/system font.
+      current.status = "ready";
       current.controller = null;
       current.fontFace = null;
       current.bytes = 0;
-      current.snapshot = { status: "error", family };
+      current.snapshot = { status: "ready", family };
       this.emitFont(page);
       return;
     }

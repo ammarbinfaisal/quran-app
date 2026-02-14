@@ -1,9 +1,13 @@
 import fs from "fs/promises";
-import path from "path";
 import { getPagePayloadUrls, getPageFontUrl, getPageFontFamily } from "@/mushaf-engine/assets";
 import { decodeMushafPagePayloadFromProto } from "@/lib/mushaf/proto";
 import type { MushafCode } from "@/lib/preferences";
 import type { MushafPagePayload } from "@/lib/mushaf/proto";
+
+// Construct the base path once. Using string concatenation (not path.join with
+// process.cwd()) prevents Turbopack from statically tracing the public/ tree,
+// which otherwise indexes all ~10K generated assets and can OOM/crash.
+const PUBLIC_DIR = process.cwd() + "/public";
 
 /**
  * Reads the Mushaf page payload (protobuf) directly from the file system.
@@ -14,11 +18,8 @@ export async function getMushafPagePayload(
   page: number
 ): Promise<MushafPagePayload | null> {
   try {
-    const { protoUrl } = getPagePayloadUrls(mushafCode, page);
-    // protoUrl is like "/mushaf-data/v1/p001.pb"
-    // We must ensure path.join doesn't treat the leading slash as an absolute root
-    const relativePath = protoUrl.startsWith("/") ? protoUrl.slice(1) : protoUrl;
-    const filePath = path.join(process.cwd(), "public", relativePath);
+    const padded = String(page).padStart(3, "0");
+    const filePath = `${PUBLIC_DIR}/mushaf-data/${mushafCode}/p${padded}.pb`;
 
     const buffer = await fs.readFile(filePath);
     return decodeMushafPagePayloadFromProto(buffer);
@@ -38,10 +39,6 @@ export function getCriticalFontStyles(mushafCode: MushafCode, page: number): str
 
   if (!fontUrl) return "";
 
-  // We use font-display: block to prevent layout shifts (invisible text until font loads)
-  // or swap if we prefer a fallback immediately. Given the user's focus on "no loading state",
-  // 'block' or 'optional' might be better, but 'block' ensures the correct glyphs render.
-  // Actually, for Quran, fallback fonts are usually wrong/broken. 'block' is safer.
   return `
     @font-face {
       font-family: '${fontFamily}';
