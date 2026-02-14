@@ -2,17 +2,13 @@ import { notFound } from "next/navigation";
 import { NavBar } from "@/components/NavBar";
 import { MushafViewer } from "@/components/MushafViewer";
 import { TOTAL_JUZS } from "@/lib/constants";
-import { getServerSettings } from "@/lib/preferences-server";
+import { DEFAULT_SETTINGS } from "@/lib/preferences";
 import { getMushafPagePayload, getCriticalFontStyles } from "@/lib/mushaf-server";
-
-// Remove force-dynamic to allow static generation
-export const dynamic = "auto";
 
 interface PageProps {
   params: Promise<{ juz: string }>;
 }
 
-// Pre-define all 30 Juz routes for the build engine
 export async function generateStaticParams() {
   return Array.from({ length: TOTAL_JUZS }, (_, i) => ({
     juz: (i + 1).toString(),
@@ -60,16 +56,17 @@ export default async function JuzPage({ params }: PageProps) {
     notFound();
   }
 
-  // NOTE: If this reads cookies, Next.js will switch to dynamic rendering
-  // unless you provide a fallback for the build environment.
-  const settings = await getServerSettings();
+  // Use DEFAULT_SETTINGS instead of reading cookies.
+  // Same reasoning as surah pages: middleware handles preference redirects.
+  const mushafCode = DEFAULT_SETTINGS.mushafCode;
+  const translationCode = DEFAULT_SETTINGS.translationCode;
 
   const startPage = JUZ_START_PAGES[juzNum] ?? 1;
   const endPage =
     juzNum < TOTAL_JUZS ? (JUZ_START_PAGES[juzNum + 1] ?? 604) - 1 : 604;
 
-  const initialData = await getMushafPagePayload(settings.mushafCode, startPage);
-  const initialFontStyles = getCriticalFontStyles(settings.mushafCode, startPage);
+  const initialData = await getMushafPagePayload(mushafCode, startPage);
+  const initialFontStyles = getCriticalFontStyles(mushafCode, startPage);
 
   return (
     <div className="flex flex-col min-h-dvh bg-background">
@@ -77,8 +74,8 @@ export default async function JuzPage({ params }: PageProps) {
       <MushafViewer
         startPage={startPage}
         endPage={endPage}
-        routeMushafCode={settings.mushafCode}
-        routeTranslationCode={settings.translationCode}
+        routeMushafCode={mushafCode}
+        routeTranslationCode={translationCode}
         initialData={initialData}
         initialFontStyles={initialFontStyles}
       />

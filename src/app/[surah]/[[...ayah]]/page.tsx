@@ -3,17 +3,21 @@ import { fetchChapters, type Chapter } from "@/lib/quran-client";
 import { NavBar } from "@/components/NavBar";
 import { MushafViewer } from "@/components/MushafViewer";
 import { TOTAL_SURAHS } from "@/lib/constants";
-import { parseReaderRouteSegments } from "@/lib/preferences";
-import { getServerSettings } from "@/lib/preferences-server";
+import { parseReaderRouteSegments, DEFAULT_SETTINGS } from "@/lib/preferences";
 import { getMushafPagePayload, getCriticalFontStyles } from "@/lib/mushaf-server";
 
-export const dynamic = "auto";
-
-// Pre-render all 114 Surahs
+// Pre-render all 114 Surahs as static pages.
+// Canonical routes (e.g. /1/r/m:v2/t:tr20) are ISR'd on first visit.
+//
+// Decision: removed getServerSettings() (cookies() call) which forced
+// all pages to be dynamic. Bare routes (/1, /2, etc.) use DEFAULT_SETTINGS
+// because middleware redirects users with cookie-based preferences to
+// canonical routes before the page is ever reached. Canonical routes
+// carry settings in the URL.
 export async function generateStaticParams() {
   return Array.from({ length: TOTAL_SURAHS }, (_, i) => ({
     surah: (i + 1).toString(),
-    ayah: [], // Generates the base /1, /2, etc. paths
+    ayah: [],
   }));
 }
 
@@ -38,8 +42,6 @@ export default async function SurahPage({ params }: PageProps) {
   const route = parseReaderRouteSegments(routeSegments);
   if (route.kind === "invalid") notFound();
 
-  const settings = await getServerSettings();
-
   const chapters = await getAllChapters();
   const chapter = chapters.find((c) => c.id === surahNum);
   if (!chapter) notFound();
@@ -48,10 +50,14 @@ export default async function SurahPage({ params }: PageProps) {
   const endPage: number = chapter.pages[1] ?? startPage;
   const initialAyah = route.ayah ? `${surahNum}:${route.ayah}` : undefined;
 
+  // Canonical routes carry mushaf/translation codes in the URL.
+  // Bare routes use defaults (middleware redirects preference-holding users).
   const effectiveMushafCode =
-    route.kind === "canonical" ? route.mushafCode : settings.mushafCode;
+    route.kind === "canonical" ? route.mushafCode : DEFAULT_SETTINGS.mushafCode;
   const effectiveTranslationCode =
-    route.kind === "canonical" ? route.translationCode : settings.translationCode;
+    route.kind === "canonical"
+      ? route.translationCode
+      : DEFAULT_SETTINGS.translationCode;
 
   const initialData = await getMushafPagePayload(effectiveMushafCode, startPage);
   const initialFontStyles = getCriticalFontStyles(effectiveMushafCode, startPage);
