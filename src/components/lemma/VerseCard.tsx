@@ -108,7 +108,13 @@ export function VerseCard({
                     {words === null ? (
                         <div className="h-10 w-full animate-pulse bg-[var(--color-muted)]/10 rounded" />
                     ) : (
-                        <div className={`leading-[3em] sm:leading-[3.5em] text-3xl sm:text-4xl flex flex-wrap justify-end ${rtlClass}`}>
+                        <div
+                            className={`flex flex-wrap ${rtlClass}`}
+                            style={{
+                                fontSize: `clamp(1.25rem, ${(prefs.fontScale ?? 1) * 0.35 + 1}rem, 3.5rem)`,
+                                lineHeight: "2.5",
+                            }}
+                        >
                             {words.map((w, i) => {
                                 let morphIndex = -1;
                                 if (w.charTypeName === "word") {
