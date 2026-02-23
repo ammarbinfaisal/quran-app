@@ -14,6 +14,8 @@ import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import { ExternalLink } from "lucide-react";
 import type { Chapter } from "@/lib/types";
 import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
+import { loadMushafPage } from "@/lib/mushaf/loader";
+import { loadTranslation } from "@/lib/translations/loader";
 import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
 import { FootnoteSheet } from "@/components/ayah/FootnoteSheet";
 
@@ -133,6 +135,47 @@ export function VerseByVerseViewer({
         loadFonts();
         return () => { active = false; };
     }, [mushafCode, visiblePages]);
+
+    // Translation Prefetch: warm IDB for upcoming pages so VerseBlock resolves instantly
+    const { prefs } = usePreferences();
+    useEffect(() => {
+        if (prefs.translationIds.length === 0) return;
+
+        // Pages just beyond the current visible window (next batch before sentinel fires)
+        const prefetchPages = fullPageRange.slice(visiblePages.length, visiblePages.length + 5);
+        if (prefetchPages.length === 0) return;
+
+        let cancelled = false;
+
+        async function prefetch() {
+            for (const pageNum of prefetchPages) {
+                if (cancelled) break;
+                let pageData;
+                try {
+                    pageData = await loadMushafPage(mushafCode, pageNum);
+                } catch {
+                    continue;
+                }
+                if (cancelled) break;
+
+                const verseKeys = new Set<string>();
+                for (const line of pageData.lines) {
+                    for (const word of line.words) {
+                        if (word.verseKey) verseKeys.add(word.verseKey);
+                    }
+                }
+
+                for (const verseKey of verseKeys) {
+                    for (const tid of prefs.translationIds) {
+                        loadTranslation(verseKey, tid).catch(() => {});
+                    }
+                }
+            }
+        }
+
+        prefetch();
+        return () => { cancelled = true; };
+    }, [visiblePages, fullPageRange, mushafCode, prefs.translationIds]);
 
     // Navigation button labels
     const navButtons = useMemo(() => {
