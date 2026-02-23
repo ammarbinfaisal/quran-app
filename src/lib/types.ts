@@ -124,7 +124,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   mushafCode: "v2",
   translationIds: ["saheeh", "abu-iyaad"],
   theme: "light-warm",
-  fontScale: 3,
+  fontScale: 1,
   viewMode: "mushaf",
   vbvSubmode: "s",
 };
