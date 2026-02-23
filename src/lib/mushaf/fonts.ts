@@ -59,8 +59,9 @@ export function getFontFamily(code: MushafCode, pageNum: number): string {
   return getUnicodeFontFamily(code);
 }
 
-// Track fonts we've already started loading to avoid duplicate work
-const loadedFonts = new Set<string>();
+// Track in-flight and completed font loads so callers always get the real
+// loading promise (not an immediately-resolved one).
+const fontLoadPromises = new Map<string, Promise<void>>();
 
 /**
  * Load a QCF font for a specific mushaf page using the FontFace API.
@@ -69,19 +70,30 @@ const loadedFonts = new Set<string>();
  * If the font is fetched from CDN (not cached), the raw bytes are
  * written to IndexedDB so subsequent loads are instant and work offline.
  */
-export async function loadQcfFont(
+export function loadQcfFont(
   code: MushafCode,
   pageNum: number,
 ): Promise<void> {
-  if (!isQcfCode(code)) return;
-  if (typeof document === "undefined") return;
+  if (!isQcfCode(code)) return Promise.resolve();
+  if (typeof document === "undefined") return Promise.resolve();
 
   const name = fontName(code, pageNum);
 
-  // Already loaded or loading — skip
-  if (loadedFonts.has(name)) return;
-  loadedFonts.add(name);
+  // Return existing promise (pending or resolved) so every caller
+  // waits for the *actual* font load instead of resolving immediately.
+  const existing = fontLoadPromises.get(name);
+  if (existing) return existing;
 
+  const promise = loadQcfFontInner(name, code, pageNum);
+  fontLoadPromises.set(name, promise);
+  return promise;
+}
+
+async function loadQcfFontInner(
+  name: string,
+  code: MushafCode,
+  pageNum: number,
+): Promise<void> {
   // Check if already being loaded (exists in the font set but not yet loaded)
   for (const f of document.fonts) {
     if (f.family === name) {
@@ -141,25 +153,30 @@ export async function loadQcfFont(
 /**
  * Load a shared Unicode font.
  */
-export async function loadUnicodeFont(code: MushafCode): Promise<void> {
-  if (isQcfCode(code)) return;
-  if (typeof document === "undefined") return;
+export function loadUnicodeFont(code: MushafCode): Promise<void> {
+  if (isQcfCode(code)) return Promise.resolve();
+  if (typeof document === "undefined") return Promise.resolve();
 
   const name = getUnicodeFontFamily(code);
   const url = getUnicodeFontUrl(code);
-  if (!url) return;
+  if (!url) return Promise.resolve();
 
-  if (loadedFonts.has(name)) return;
-  loadedFonts.add(name);
+  const existing = fontLoadPromises.get(name);
+  if (existing) return existing;
 
-  // Check if already in document
-  for (const f of document.fonts) {
-    if (f.family === name) return;
-  }
+  const promise = (async () => {
+    // Check if already in document
+    for (const f of document.fonts) {
+      if (f.family === name) return;
+    }
 
-  const face = new FontFace(name, `url(${url})`, { display: "swap" });
-  document.fonts.add(face);
-  await face.load();
+    const face = new FontFace(name, `url(${url})`, { display: "swap" });
+    document.fonts.add(face);
+    await face.load();
+  })();
+
+  fontLoadPromises.set(name, promise);
+  return promise;
 }
 
 /**
@@ -187,7 +204,7 @@ export function unloadQcfFont(code: MushafCode, pageNum: number): void {
       break;
     }
   }
-  loadedFonts.delete(name);
+  fontLoadPromises.delete(name);
 }
 
 /**
@@ -234,6 +251,6 @@ export function preloadAdjacentFonts(
 
   for (const f of toDelete) {
     document.fonts.delete(f);
-    loadedFonts.delete(f.family);
+    fontLoadPromises.delete(f.family);
   }
 }

@@ -367,12 +367,12 @@ function VerseBlock({
                 </div>
             )}
 
-            <div className="flex flex-col items-end gap-3 mb-8" dir="rtl">
+            <div className="flex flex-col items-start gap-3 mb-8" dir="rtl">
                 <div className="text-xs font-bold text-muted tabular-nums border border-muted/20 px-2 py-0.5 rounded shadow-sm">
                     {verseKey}
                 </div>
                 <div
-                    className="flex flex-wrap gap-x-2.5 gap-y-5 leading-[2.5]"
+                    className="flex flex-wrap w-full gap-x-2.5 gap-y-5 leading-[2.5]"
                     style={{
                         fontSize: `clamp(1.25rem, ${(prefs.fontScale ?? 3) * 0.35 + 1}rem, 3.5rem)`,
                     }}

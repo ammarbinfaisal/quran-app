@@ -33,8 +33,8 @@ function MushafWordInner({
   if (!fontReady) {
     return (
       <span
-        className="mushaf-word animate-shimmer bg-[var(--color-muted)]/10 rounded-sm"
-        style={{ width: "2.5em", height: "1.2em", margin: "0 2px" }}
+        className="mushaf-word animate-pulse bg-[var(--color-muted)]/20 rounded-sm"
+        style={{ display: "inline-block", width: "2.5em", height: "1.2em", margin: "0 2px" }}
       />
     );
   }
