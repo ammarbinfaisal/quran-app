@@ -1,29 +1,32 @@
 // ---------------------------------------------------------------------------
 // Abu Iyaad translation loader
 // ---------------------------------------------------------------------------
-// The JSON file at /data/abu-iyaad.json has the shape:
-//   { "1:1": "translation text...", "2:5": "text...", ... }
+// The JSON file at /data/abu-iyaad.json has the precomputed shape:
+//   { "1:1": ["text", {a: "(annotation)"}, "more text", ...], ... }
+// A bare string element is a plain-text run; {a: "..."} is an annotation.
 // We fetch it once and cache in a module-level variable.
 // ---------------------------------------------------------------------------
 
-let cache: Record<string, string> | null = null;
-let fetchPromise: Promise<Record<string, string>> | null = null;
+import type { CompactSeg } from "@/lib/footnotes";
+
+let cache: Record<string, CompactSeg[]> | null = null;
+let fetchPromise: Promise<Record<string, CompactSeg[]>> | null = null;
 
 let surahsCache: Record<string, string> | null = null;
 let surahsFetchPromise: Promise<Record<string, string>> | null = null;
 
 /**
- * Load the full Abu Iyaad JSON dictionary.
+ * Load the full Abu Iyaad precomputed segment dictionary.
  * Fetched once and cached in a module variable.
  */
-export async function loadAbuIyaadData(): Promise<Record<string, string>> {
+export async function loadAbuIyaadData(): Promise<Record<string, CompactSeg[]>> {
   if (cache) return cache;
 
   if (!fetchPromise) {
     fetchPromise = fetch("/data/abu-iyaad.json")
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load abu-iyaad.json: ${res.status}`);
-        return res.json() as Promise<Record<string, string>>;
+        return res.json() as Promise<Record<string, CompactSeg[]>>;
       })
       .then((data) => {
         cache = data;
@@ -64,12 +67,11 @@ export async function loadAbuIyaadSurahs(): Promise<Record<string, string>> {
 }
 
 /**
- * Load the Abu Iyaad translation for a single verse.
- * The full JSON is fetched once and cached in memory.
+ * Load the Abu Iyaad compact segments for a single verse.
  */
-export async function loadAbuIyaadTranslation(verseKey: string): Promise<string> {
+export async function loadAbuIyaadSegments(verseKey: string): Promise<CompactSeg[]> {
   const data = await loadAbuIyaadData();
-  return data[verseKey] ?? "";
+  return data[verseKey] ?? [];
 }
 
 /**

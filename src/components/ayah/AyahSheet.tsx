@@ -5,12 +5,7 @@ import { Copy, X, Check, BookOpen, ExternalLink } from "lucide-react";
 import { TRANSLATION_DISPLAY_NAMES, type TranslationId } from "@/lib/types";
 import { useTranslations } from "@/hooks/useTranslations";
 import { fetchUthmaniText } from "@/lib/api";
-import {
-  extractFootnoteReferences,
-  stripFootnoteTags,
-  parseTranslationSegments,
-  type FootnoteReference,
-} from "@/lib/footnotes";
+import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
 import { ABU_IYAAD_KEYS } from "@/lib/translations/abuIyaadKeys";
 import { FootnoteSheet } from "./FootnoteSheet";
 
@@ -63,12 +58,14 @@ export function AyahSheet({
     return () => clearTimeout(t);
   }, [copiedArabic]);
 
-  // Extract footnote references per translation
+  // Extract footnote references per translation from pre-parsed segments
   const translationFootnoteRefs = useMemo(() => {
     const map: Partial<Record<TranslationId, FootnoteReference[]>> = {};
     for (const id of filteredTranslationIds) {
-      const text = translations[id]?.text ?? "";
-      const refs = extractFootnoteReferences(text);
+      const segments = translations[id]?.content?.segments ?? [];
+      const refs: FootnoteReference[] = segments
+        .filter((s): s is Extract<TranslationSegment, { type: "footnote" }> => s.type === "footnote")
+        .map((s) => ({ id: s.id, label: s.label }));
       if (refs.length > 0) {
         map[id] = refs;
       }
@@ -154,18 +151,18 @@ export function AyahSheet({
             const data = translations[id];
             const label = TRANSLATION_DISPLAY_NAMES[id] || id;
             const isLoading = data?.loading ?? true;
-            const rawHtml = data?.text || "";
+            const content = data?.content;
             const hasFootnotes = (translationFootnoteRefs[id]?.length ?? 0) > 0;
 
             // Don't show Abu Iyaad row if loading is done and text is empty
-            if (!isLoading && !rawHtml) return null;
+            if (!isLoading && !content?.plain) return null;
 
             return (
               <TranslationRow
                 key={id}
                 label={label}
                 loading={isLoading}
-                rawHtml={rawHtml}
+                content={content}
                 verseKey={activeVerseKey}
                 hasFootnotes={hasFootnotes}
                 onViewAllFootnotes={() => openFootnotes(id)}
@@ -196,7 +193,7 @@ export function AyahSheet({
 function TranslationRow({
   label,
   loading,
-  rawHtml,
+  content,
   verseKey,
   hasFootnotes,
   onViewAllFootnotes,
@@ -204,7 +201,7 @@ function TranslationRow({
 }: {
   label: string;
   loading: boolean;
-  rawHtml: string;
+  content: import("@/lib/footnotes").TranslationContent | undefined;
   verseKey?: string | null;
   hasFootnotes: boolean;
   onViewAllFootnotes: () => void;
@@ -218,22 +215,22 @@ function TranslationRow({
     return () => clearTimeout(t);
   }, [copied]);
 
-  const segments = useMemo(() => parseTranslationSegments(rawHtml), [rawHtml]);
-  const plainText = useMemo(() => stripFootnoteTags(rawHtml), [rawHtml]);
-
   async function handleCopy() {
-    if (!plainText) return;
+    const plain = content?.plain;
+    if (!plain) return;
     try {
-      await navigator.clipboard.writeText(plainText);
+      await navigator.clipboard.writeText(plain);
       setCopied(true);
     } catch { /* ignore */ }
   }
 
   let externalLink = null;
-  if (verseKey && label.includes("Abu Iyaad")) { // using label because ID might not be passed explicitly
+  if (verseKey && label.includes("Abu Iyaad")) {
     const [s, a] = verseKey.split(":");
     externalLink = `https://www.thenoblequran.com/q/#/verse/${s}/${a}`;
   }
+
+  const segments = content?.segments ?? [];
 
   return (
     <div className="rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3 py-2">
@@ -269,7 +266,7 @@ function TranslationRow({
           <button
             type="button"
             onClick={handleCopy}
-            disabled={!plainText}
+            disabled={!content?.plain}
             className="rounded-md p-2 text-[var(--color-muted)] active:opacity-70 transition disabled:opacity-30"
             aria-label={`Copy ${label}`}
           >
@@ -294,6 +291,13 @@ function TranslationRow({
           {segments.map((part, idx) => {
             if (part.type === "text") {
               return <span key={idx}>{part.text}</span>;
+            }
+            if (part.type === "annotation") {
+              return (
+                <span key={idx} className="text-[var(--color-muted)] opacity-70">
+                  {part.text}
+                </span>
+              );
             }
             return (
               <button

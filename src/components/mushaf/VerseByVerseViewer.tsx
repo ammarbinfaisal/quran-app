@@ -14,10 +14,7 @@ import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import { ExternalLink } from "lucide-react";
 import type { Chapter } from "@/lib/types";
 import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
-import {
-    parseTranslationSegments,
-    type FootnoteReference,
-} from "@/lib/footnotes";
+import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
 import { FootnoteSheet } from "@/components/ayah/FootnoteSheet";
 
 interface VerseByVerseViewerProps {
@@ -205,7 +202,7 @@ export function VerseByVerseViewer({
                         <button
                             type="button"
                             onClick={navButtons.prev.action}
-                            className="flex-1 rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-4 py-3 text-sm font-medium text-[var(--color-text)] active:scale-[0.98] active:opacity-80 transition"
+                            className="flex-1 min-w-0 rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-3 py-3 text-xs font-medium text-[var(--color-text)] whitespace-nowrap truncate active:scale-[0.98] active:opacity-80 transition"
                         >
                             &larr; {navButtons.prev.label}
                         </button>
@@ -214,7 +211,7 @@ export function VerseByVerseViewer({
                         <button
                             type="button"
                             onClick={navButtons.next.action}
-                            className="flex-1 rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-4 py-3 text-sm font-medium text-[var(--color-text)] active:scale-[0.98] active:opacity-80 transition"
+                            className="flex-1 min-w-0 rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-3 py-3 text-xs font-medium text-[var(--color-text)] whitespace-nowrap truncate active:scale-[0.98] active:opacity-80 transition"
                         >
                             {navButtons.next.label} &rarr;
                         </button>
@@ -409,10 +406,11 @@ function VerseBlock({
                             <div key={tid} className="animate-pulse bg-[var(--color-muted)]/10 h-6 w-3/4 rounded" />
                         );
                     }
-                    if (!data.text) return null;
+                    const content = data.content;
+                    if (!content?.plain) return null;
                     const isAbuIyaad = tid === "abu-iyaad";
                     const displayName = TRANSLATION_DISPLAY_NAMES[tid] ?? tid;
-                    const segments = parseTranslationSegments(data.text);
+                    const segments = content.segments;
                     return (
                         <div key={tid}>
                             <div className="text-xs font-bold text-[var(--color-muted)] uppercase tracking-widest mb-2 opacity-60 flex items-center gap-2">
@@ -429,9 +427,16 @@ function VerseBlock({
                                 )}
                             </div>
                             <div className="text-[1.05em] text-[var(--color-text)] opacity-90 leading-relaxed font-medium">
-                                {segments.map((part, idx) => {
+                                {segments.map((part: TranslationSegment, idx: number) => {
                                     if (part.type === "text") {
                                         return <span key={idx}>{part.text}</span>;
+                                    }
+                                    if (part.type === "annotation") {
+                                        return (
+                                            <span key={idx} className="text-[var(--color-muted)] opacity-70">
+                                                {part.text}
+                                            </span>
+                                        );
                                     }
                                     return (
                                         <button

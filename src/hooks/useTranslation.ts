@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { TranslationId } from "@/lib/types";
+import type { TranslationContent } from "@/lib/footnotes";
 import { loadTranslation } from "@/lib/translations/loader";
+
+const EMPTY: TranslationContent = { segments: [], plain: "" };
 
 /**
  * Loads a translation for a given verse key.
@@ -12,15 +15,15 @@ import { loadTranslation } from "@/lib/translations/loader";
 export function useTranslation(
   verseKey: string | null,
   translationId: TranslationId,
-): { text: string; loading: boolean } {
-  const [text, setText] = useState("");
+): { content: TranslationContent; loading: boolean } {
+  const [content, setContent] = useState<TranslationContent>(EMPTY);
   const [loading, setLoading] = useState(false);
-  const cacheRef = useRef<Map<string, string>>(new Map());
+  const cacheRef = useRef<Map<string, TranslationContent>>(new Map());
 
   useEffect(() => {
     if (!verseKey) {
       setTimeout(() => {
-        setText("");
+        setContent(EMPTY);
         setLoading(false);
       }, 0);
       return;
@@ -31,7 +34,7 @@ export function useTranslation(
 
     if (cached !== undefined) {
       setTimeout(() => {
-        setText(cached);
+        setContent(cached);
         setLoading(false);
       }, 0);
       return;
@@ -44,11 +47,11 @@ export function useTranslation(
       .then((result) => {
         if (cancelled) return;
         cacheRef.current.set(cacheKey, result);
-        setText(result);
+        setContent(result);
       })
       .catch(() => {
         if (cancelled) return;
-        setText("");
+        setContent(EMPTY);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -59,5 +62,5 @@ export function useTranslation(
     };
   }, [verseKey, translationId]);
 
-  return { text, loading };
+  return { content, loading };
 }

@@ -18,7 +18,8 @@
     "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample",
     "generate:navigation-maps": "bun scripts/generate-navigation-maps.ts",
     "fetch:all-fonts": "bun scripts/fetch-all-fonts.ts",
-    "split:morphology": "bun scripts/split-morphology.ts"
+    "split:morphology": "bun scripts/split-morphology.ts",
+    "precompute:translations": "bun scripts/precompute-translations.ts"
   },
   "dependencies": {
     "@quranjs/api": "^2.1.0",

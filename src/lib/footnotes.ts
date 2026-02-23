@@ -19,7 +19,19 @@ const NAMED_ENTITIES: Record<string, string> = {
 
 export type TranslationSegment =
   | { type: "text"; text: string }
-  | { type: "footnote"; id: string; label: string };
+  | { type: "footnote"; id: string; label: string }
+  | { type: "annotation"; text: string };
+
+/** Precomputed translation ready for rendering and copy. */
+export interface TranslationContent {
+  segments: TranslationSegment[];
+  /** Plain text suitable for clipboard copy (text + annotations, no footnote refs). */
+  plain: string;
+}
+
+/** Compact segment as stored in precomputed JSON files.
+ * A bare string is a text run; {a: "..."} is an annotation. */
+export type CompactSeg = string | { a: string };
 
 let cachedFootnotes: FootnoteMap | null = null;
 let footnotePromise: Promise<FootnoteMap> | null = null;
@@ -68,21 +80,100 @@ export function extractFootnoteReferences(value: string): FootnoteReference[] {
 }
 
 /**
- * Parses html into segments of text and footnote references.
+ * Parses plain text (no HTML) into segments, recognising annotation brackets.
+ * For saheeh: [brackets] are annotations.
+ * For hilali-khan: both (parens) and [brackets] are annotations.
+ * Nested mixed brackets are treated as a single outer annotation.
  */
-export function parseTranslationSegments(html: string): TranslationSegment[] {
+export function parseBracketAnnotations(
+  text: string,
+  config: { parens: boolean; brackets: boolean },
+): TranslationSegment[] {
+  if (!config.parens && !config.brackets) {
+    return text ? [{ type: "text", text }] : [];
+  }
+
   const segments: TranslationSegment[] = [];
+  let textStart = 0;
+  let i = 0;
+
+  while (i < text.length) {
+    const ch = text[i];
+    const isOpen = (ch === "(" && config.parens) || (ch === "[" && config.brackets);
+
+    if (isOpen) {
+      if (i > textStart) {
+        const t = text.slice(textStart, i);
+        if (t) segments.push({ type: "text", text: t });
+      }
+
+      const closeChar = ch === "(" ? ")" : "]";
+      let depth = 1;
+      let j = i + 1;
+
+      while (j < text.length && depth > 0) {
+        const inner = text[j];
+        if (inner === ch) depth++;
+        else if (inner === closeChar) {
+          depth--;
+          if (depth === 0) break;
+        }
+        j++;
+      }
+
+      if (depth === 0) {
+        // j is at the closing char
+        const annotationText = text.slice(i, j + 1);
+        segments.push({ type: "annotation", text: annotationText });
+        i = j + 1;
+        textStart = i;
+      } else {
+        // Unmatched bracket — treat as regular text
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+
+  if (textStart < text.length) {
+    const t = text.slice(textStart);
+    if (t) segments.push({ type: "text", text: t });
+  }
+
+  return segments;
+}
+
+function bracketConfigFor(translationId?: TranslationId): { parens: boolean; brackets: boolean } {
+  switch (translationId) {
+    case "saheeh":
+      return { parens: false, brackets: true };
+    case "hilali-khan":
+      return { parens: true, brackets: true };
+    default:
+      return { parens: false, brackets: false };
+  }
+}
+
+/**
+ * Parses HTML into segments of text, footnote references, and bracket annotations.
+ * Pass translationId to enable bracket annotation detection for saheeh / hilali-khan.
+ */
+export function parseTranslationSegments(
+  html: string,
+  translationId?: TranslationId,
+): TranslationSegment[] {
+  const segments: TranslationSegment[] = [];
+  const bracketConfig = bracketConfigFor(translationId);
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   FOOTNOTE_EXTRACT_REGEX.lastIndex = 0;
   while ((match = FOOTNOTE_EXTRACT_REGEX.exec(html)) !== null) {
-    // Add text before the match
+    // Add text (with possible bracket annotations) before the match
     if (match.index > lastIndex) {
-      segments.push({
-        type: "text",
-        text: decodeHtmlEntities(stripHtmlTags(html.slice(lastIndex, match.index))),
-      });
+      const plain = decodeHtmlEntities(stripHtmlTags(html.slice(lastIndex, match.index)));
+      if (plain) segments.push(...parseBracketAnnotations(plain, bracketConfig));
     }
 
     const id = match[1] ?? match[2] ?? match[3];
@@ -96,15 +187,32 @@ export function parseTranslationSegments(html: string): TranslationSegment[] {
     lastIndex = FOOTNOTE_EXTRACT_REGEX.lastIndex;
   }
 
-  // Add remaining text
+  // Remaining text
   if (lastIndex < html.length) {
-    segments.push({
-      type: "text",
-      text: decodeHtmlEntities(stripHtmlTags(html.slice(lastIndex))),
-    });
+    const plain = decodeHtmlEntities(stripHtmlTags(html.slice(lastIndex)));
+    if (plain) segments.push(...parseBracketAnnotations(plain, bracketConfig));
   }
 
   return segments;
+}
+
+/** Build a TranslationContent from an array of TranslationSegments. */
+export function segmentsToContent(segments: TranslationSegment[]): TranslationContent {
+  const plain = segments
+    .filter((s) => s.type !== "footnote")
+    .map((s) => s.text)
+    .join("");
+  return { segments, plain };
+}
+
+/** Convert precomputed CompactSeg[] (from JSON) to TranslationContent. */
+export function compactToContent(compact: CompactSeg[]): TranslationContent {
+  const segments: TranslationSegment[] = compact.map((s) =>
+    typeof s === "string"
+      ? { type: "text" as const, text: s }
+      : { type: "annotation" as const, text: s.a },
+  );
+  return segmentsToContent(segments);
 }
 
 function stripHtmlTags(input: string): string {

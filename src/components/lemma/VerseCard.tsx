@@ -8,7 +8,7 @@ import { useTranslations } from "@/hooks/useTranslations";
 import { usePreferences } from "@/hooks/usePreferences";
 import { MushafWord } from "@/components/mushaf/MushafWord";
 import { QCF_CODES, type TranslationId, TRANSLATION_DISPLAY_NAMES } from "@/lib/types";
-import { parseTranslationSegments, extractFootnoteReferences, type FootnoteReference } from "@/lib/footnotes";
+import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
 import { FootnoteSheet } from "@/components/ayah/FootnoteSheet";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
@@ -146,14 +146,24 @@ export function VerseCard({
                         );
                     }
 
-                    const segments = parseTranslationSegments(t.text);
-                    const footnoteRefs = extractFootnoteReferences(t.text);
+                    const content = t.content;
+                    const segments = content.segments;
+                    const footnoteRefs: FootnoteReference[] = segments
+                        .filter((s): s is Extract<TranslationSegment, { type: "footnote" }> => s.type === "footnote")
+                        .map((s) => ({ id: s.id, label: s.label }));
                     const label = TRANSLATION_DISPLAY_NAMES[id] ?? id;
                     return (
                         <div key={id} className="text-sm leading-relaxed text-[var(--color-text)] opacity-90 pb-2 border-b border-[var(--color-muted)]/5 last:border-0 max-w-4xl">
-                            {segments.map((part, idx) => {
+                            {segments.map((part: TranslationSegment, idx: number) => {
                                 if (part.type === "text") {
-                                    return <span key={idx} dangerouslySetInnerHTML={{ __html: part.text }} />;
+                                    return <span key={idx}>{part.text}</span>;
+                                }
+                                if (part.type === "annotation") {
+                                    return (
+                                        <span key={idx} className="text-[var(--color-muted)] opacity-70">
+                                            {part.text}
+                                        </span>
+                                    );
                                 }
                                 return (
                                     <button
