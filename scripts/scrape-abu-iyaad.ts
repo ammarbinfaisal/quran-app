@@ -96,7 +96,8 @@ async function initSession(): Promise<string> {
     const res = await fetch("https://www.thenoblequran.com/q/", {
         headers: { "User-Agent": UA },
     });
-    const setCookies: string[] = (res.headers as any).getSetCookie?.() ?? [];
+    const setCookies: string[] =
+        (res.headers as Headers & { getSetCookie?(): string[] }).getSetCookie?.() ?? [];
     return setCookies.map((c: string) => c.split(";")[0]).join("; ");
 }
 
