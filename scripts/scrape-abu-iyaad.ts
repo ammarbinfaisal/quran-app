@@ -120,6 +120,7 @@ async function run() {
                     keepGoing = false;
                 } else {
                     start += 10;
+                    await new Promise(r => setTimeout(r, 200));
                 }
             } catch (e) {
                 console.error("\nError fetching sura " + s + " start " + start + ":", e);
