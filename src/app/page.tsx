@@ -1,12 +1,22 @@
 "use client";
 
+import { useEffect } from "react";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function HomePage() {
   const { history, refresh } = useReadingHistory();
   const { goToPage } = usePageNavigation();
+  const { prefs } = usePreferences();
+  const { applyTheme } = useTheme();
+
+  useEffect(() => {
+    applyTheme(prefs.theme);
+    document.documentElement.style.setProperty("--mushaf-font-scale", String(prefs.fontScale));
+  }, [applyTheme, prefs.theme, prefs.fontScale]);
 
   const continueEntry = history[0] ?? null;
 
