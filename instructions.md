@@ -28,6 +28,7 @@ Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4. Mobile-first
 - `/v/j/[juzId]` — Verse-by-verse mode (juz view)
 - `/v/p/[page]` — Verse-by-verse mode (page view)
 - `/m/[buckwalterLemma]` — Lemma lookup (Buckwalter-encoded)
+- `/r/[buckwalterRoot]` — Root lookup (Buckwalter-encoded)
 
 ### State Management
 

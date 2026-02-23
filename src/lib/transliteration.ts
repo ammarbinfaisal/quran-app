@@ -57,8 +57,6 @@ const buckwalterMap: Record<string, string> = {
     "\"": "ۡ",
     "[": "ۙ",
     "]": "ۚ",
-    "ٰ": "`",
-    "ٱ": "{"
 };
 
 const arabicToBuckwalterMap: Record<string, string> = {};
