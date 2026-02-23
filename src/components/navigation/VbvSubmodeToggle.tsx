@@ -1,6 +1,7 @@
 "use client";
 
-import { BookMarked, Library, FileText } from "lucide-react";
+import { useState } from "react";
+import { BookMarked, Library, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useChapters } from "@/hooks/useChapters";
@@ -24,10 +25,12 @@ interface VbvSubmodeToggleProps {
 export function VbvSubmodeToggle({ currentType, currentId, onNavigate }: VbvSubmodeToggleProps) {
     const { setPref } = usePreferences();
     const chapters = useChapters();
+    const [pending, setPending] = useState<VbvSubmode | null>(null);
 
     async function handleSelect(newSubmode: VbvSubmode) {
-        if (newSubmode === currentType) return;
+        if (newSubmode === currentType || pending !== null) return;
 
+        setPending(newSubmode);
         setPref("vbvSubmode", newSubmode);
 
         // Try to get the first visible verse to preserve position
@@ -71,9 +74,11 @@ export function VbvSubmodeToggle({ currentType, currentId, onNavigate }: VbvSubm
         }
 
         onNavigate(newSubmode, targetId, currentVerse);
+        setPending(null);
     }
 
-    const activeIndex = OPTIONS.findIndex((o) => o.value === currentType);
+    const visualActive = pending ?? currentType;
+    const activeIndex = OPTIONS.findIndex((o) => o.value === visualActive);
 
     return (
         <div
@@ -91,6 +96,7 @@ export function VbvSubmodeToggle({ currentType, currentId, onNavigate }: VbvSubm
                     key={value}
                     type="button"
                     onClick={() => handleSelect(value)}
+                    disabled={pending !== null}
                     className={cn(
                         "relative z-10 flex w-[28px] items-center justify-center transition-colors duration-300",
                         activeIndex === i ? "text-[var(--color-text)]" : "text-[var(--color-muted)]"
@@ -98,7 +104,11 @@ export function VbvSubmodeToggle({ currentType, currentId, onNavigate }: VbvSubm
                     aria-label={`VbV submode: ${label}`}
                     aria-pressed={activeIndex === i}
                 >
-                    <Icon className="h-3.5 w-3.5" />
+                    {pending === value ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                        <Icon className="h-3.5 w-3.5" />
+                    )}
                 </button>
             ))}
         </div>
