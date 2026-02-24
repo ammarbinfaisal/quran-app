@@ -5,7 +5,7 @@
   src: url('/fonts/quran/surah-names/v1/sura_names.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @custom-variant dark (&:is(.dark *));

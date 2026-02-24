@@ -1,4 +1,4 @@
-const CACHE_NAME = "quran-assets-v9";
+const CACHE_NAME = "quran-assets-v10";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.webmanifest",
@@ -13,6 +13,7 @@ const ASSETS_TO_CACHE = [
   "/data/abu-iyaad.json",
   "/data/abu-iyaad-surahs.json",
   "/mushaf-data/translation-footnotes.json",
+  "/fonts/quran/surah-names/v1/sura_names.woff2",
 ];
 
 const IS_DEV_HOST =

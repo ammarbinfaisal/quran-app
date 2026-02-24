@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useAbuIyaadSurahs } from "@/hooks/useAbuIyaadSurahs";
 import { cn } from "@/lib/utils";
 import { Bismillah } from "./Bismillah";
@@ -28,6 +28,13 @@ export function SurahHeader({
         [surahs, surahNumber]
     );
 
+    const [surahFontReady, setSurahFontReady] = useState(false);
+    useEffect(() => {
+        document.fonts.load("normal 1em surahnames")
+            .then(() => setSurahFontReady(true))
+            .catch(() => setSurahFontReady(true));
+    }, []);
+
     const shouldShowBismillah =
         showBismillah && surahNumber !== 1 && surahNumber !== 9;
 
@@ -51,17 +58,19 @@ export function SurahHeader({
                             : "flex-row gap-3"
                     )}
                 >
-                    <span
-                        translate="no"
-                        className={cn(
-                            "select-none leading-none text-[var(--color-text)] font-normal",
-                            variant === "mushaf" ? "text-[1.55rem]" : "text-[2.25rem]"
-                        )}
-                        style={{ fontFamily: "surahnames" }}
-                        aria-label={`Surah ${surahNumber}`}
-                    >
-                        {String(surahNumber).padStart(3, "0")}
-                    </span>
+                    {surahFontReady && (
+                        <span
+                            translate="no"
+                            className={cn(
+                                "select-none leading-none text-[var(--color-text)] font-normal",
+                                variant === "mushaf" ? "text-[1.55rem]" : "text-[2.25rem]"
+                            )}
+                            style={{ fontFamily: "surahnames" }}
+                            aria-label={`Surah ${surahNumber}`}
+                        >
+                            {String(surahNumber).padStart(3, "0")}
+                        </span>
+                    )}
 
                     <div
                         className={cn(
