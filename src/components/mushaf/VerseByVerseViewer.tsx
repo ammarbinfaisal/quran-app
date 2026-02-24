@@ -383,6 +383,7 @@ function VerseBlock({
                     <SurahHeader
                         nameSimple={chapter.nameSimple}
                         surahNumber={chapter.id}
+                        variant="viewer"
                         showBismillah={
                             !!chapter.bismillahPre &&
                             chapter.id !== 1 &&

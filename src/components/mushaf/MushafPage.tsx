@@ -180,6 +180,7 @@ function MushafPageInner({
               <SurahHeader
                 nameSimple={targetSurah.chapter.nameSimple}
                 surahNumber={targetSurah.chapter.id}
+                variant="mushaf"
                 showBismillah={false}
               />
             </div>
