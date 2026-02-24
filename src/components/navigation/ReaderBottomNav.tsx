@@ -71,13 +71,15 @@ export function ReaderBottomNav({
             className={cn(
               "flex items-center rounded-lg text-[var(--color-text)] active:scale-[0.97] active:opacity-80",
               labelSize === "sm"
-                ? "gap-1.5 px-2 py-2 text-xs"
+                ? "gap-1.5 px-2 py-2 text-[11px]"
                 : "gap-2 px-4 py-2.5 text-sm",
             )}
             aria-label={centerLabel.ariaLabel}
           >
             {centerLabel.icon}
-            <span className="font-medium tabular-nums">{centerLabel.text}</span>
+            <span className="font-medium tabular-nums whitespace-nowrap">
+              {centerLabel.text}
+            </span>
           </button>
         )}
 
@@ -113,4 +115,3 @@ export function ReaderBottomNav({
     </nav>
   );
 }
-
