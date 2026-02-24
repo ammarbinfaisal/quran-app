@@ -30,6 +30,7 @@ function MushafPageInner({
 }: MushafPageProps) {
   const maxLines = MUSHAF_LINES[mushafCode] ?? 15;
   const renderedChildren = [];
+  const linesByNumber = new Map(pageData.lines.map((l) => [l.lineNumber, l]));
 
   // Detect which surahs start on this page, and which lines need
   // headers, bismillah, and centered alignment.
@@ -150,7 +151,7 @@ function MushafPageInner({
   }
 
   for (let i = 1; i <= maxLines; i++) {
-    const textLine = pageData.lines.find((l) => l.lineNumber === i);
+    const textLine = linesByNumber.get(i);
 
     if (textLine) {
       renderedChildren.push(

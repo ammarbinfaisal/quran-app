@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 const DB_NAME = "quran-app";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAMES = ["mushaf-pages", "translations", "mushaf-fonts", "morphology", "lemmas"] as const;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -14,12 +14,16 @@ export function openDB(): Promise<IDBDatabase> {
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       for (const name of STORE_NAMES) {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name);
         }
+      }
+      // v3: clear mushaf-pages so stale cached data is evicted
+      if (event.oldVersion < 3 && db.objectStoreNames.contains("mushaf-pages")) {
+        request.transaction!.objectStore("mushaf-pages").clear();
       }
     };
 
