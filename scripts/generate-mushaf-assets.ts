@@ -53,6 +53,7 @@ const TRANSLATION_ASSET_BASE_DIR = path.join(
 // ---------------------------------------------------------------------------
 type VerseWord = {
   char_type_name?: string;
+  position?: number;
   text?: string;
   code_v2?: string;
   text_uthmani?: string;
@@ -119,15 +120,16 @@ async function fetchTranslationPage(
 }
 
 // ---------------------------------------------------------------------------
-// Word collection: fetch page N + page N+1, deduplicate by (verse_key, word_index)
+// Word collection: fetch page N-1 + N + N+1, deduplicate by (verse_key, word_index)
 //
-// Why fetch two pages?
-//   The quran.com API groups words by layout page (page_number), but the QCF
-//   font file groups by rendering page (v2_page). At page boundaries a verse
-//   can span two layout pages — so the last few words of a verse, which render
-//   on page N (v2_page=N), may only appear in the API response for page N+1.
-//   By fetching both API pages and keeping only words where v2_page === N, we
-//   get the complete and accurate set of words that render on font page N.
+// Why fetch three pages?
+//   The quran.com API groups words by *layout page* (page_number), while the
+//   QCF font file groups by *rendering page* (v2_page). At page boundaries a
+//   verse can straddle two layout pages in either direction:
+//     - trailing words that render on font page N may only appear in API page N+1
+//     - leading words that render on font page N may only appear in API page N-1
+//   By fetching (N-1, N, N+1) and later filtering by v2_page === N, we get the
+//   complete set of words that physically render on font page N.
 // ---------------------------------------------------------------------------
 async function collectWordsForPage(
   page: number,
@@ -136,6 +138,16 @@ async function collectWordsForPage(
 ): Promise<{ words: ResolvedWord[]; rawVerses: RawVerse[] }> {
   // Fetch the primary page (required).
   const primaryVerses = await fetchVersesByPage(page, mushafId);
+
+  // Fetch the previous page (best-effort — needed for leading spillover words).
+  let prevVerses: RawVerse[] = [];
+  if (page > 1) {
+    try {
+      prevVerses = await fetchVersesByPage(page - 1, mushafId);
+    } catch {
+      // Non-fatal: we'll still generate a best-effort asset for page N.
+    }
+  }
 
   // Fetch the next page (best-effort — needed for spillover words).
   let nextVerses: RawVerse[] = [];
@@ -165,6 +177,7 @@ async function collectWordsForPage(
   }
 
   addVerses(primaryVerses);
+  addVerses(prevVerses);
   addVerses(nextVerses);
 
   return {
@@ -367,13 +380,60 @@ function generatePayload(
   const lineField = LINE_FIELD_BY_CODE[code];
   const fontPageField = FONT_PAGE_FIELD_BY_CODE[code];
 
+  const verseOrderCache = new Map<string, { surahId: number; verseId: number }>();
+  const getVerseOrder = (verseKey: string) => {
+    const cached = verseOrderCache.get(verseKey);
+    if (cached) return cached;
+    const [s, v] = verseKey.split(":");
+    const surahId = Number.parseInt(s ?? "", 10) || 0;
+    const verseId = Number.parseInt(v ?? "", 10) || 0;
+    const out = { surahId, verseId };
+    verseOrderCache.set(verseKey, out);
+    return out;
+  };
+
+  const resolveLineNum = (wordData: VerseWord) => {
+    const lineNumRaw = wordData[lineField];
+    return typeof lineNumRaw === "number" && lineNumRaw > 0
+      ? lineNumRaw
+      : typeof wordData.line_number === "number" && wordData.line_number > 0
+        ? wordData.line_number
+        : 1;
+  };
+
+  const charTypeRank = (t: string | undefined) => {
+    if (t === "word") return 0;
+    if (t === "pause") return 1;
+    if (t === "end") return 2;
+    return 3;
+  };
+
+  const sortedWords = resolvedWords.slice().sort((a, b) => {
+    const aLine = resolveLineNum(a.word);
+    const bLine = resolveLineNum(b.word);
+    if (aLine !== bLine) return aLine - bLine;
+
+    const aOrder = getVerseOrder(a.verse_key);
+    const bOrder = getVerseOrder(b.verse_key);
+    if (aOrder.surahId !== bOrder.surahId) return aOrder.surahId - bOrder.surahId;
+    if (aOrder.verseId !== bOrder.verseId) return aOrder.verseId - bOrder.verseId;
+
+    const aPos =
+      typeof a.word.position === "number" && a.word.position > 0 ? a.word.position : a.word_index + 1;
+    const bPos =
+      typeof b.word.position === "number" && b.word.position > 0 ? b.word.position : b.word_index + 1;
+    if (aPos !== bPos) return aPos - bPos;
+
+    return charTypeRank(a.word.char_type_name) - charTypeRank(b.word.char_type_name);
+  });
+
   const linesMap = new Map<
     number,
     { text: string; verseKey: string; x: number; width: number; charTypeName: string }[]
   >();
   let maxLine = 0;
 
-  for (const { word: wordData, verse_key } of resolvedWords) {
+  for (const { word: wordData, verse_key } of sortedWords) {
     // Only keep word-type tokens we care about.
     const charType = wordData.char_type_name;
     if (charType && charType !== "word" && charType !== "end" && charType !== "pause") {
@@ -386,13 +446,7 @@ function generatePayload(
     if (typeof fontPage === "number" && fontPage !== page) continue;
 
     // Resolve the line number.
-    const lineNumRaw = wordData[lineField];
-    const lineNum =
-      typeof lineNumRaw === "number" && lineNumRaw > 0
-        ? lineNumRaw
-        : typeof wordData.line_number === "number" && wordData.line_number > 0
-          ? wordData.line_number
-          : 1;
+    const lineNum = resolveLineNum(wordData);
     maxLine = Math.max(maxLine, lineNum);
 
     const rawText = getWordText(wordData, textField);
