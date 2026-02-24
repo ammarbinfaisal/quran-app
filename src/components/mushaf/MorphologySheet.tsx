@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { buckwalterToArabic } from "@/lib/transliteration";
-import { lemmaPath } from "@/lib/url";
+import { lemmaPath, rootPath } from "@/lib/url";
 import type { MushafCode } from "@/lib/types";
 import { useChapters } from "@/hooks/useChapters";
 import { dbGet } from "@/lib/offline/storage";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 // ---------------------------------------------------------------------------
 // POS full-name map
@@ -192,9 +193,12 @@ export function MorphologySheet({
 
     // Collect lemma and root from all segments
     const lemmaRaw = data?.find((s) => s.features.lem)?.features.lem?.replace(/[{}]/g, "") ?? null;
-    const lemma = lemmaRaw ? buckwalterToArabic(lemmaRaw) : null;
+    const lemmaBuckwalter = lemmaRaw ? decodeRouteParam(lemmaRaw) : null;
+    const lemma = lemmaBuckwalter ? buckwalterToArabic(lemmaBuckwalter) : null;
+
     const rootRaw = data?.find((s) => s.features.root)?.features.root ?? null;
-    const root = rootRaw ? buckwalterToArabic(rootRaw) : null;
+    const rootBuckwalter = rootRaw ? decodeRouteParam(rootRaw) : null;
+    const root = rootBuckwalter ? buckwalterToArabic(rootBuckwalter) : null;
 
     return (
         <>
@@ -269,7 +273,7 @@ export function MorphologySheet({
                                         <div className="flex flex-col items-center gap-1">
                                             <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Lemma</span>
                                             <Link
-                                                href={lemmaPath(lemmaRaw!)}
+                                                href={lemmaPath(lemmaBuckwalter!)}
                                                 onClick={onClose}
                                                 className="inline-flex items-center gap-1 font-arabic text-lg text-[var(--color-accent)] font-medium"
                                             >
@@ -284,7 +288,14 @@ export function MorphologySheet({
                                     {root && (
                                         <div className="flex flex-col items-center gap-1">
                                             <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Root</span>
-                                            <span className="font-arabic text-lg font-medium text-[var(--color-text)]">{root}</span>
+                                            <Link
+                                                href={rootPath(rootBuckwalter!)}
+                                                onClick={onClose}
+                                                className="inline-flex items-center gap-1 font-arabic text-lg text-[var(--color-accent)] font-medium"
+                                            >
+                                                {root}
+                                                <ExternalLink className="w-3.5 h-3.5" />
+                                            </Link>
                                         </div>
                                     )}
                                 </div>

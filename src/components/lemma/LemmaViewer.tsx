@@ -20,6 +20,7 @@ export function LemmaViewer({
             subtitle="Lemma Lookup"
             dataUrl={dataUrl}
             mushafCode={mushafCode}
+            showModeToggle={false}
         />
     );
 }

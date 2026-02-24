@@ -30,6 +30,7 @@ export function OccurrenceViewer({
     subtitle,
     dataUrl,
     mushafCode,
+    showModeToggle = true,
 }: {
     /** Arabic text shown in the header */
     displayArabic: string;
@@ -38,6 +39,7 @@ export function OccurrenceViewer({
     /** URL to fetch occurrences JSON from, e.g. /data/lemmas/foo.json */
     dataUrl: string;
     mushafCode: MushafCode;
+    showModeToggle?: boolean;
 }) {
     const [occurrences, setOccurrences] = useState<Occurrence[] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -231,7 +233,7 @@ export function OccurrenceViewer({
                     <Home className="h-5 w-5" />
                 </Link>
 
-                <ModeToggle />
+                {showModeToggle && <ModeToggle />}
 
                 <div className="flex items-center">
                     <OfflineIndicator />

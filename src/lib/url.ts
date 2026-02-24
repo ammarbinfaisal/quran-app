@@ -20,6 +20,10 @@ export function lemmaPath(buckwalterLemma: string): string {
   return `/m/${encodeURIComponent(buckwalterLemma)}`;
 }
 
+export function rootPath(buckwalterRoot: string): string {
+  return `/r/${encodeURIComponent(buckwalterRoot)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Parsers
 // ---------------------------------------------------------------------------
