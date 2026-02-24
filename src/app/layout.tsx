@@ -2,13 +2,27 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Quran",
-  description: "Read the Quran",
-  manifest: "/manifest.json",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
+  ),
+  title: "quran",
+  description: "quran app",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Quran",
+    title: "quran",
+  },
+  openGraph: {
+    title: "quran",
+    description: "quran app",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "quran",
+    description: "quran app",
   },
 };
 
@@ -17,7 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#2d6a4f",
+  themeColor: "#8b6914",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -26,7 +40,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ar" dir="ltr" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="dns-prefetch" href="https://api.quran.com" />
         <link rel="preconnect" href="https://api.quran.com" crossOrigin="anonymous" />
       </head>
