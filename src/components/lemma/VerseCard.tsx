@@ -34,9 +34,7 @@ export function VerseCard({
     const chapters = useChapters();
 
     const targetTranslations = useMemo(() => {
-        const ids = new Set(prefs.translationIds);
-        ids.add("abu-iyaad"); // Ensure Abu Iyaad is included as requested
-        return Array.from(ids) as TranslationId[];
+        return prefs.translationIds as TranslationId[];
     }, [prefs.translationIds]);
 
     const translations = useTranslations(verseKey, targetTranslations);
@@ -154,6 +152,7 @@ export function VerseCard({
                     }
 
                     const content = t.content;
+                    if (!content?.plain) return null;
                     const segments = content.segments;
                     const footnoteRefs: FootnoteReference[] = segments
                         .filter((s): s is Extract<TranslationSegment, { type: "footnote" }> => s.type === "footnote")
