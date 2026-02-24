@@ -2,19 +2,18 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { Home, Settings, Download } from "lucide-react";
+import { Home } from "lucide-react";
 import { arabicToBuckwalter } from "@/lib/transliteration";
 import { type MushafCode } from "@/lib/types";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
 import { fetchVersePages } from "@/lib/navigation/maps";
 import { dbGet } from "@/lib/offline/storage";
-import { ModeToggle } from "@/components/navigation/ModeToggle";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
-import { OfflineIndicator } from "@/components/offline/OfflineIndicator";
 import { useTheme } from "@/hooks/useTheme";
 import { usePreferences } from "@/hooks/usePreferences";
+import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 
 interface Occurrence {
     surah: number;
@@ -222,37 +221,11 @@ export function OccurrenceViewer({
                 )}
             </main>
 
-            <nav
-                className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-[var(--color-muted)]/15 bg-[var(--color-bg)]/95 backdrop-blur-sm px-2"
-                style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
-            >
-                <Link
-                    href="/"
-                    className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-                >
-                    <Home className="h-5 w-5" />
-                </Link>
-
-                {showModeToggle && <ModeToggle />}
-
-                <div className="flex items-center">
-                    <OfflineIndicator />
-                    <button
-                        type="button"
-                        onClick={() => setDownloadsOpen(true)}
-                        className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)]"
-                    >
-                        <Download className="h-5 w-5" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setSettingsOpen(true)}
-                        className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)]"
-                    >
-                        <Settings className="h-5 w-5" />
-                    </button>
-                </div>
-            </nav>
+            <ReaderBottomNav
+                showModeToggle={showModeToggle}
+                onDownloadsClick={() => setDownloadsOpen(true)}
+                onSettingsClick={() => setSettingsOpen(true)}
+            />
 
             <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
             <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />

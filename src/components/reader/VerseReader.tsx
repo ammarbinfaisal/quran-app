@@ -1,25 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Home, Settings, BookOpen, Download } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
 import { useImmersiveMode } from "@/hooks/useImmersiveMode";
 import { useTrackReading } from "@/hooks/useReadingHistory";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
-import { ModeToggle } from "@/components/navigation/ModeToggle";
 import { VbvSubmodeToggle } from "@/components/navigation/VbvSubmodeToggle";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
 import { DownloadManager } from "@/components/offline/DownloadManager";
-import { OfflineIndicator } from "@/components/offline/OfflineIndicator";
 import { VerseByVerseViewer } from "@/components/mushaf/VerseByVerseViewer";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { vbvPath } from "@/lib/url";
+import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 
 export function VerseReader({
   type,
@@ -89,6 +87,7 @@ export function VerseReader({
   let label = String(id);
   if (type === "s") label = `Surah ${id}`;
   if (type === "j") label = `Juz ${id}`;
+  if (type === "p") label = `Page ${id}`;
 
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
@@ -116,33 +115,21 @@ export function VerseReader({
         </div>
       </div>
 
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-[var(--color-muted)]/15 bg-[var(--color-bg)]/95 backdrop-blur-sm px-2 transition-transform duration-300 ease-in-out"
-        style={{
-          transform: chromeVisible ? "translateY(0)" : "translateY(100%)",
-          paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+      <ReaderBottomNav
+        visible={chromeVisible}
+        onHomeClick={resetTimer}
+        centerClassName="gap-2"
+        centerLabel={{
+          icon: <BookOpen className="h-4 w-4 text-[var(--color-muted)]" />,
+          text: label,
+          ariaLabel: "Open navigation",
+          onClick: () => {
+            setSurahOpen(true);
+            showChrome();
+          },
+          size: "sm",
         }}
-      >
-        <Link
-          href="/"
-          className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-          onClick={resetTimer}
-        >
-          <Home className="h-5 w-5" />
-        </Link>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSurahOpen(true);
-              showChrome();
-            }}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-[var(--color-text)] active:scale-[0.97] active:opacity-80"
-          >
-            <BookOpen className="h-4 w-4 text-[var(--color-muted)]" />
-            <span className="font-medium tabular-nums">{label}</span>
-          </button>
+        centerExtra={
           <VbvSubmodeToggle
             currentType={type}
             currentId={id}
@@ -151,33 +138,16 @@ export function VerseReader({
               router.push(vbvPath(newType, newId, verse ?? undefined), { scroll: false });
             }}
           />
-          <ModeToggle />
-        </div>
-
-        <div className="flex items-center">
-          <OfflineIndicator />
-          <button
-            type="button"
-            onClick={() => {
-              setDownloadsOpen(true);
-              showChrome();
-            }}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)]"
-          >
-            <Download className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(true);
-              showChrome();
-            }}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)]"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
-        </div>
-      </nav>
+        }
+        onDownloadsClick={() => {
+          setDownloadsOpen(true);
+          showChrome();
+        }}
+        onSettingsClick={() => {
+          setSettingsOpen(true);
+          showChrome();
+        }}
+      />
 
       <AyahSheet
         open={!!selectedVerse && selectedWordIndex === null}
