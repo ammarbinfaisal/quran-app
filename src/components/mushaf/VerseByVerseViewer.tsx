@@ -13,7 +13,7 @@ import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
 import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import { ExternalLink } from "lucide-react";
 import type { Chapter } from "@/lib/types";
-import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
+import { isQcfCode } from "@/lib/mushaf/fonts";
 import { loadMushafPage } from "@/lib/mushaf/loader";
 import { loadTranslation } from "@/lib/translations/loader";
 import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
@@ -117,24 +117,6 @@ export function VerseByVerseViewer({
         observer.observe(node);
         observerInstanceRef.current = observer;
     }, [fullPageRange.length]);
-
-    // Serial Font Loading
-    useEffect(() => {
-        let active = true;
-        async function loadFonts() {
-            if (!isQcfCode(mushafCode)) return;
-            for (const p of visiblePages) {
-                if (!active) break;
-                try {
-                    await loadQcfFont(mushafCode, p);
-                } catch {
-                    // Silently fail, MushafWord handles missing fonts with skeleton
-                }
-            }
-        }
-        loadFonts();
-        return () => { active = false; };
-    }, [mushafCode, visiblePages]);
 
     // Translation Prefetch: warm IDB for upcoming pages so VerseBlock resolves instantly
     const { prefs } = usePreferences();

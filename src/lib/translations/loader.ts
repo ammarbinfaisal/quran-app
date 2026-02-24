@@ -4,8 +4,8 @@
 
 import type { TranslationId } from "@/lib/types";
 import { TRANSLATION_API_IDS } from "@/lib/types";
-import { fetchVerseTranslations } from "@/lib/api";
-import { dbGet, dbPut } from "@/lib/offline/storage";
+import { fetchPageTranslations, fetchVerseTranslations } from "@/lib/api";
+import { dbGet, dbPut, dbPutMany } from "@/lib/offline/storage";
 import {
   compactToContent,
   parseTranslationSegments,
@@ -13,10 +13,13 @@ import {
   type TranslationContent,
 } from "@/lib/footnotes";
 import { loadAbuIyaadData, loadAbuIyaadSegments } from "./abu-iyaad";
+import { fetchVersePages } from "@/lib/navigation/maps";
 
 const STORE = "translations";
 // "v2:" prefix distinguishes pre-parsed TranslationContent from old raw-string entries.
 const V2 = "v2:";
+
+type ApiTranslationId = Exclude<TranslationId, "abu-iyaad">;
 
 /**
  * Load a single verse translation as a pre-parsed TranslationContent.
@@ -46,7 +49,24 @@ export async function loadTranslation(
   }
 
   // API-based translations (saheeh, hilali-khan)
-  const apiId = TRANSLATION_API_IDS[translationId as "saheeh" | "hilali-khan"];
+  const apiTranslationId = translationId as ApiTranslationId;
+  const apiId = TRANSLATION_API_IDS[apiTranslationId];
+
+  // Prefer bulk caching by page to avoid per-verse waterfalls in VBV mode.
+  const pageLookup = await getVerseStartAndEndPages(verseKey);
+  if (pageLookup) {
+    const [startPage, endPage] = pageLookup;
+
+    // Try start page first; for spanning verses, fall back to end page.
+    const contentFromStart = await loadAndCacheApiPage(apiTranslationId, apiId, startPage, verseKey);
+    if (contentFromStart) return contentFromStart;
+    if (endPage !== startPage) {
+      const contentFromEnd = await loadAndCacheApiPage(apiTranslationId, apiId, endPage, verseKey);
+      if (contentFromEnd) return contentFromEnd;
+    }
+  }
+
+  // Fallback to by_key (still cached in IDB)
   const rawHtml = await fetchVerseTranslations(verseKey, apiId);
   const segments = parseTranslationSegments(rawHtml, translationId);
   const content = segmentsToContent(segments);
@@ -64,7 +84,7 @@ export async function loadTranslation(
 // Abu Iyaad: load full JSON once, store every entry in IDB
 // ---------------------------------------------------------------------------
 
-let abuIyaadStored = false;
+let abuIyaadBulkStorePromise: Promise<void> | null = null;
 
 async function loadAndCacheAbuIyaad(
   verseKey: string,
@@ -73,23 +93,104 @@ async function loadAndCacheAbuIyaad(
   const compact = await loadAbuIyaadSegments(verseKey);
   const content = compactToContent(compact);
 
-  // Store all entries in IDB once (fire-and-forget)
-  if (!abuIyaadStored) {
-    abuIyaadStored = true;
-    try {
+  // Cache the requested verse immediately (best effort)
+  dbPut(STORE, v2Key, content).catch(() => { });
+
+  // Store all entries in IDB once (actually fire-and-forget)
+  if (!abuIyaadBulkStorePromise) {
+    abuIyaadBulkStorePromise = (async () => {
       const data = await loadAbuIyaadData();
+      const entries: Array<[string, TranslationContent]> = [];
       for (const [key, segs] of Object.entries(data)) {
-        try {
-          await dbPut(STORE, `${V2}abu-iyaad:${key}`, compactToContent(segs));
-        } catch {
-          break; // Storage full or unavailable
-        }
+        entries.push([`${V2}abu-iyaad:${key}`, compactToContent(segs)]);
       }
-    } catch {
-      abuIyaadStored = false; // Retry next time
-    }
+      try {
+        await dbPutMany(STORE, entries);
+      } catch {
+        // Storage full or unavailable — non-fatal
+      }
+    })().catch(() => {
+      // Retry next time
+      abuIyaadBulkStorePromise = null;
+    });
   }
 
-  void v2Key; // already satisfied by the bulk store above
   return content;
+}
+
+// ---------------------------------------------------------------------------
+// API translations: bulk by page
+// ---------------------------------------------------------------------------
+
+const inflightApiPageLoads = new Map<string, Promise<Map<string, TranslationContent>>>();
+
+/**
+ * Best-effort: warm the cache for a page for API-based translations.
+ * This is useful to reduce first-open skeletons in VBV mode.
+ */
+export function prefetchTranslationPage(
+  pageNumber: number,
+  translationId: ApiTranslationId,
+): void {
+  const apiId = TRANSLATION_API_IDS[translationId];
+  void getOrLoadApiPageMap(translationId, apiId, pageNumber).catch(() => { });
+}
+
+async function getVerseStartAndEndPages(verseKey: string): Promise<[number, number] | null> {
+  try {
+    // Single mushaf exists today, but the verse->page map is mushaf-specific.
+    const versePages = await fetchVersePages("v2");
+    const lookup = versePages[verseKey];
+    if (lookup == null) return null;
+    if (Array.isArray(lookup)) return [lookup[0], lookup[1]];
+    return [lookup, lookup];
+  } catch {
+    return null;
+  }
+}
+
+async function getOrLoadApiPageMap(
+  translationId: ApiTranslationId,
+  translationApiId: number,
+  pageNumber: number,
+): Promise<Map<string, TranslationContent>> {
+  const inflightKey = `${translationId}:${pageNumber}`;
+  const existing = inflightApiPageLoads.get(inflightKey);
+
+  const p = existing ?? (async () => {
+    const entries = await fetchPageTranslations(pageNumber, translationApiId);
+    const map = new Map<string, TranslationContent>();
+
+    const toStore: Array<[string, TranslationContent]> = [];
+    for (const e of entries) {
+      const rawHtml = e.text ?? "";
+      const segments = parseTranslationSegments(rawHtml, translationId);
+      const content = segmentsToContent(segments);
+      map.set(e.verseKey, content);
+      toStore.push([`${V2}${translationId}:${e.verseKey}`, content]);
+    }
+
+    // Best-effort bulk cache write
+    dbPutMany(STORE, toStore).catch(() => { });
+
+    return map;
+  })();
+
+  if (!existing) inflightApiPageLoads.set(inflightKey, p);
+
+  try {
+    return await p;
+  } finally {
+    if (!existing) inflightApiPageLoads.delete(inflightKey);
+  }
+}
+
+async function loadAndCacheApiPage(
+  translationId: ApiTranslationId,
+  translationApiId: number,
+  pageNumber: number,
+  requestedVerseKey: string,
+): Promise<TranslationContent | null> {
+  const map = await getOrLoadApiPageMap(translationId, translationApiId, pageNumber);
+  return map.get(requestedVerseKey) ?? null;
 }

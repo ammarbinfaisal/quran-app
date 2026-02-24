@@ -54,6 +54,26 @@ export async function dbPut<T = unknown>(store: string, key: string, value: T): 
   });
 }
 
+export async function dbPutMany<T = unknown>(
+  store: string,
+  entries: Array<[key: string, value: T]>,
+): Promise<void> {
+  if (entries.length === 0) return;
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const os = tx.objectStore(store);
+
+    for (const [key, value] of entries) {
+      os.put(value, key);
+    }
+
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function dbDelete(store: string, key: string): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
