@@ -159,36 +159,61 @@ export function VerseCard({
                         .filter((s): s is Extract<TranslationSegment, { type: "footnote" }> => s.type === "footnote")
                         .map((s) => ({ id: s.id, label: s.label }));
                     const label = TRANSLATION_DISPLAY_NAMES[id] ?? id;
+                    const [surahNumStr, ayahNumStr] = verseKey.split(":");
+                    const surahNum = Number(surahNumStr);
+                    const ayahNum = Number(ayahNumStr);
                     return (
-                        <div key={id} className="text-sm leading-relaxed text-[var(--color-text)] opacity-90 pb-2 border-b border-[var(--color-muted)]/5 last:border-0 max-w-4xl">
-                            {segments.map((part: TranslationSegment, idx: number) => {
-                                if (part.type === "text") {
-                                    return <span key={idx}>{part.text}</span>;
-                                }
-                                if (part.type === "annotation") {
+                        <div
+                            key={id}
+                            className="pb-2 border-b border-[var(--color-muted)]/5 last:border-0 max-w-4xl"
+                        >
+                            <div className="text-xs font-bold text-[var(--color-muted)] uppercase tracking-widest mb-2 opacity-60 flex items-center gap-2">
+                                <span>{label}</span>
+                                {id === "abu-iyaad" &&
+                                    Number.isFinite(surahNum) &&
+                                    Number.isFinite(ayahNum) && (
+                                        <a
+                                            href={`https://www.thenoblequran.com/q/#/verse/${surahNum}/${ayahNum}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-1 hover:text-[var(--color-accent)] transition-colors"
+                                            aria-label="Open Abu Iyaad translation source"
+                                        >
+                                            <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                    )}
+                            </div>
+
+                            <div className="text-sm leading-relaxed text-[var(--color-text)] opacity-90">
+                                {segments.map((part: TranslationSegment, idx: number) => {
+                                    if (part.type === "text") {
+                                        return <span key={idx}>{part.text}</span>;
+                                    }
+                                    if (part.type === "annotation") {
+                                        return (
+                                            <span key={idx} className="text-[var(--color-muted)] opacity-70">
+                                                {part.text}
+                                            </span>
+                                        );
+                                    }
                                     return (
-                                        <span key={idx} className="text-[var(--color-muted)] opacity-70">
-                                            {part.text}
-                                        </span>
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => {
+                                                if (footnoteRefs.length === 0) return;
+                                                const ref = footnoteRefs.find((r) => r.id === part.id);
+                                                setActiveFootnotes({ refs: ref ? [ref] : footnoteRefs, label });
+                                                setFootnoteSheetOpen(true);
+                                            }}
+                                            className="inline-flex items-center justify-center px-1 text-[10px] font-bold text-[var(--color-accent)] hover:underline active:opacity-60"
+                                            aria-label={`Footnote ${part.label}`}
+                                        >
+                                            [{part.label}]
+                                        </button>
                                     );
-                                }
-                                return (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => {
-                                            if (footnoteRefs.length === 0) return;
-                                            const ref = footnoteRefs.find((r) => r.id === part.id);
-                                            setActiveFootnotes({ refs: ref ? [ref] : footnoteRefs, label });
-                                            setFootnoteSheetOpen(true);
-                                        }}
-                                        className="inline-flex items-center justify-center px-1 text-[10px] font-bold text-[var(--color-accent)] hover:underline active:opacity-60"
-                                        aria-label={`Footnote ${part.label}`}
-                                    >
-                                        [{part.label}]
-                                    </button>
-                                );
-                            })}
+                                })}
+                            </div>
                         </div>
                     );
                 })}
