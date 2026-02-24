@@ -190,31 +190,38 @@ main {
 /* ------------------------------------------------------------------ */
 
 .swipe-container {
-  overflow: hidden;
+  /* Native CSS scroll-snap: browser owns touch physics, peek-and-back is free */
+  overflow-x: scroll;
+  overflow-y: hidden;
   height: 100%;
   width: 100%;
-  position: relative;
-  touch-action: pan-y;
-  /* Tell browser we handle horizontal touch */
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; /* momentum on iOS */
+  scrollbar-width: none; /* Firefox */
+}
+
+.swipe-container::-webkit-scrollbar {
+  display: none; /* Chrome / Safari */
 }
 
 .swipe-track {
   display: flex;
-  direction: rtl;
   height: 100%;
-  width: 100%;
-  will-change: transform;
+  /* Three slots wide; each slot = 100% of the container viewport */
+  width: 300%;
 }
 
 .swipe-page {
-  flex: 0 0 100%;
-  width: 100%;
-  min-width: 100%;
+  /* Each slot is 1/3 of the 300%-wide track = 100% of the container */
+  flex: 0 0 33.333%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 8px;
+  scroll-snap-align: start;
+  /* Never skip a snap point on fast flings */
+  scroll-snap-stop: always;
 }
 
 /* ------------------------------------------------------------------ */
