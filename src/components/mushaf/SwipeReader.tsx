@@ -179,9 +179,8 @@ export default function SwipeReader({
   // Touch Handlers
   // ---------------------------------------------------------------------------
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Ignore touchstart while animating. The user must wait for the swipe
-    // transition to finish. (If they hold, handleTouchMove will gracefully
-    // hijack it once IDLE).
+    // Once the finger lifts, the swipe intent is committed. Ignore new touches
+    // during the in-flight transition (user can swipe back right after).
     if (stateRef.current === "ANIMATING") return;
     if (e.touches.length === 0) return;
 
@@ -220,28 +219,6 @@ export default function SwipeReader({
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // If we are IDLE but we receive a touchmove, it's possible a finger was placed
-    // down during the ANIMATING state (where we ignored touchstart). Let's grab it now.
-    if (stateRef.current === "IDLE" && e.touches.length > 0) {
-      const newTouch = e.touches[e.touches.length - 1];
-      startXRef.current = newTouch.clientX;
-      startYRef.current = newTouch.clientY;
-      startTimeRef.current = Date.now();
-      isSwipeDecisionMadeRef.current = false;
-      isHorizontalSwipeRef.current = false;
-      if (containerRef.current) {
-        widthRef.current = containerRef.current.clientWidth;
-      }
-      stateRef.current = "DRAGGING";
-      if (trackRef.current) {
-        trackRef.current.style.transition = "none";
-      }
-      touchIdRef.current = newTouch.identifier;
-      lastXRef.current = newTouch.clientX;
-      lastYRef.current = newTouch.clientY;
-      return;
-    }
-
     if (stateRef.current !== "DRAGGING") return;
     if (touchIdRef.current === null) return;
 
@@ -311,25 +288,6 @@ export default function SwipeReader({
       return;
     }
 
-    // Our tracked finger lifted. Are there still other fingers on screen?
-    // If so, gracefully handoff tracking to one of them.
-    if (e.touches.length > 0) {
-      const nextTouch = e.touches[e.touches.length - 1];
-
-      // Emulate a seamless `touchstart` for this existing finger
-      const currentDeltaX = lastXRef.current - startXRef.current;
-      const currentDeltaY = lastYRef.current - startYRef.current;
-
-      startXRef.current = nextTouch.clientX - currentDeltaX;
-      startYRef.current = nextTouch.clientY - currentDeltaY;
-      lastXRef.current = nextTouch.clientX;
-      lastYRef.current = nextTouch.clientY;
-      touchIdRef.current = nextTouch.identifier;
-
-      // Return without finishing the swipe, staying in DRAGGING state
-      return;
-    }
-
     // If it was just a tap or vertical scroll
     if (!isHorizontalSwipeRef.current) {
       stateRef.current = "IDLE";
@@ -361,12 +319,15 @@ export default function SwipeReader({
     }
 
     if (trackRef.current) {
-      trackRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0.8, 0.3, 1)";
+      trackRef.current.style.transition = "transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1)";
       trackRef.current.style.transform = `translate3d(${targetOffset}px, 0, 0)`;
 
       // If we snapped back to the same page, reset IDLE here.
       // If we changed page, the `useLayoutEffect` on `currentPage` change will reset IDLE.
+      let done = false;
       const transitionCb = () => {
+        if (done) return;
+        done = true;
         if (targetPage !== currentPage) {
           onPageChangeRef.current(targetPage);
         } else {
@@ -378,12 +339,9 @@ export default function SwipeReader({
       };
 
       trackRef.current.addEventListener("transitionend", transitionCb);
-
       setTimeout(() => {
-        if (stateRef.current === "ANIMATING") {
-          transitionCb();
-        }
-      }, 350);
+        if (stateRef.current === "ANIMATING") transitionCb();
+      }, 260);
     }
 
     touchIdRef.current = null;
