@@ -367,7 +367,11 @@ function DownloadRow({
       <div className="flex-1 min-w-0">
         <span className="text-sm text-[var(--color-text)]">{label}</span>
         {isDownloading && progress && <ProgressBar progress={progress} />}
-        {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+        {error && (
+          <p className="mt-1 text-xs text-red-500">
+            Download failed. Tap the download button to resume.
+          </p>
+        )}
       </div>
 
       <div className="ml-3 flex items-center gap-1">

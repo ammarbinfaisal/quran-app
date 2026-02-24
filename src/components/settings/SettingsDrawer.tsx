@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, MonitorDown } from "lucide-react";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { TranslationPicker } from "@/components/settings/TranslationPicker";
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 export function SettingsDrawer({
   open,
@@ -21,6 +22,8 @@ export function SettingsDrawer({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
+
+  const { canInstall, install } = usePwaInstall();
 
   if (!open) return null;
 
@@ -45,6 +48,19 @@ export function SettingsDrawer({
           <TranslationPicker />
           <FontSizeControl />
         </div>
+
+        {canInstall && (
+          <div className="px-4 py-3 border-t border-[var(--color-muted)]/20">
+            <button
+              type="button"
+              onClick={install}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-white active:opacity-80 active:scale-[0.98] transition"
+            >
+              <MonitorDown className="h-4 w-4" />
+              Install
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
