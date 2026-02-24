@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import type { FootnoteReference } from "@/lib/footnotes";
 import { loadTranslationFootnotes } from "@/lib/footnotes";
@@ -66,8 +67,9 @@ export function FootnoteSheet({
     }, [open, footnoteRefs]);
 
     if (!open) return null;
+    if (typeof document === "undefined") return null;
 
-    return (
+    const node = (
         <>
             <div className="sheet-overlay" style={{ zIndex: 60 }} onClick={onClose} />
             <div
@@ -130,4 +132,6 @@ export function FootnoteSheet({
             </div>
         </>
     );
+
+    return createPortal(node, document.body);
 }
