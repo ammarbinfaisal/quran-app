@@ -38,7 +38,7 @@ export function SurahHeader({
                     "rounded-2xl border bg-[var(--color-surface)] shadow-sm",
                     "border-[var(--color-muted)]/15",
                     variant === "mushaf"
-                        ? "px-2 py-0.5 max-h-full"
+                        ? "px-2 py-0.5 max-h-full w-full"
                         : "px-4 py-3",
                     className
                 )}
