@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { loadAbuIyaadSurahs } from "@/lib/translations/abu-iyaad";
+import { loadAbuIyaadSurahs, getSurahsCacheSync } from "@/lib/translations/abu-iyaad";
 
 export function useAbuIyaadSurahs(): Record<string, string> | null {
-    const [surahs, setSurahs] = useState<Record<string, string> | null>(null);
+    const [surahs, setSurahs] = useState<Record<string, string> | null>(getSurahsCacheSync);
 
     useEffect(() => {
         let mounted = true;

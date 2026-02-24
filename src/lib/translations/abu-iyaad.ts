@@ -42,6 +42,13 @@ export async function loadAbuIyaadData(): Promise<Record<string, CompactSeg[]>> 
 }
 
 /**
+ * Synchronously return the surah names cache if already loaded, null otherwise.
+ */
+export function getSurahsCacheSync(): Record<string, string> | null {
+  return surahsCache;
+}
+
+/**
  * Load Abu Iyaad surah names.
  */
 export async function loadAbuIyaadSurahs(): Promise<Record<string, string>> {
