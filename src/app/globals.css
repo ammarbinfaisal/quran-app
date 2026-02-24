@@ -190,20 +190,27 @@ main {
 /* ------------------------------------------------------------------ */
 
 .swipe-container {
-  overflow: hidden;
+  overflow-x: scroll;
+  overflow-y: hidden;
   height: 100%;
   width: 100%;
   position: relative;
-  touch-action: pan-y;
-  /* Tell browser we handle horizontal touch */
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-y pinch-zoom;
+
+  scrollbar-width: none; /* Firefox */
+}
+
+.swipe-container::-webkit-scrollbar {
+  display: none;
 }
 
 .swipe-track {
   display: flex;
-  direction: rtl;
   height: 100%;
   width: 100%;
-  will-change: transform;
 }
 
 .swipe-page {
@@ -215,6 +222,8 @@ main {
   align-items: center;
   justify-content: center;
   padding: 8px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 /* ------------------------------------------------------------------ */

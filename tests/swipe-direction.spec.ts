@@ -32,133 +32,30 @@ async function getDisplayedPage(page: Page): Promise<number> {
     return Number.parseInt(text?.trim() ?? "0", 10);
 }
 
-async function dispatchSwipe(page: Page, startX: number, endX: number, y: number, durationMs: number) {
-    await page.evaluate(({ startX, endX, y, durationMs }) => {
-        const container = document.querySelector(".swipe-container") as HTMLElement;
+async function scrollToSlot(page: Page, slotIndex: 0 | 1 | 2) {
+    await page.evaluate(({ slotIndex }) => {
+        const container = document.querySelector(".swipe-container") as HTMLElement | null;
         if (!container) throw new Error("Swipe container not found");
-
-        const startTouch = new Touch({
-            identifier: 1,
-            target: container,
-            clientX: startX,
-            clientY: y,
-            pageX: startX,
-            pageY: y,
-            screenX: startX,
-            screenY: y,
-        });
-
-        container.dispatchEvent(new TouchEvent("touchstart", {
-            cancelable: true,
-            bubbles: true,
-            touches: [startTouch],
-            targetTouches: [startTouch],
-            changedTouches: [startTouch],
-        }));
-
-        const steps = 10;
-        const stepDuration = durationMs / steps;
-        let currentStep = 0;
-
-        return new Promise<void>((resolve) => {
-            const interval = setInterval(() => {
-                currentStep++;
-                const progress = currentStep / steps;
-                const currentX = startX + (endX - startX) * progress;
-
-                const moveTouch = new Touch({
-                    identifier: 1,
-                    target: container,
-                    clientX: currentX,
-                    clientY: y,
-                    pageX: currentX,
-                    pageY: y,
-                    screenX: currentX,
-                    screenY: y,
-                });
-
-                container.dispatchEvent(new TouchEvent("touchmove", {
-                    cancelable: true,
-                    bubbles: true,
-                    touches: [moveTouch],
-                    targetTouches: [moveTouch],
-                    changedTouches: [moveTouch],
-                }));
-
-                if (currentStep >= steps) {
-                    clearInterval(interval);
-                    container.dispatchEvent(new TouchEvent("touchend", {
-                        cancelable: true,
-                        bubbles: true,
-                        touches: [],
-                        targetTouches: [],
-                        changedTouches: [moveTouch],
-                    }));
-                    resolve();
-                }
-            }, stepDuration);
-        });
-    }, { startX, endX, y, durationMs });
+        const W = container.clientWidth;
+        container.scrollTo({ left: slotIndex * W, behavior: "auto" });
+    }, { slotIndex });
 }
 
-async function getSwipeContainerRect(page: Page) {
-    const container = page.locator(".swipe-container");
-    await container.waitFor({ state: "attached" });
-
-    for (let attempt = 0; attempt < 5; attempt++) {
-        const rect = await container.evaluate((el) => {
-            const r = el.getBoundingClientRect();
-            return { x: r.x, y: r.y, width: r.width, height: r.height };
-        });
-        if (rect.width > 0 && rect.height > 0) return rect;
-        await page.waitForTimeout(50);
-    }
-
-    throw new Error("Swipe container not found");
-}
-
-/** Perform a swipe forward (next page). SwipeReader treats drag right as next page. */
+/** Swipe forward (next page). In the native scroll-snap reader, next page sits in the left slot. */
 async function swipeForward(page: Page) {
-    const box = await getSwipeContainerRect(page);
-    const y = box.y + box.height / 2;
-    const startX = box.x + box.width * 0.2;
-    const endX = box.x + box.width * 0.8;
-    await dispatchSwipe(page, startX, endX, y, 200);
+    await scrollToSlot(page, 0);
 }
 
-/** Perform a swipe backward (previous page). */
+/** Swipe backward (previous page). Previous page sits in the right slot. */
 async function swipeBackward(page: Page) {
-    const box = await getSwipeContainerRect(page);
-    const y = box.y + box.height / 2;
-    const startX = box.x + box.width * 0.8;
-    const endX = box.x + box.width * 0.2;
-    await dispatchSwipe(page, startX, endX, y, 200);
-}
-
-/** Read all swipe debug log entries from window.__swipeLog. */
-async function getSwipeLog(page: Page): Promise<Record<string, unknown>[]> {
-    return page.evaluate(() => {
-        const w = window as unknown as { __swipeLog?: Record<string, unknown>[] };
-        return w.__swipeLog ?? [];
-    });
-}
-
-/** Clear the swipe debug log. */
-async function clearSwipeLog(page: Page) {
-    await page.evaluate(() => {
-        const w = window as unknown as { __swipeLog?: Record<string, unknown>[] };
-        w.__swipeLog = [];
-    });
+    await scrollToSlot(page, 2);
 }
 
 /** Assert the displayed page equals expected, with retry and detailed logging. */
 async function assertPage(page: Page, expected: number, label: string) {
     const actual = await getDisplayedPage(page);
     if (actual !== expected) {
-        const log = await getSwipeLog(page);
-        const recentLog = log.slice(-20);
         console.log(`[FAIL:${label}] Expected page ${expected}, got ${actual}`);
-        console.log(`[FAIL:${label}] Recent swipe log:`, JSON.stringify(recentLog, null, 2));
     }
     expect(actual, `${label}: expected page ${expected}`).toBe(expected);
 }
@@ -188,7 +85,6 @@ test.describe("Swipe from direct URL navigation", () => {
     test("navigate to page 5, swipe forward, verify page 6 is stable", async ({ page }) => {
         await page.goto("/p/5");
         await waitForMushafRender(page);
-        await clearSwipeLog(page);
 
         const initial = await getDisplayedPage(page);
         expect(initial).toBe(5);
@@ -199,16 +95,11 @@ test.describe("Swipe from direct URL navigation", () => {
 
         // Assert page 6 is displayed and remains stable
         await assertPageStable(page, 6, "swipe-forward-from-5");
-
-        // Dump log for debugging
-        const log = await getSwipeLog(page);
-        console.log("[swipe-forward-from-5] Full log:", JSON.stringify(log, null, 2));
     });
 
     test("navigate to page 10, swipe backward, verify page 9 is stable", async ({ page }) => {
         await page.goto("/p/10");
         await waitForMushafRender(page);
-        await clearSwipeLog(page);
 
         const initial = await getDisplayedPage(page);
         expect(initial).toBe(10);
@@ -233,7 +124,6 @@ test.describe("Swipe from direct URL navigation", () => {
         await assertPage(page, 2, "first-swipe-from-1");
 
         // Second swipe
-        await clearSwipeLog(page);
         await swipeForward(page);
         await page.waitForTimeout(800);
         await assertPageStable(page, 3, "second-swipe-from-1");
@@ -274,8 +164,6 @@ test.describe("Swipe after Navigation Picker jump", () => {
         // Al-Baqarah starts at page 2
         expect(jumpedPage).toBeGreaterThanOrEqual(2);
 
-        await clearSwipeLog(page);
-
         // Now swipe forward
         await swipeForward(page);
         await page.waitForTimeout(500);
@@ -296,7 +184,6 @@ test.describe("Chained swipes and navigation jumps", () => {
         let currentExpected = 1;
 
         for (let i = 0; i < 5; i++) {
-            await clearSwipeLog(page);
             await swipeForward(page);
             await page.waitForTimeout(800);
             currentExpected++;
@@ -402,10 +289,6 @@ test.describe("Chained swipes and navigation jumps", () => {
         await page.waitForTimeout(1000);
         const stillSettled = await getDisplayedPage(page);
         expect(stillSettled).toBe(settled);
-
-        console.log(`[rapid-swipe] Settled at page ${settled}`);
-        const log = await getSwipeLog(page);
-        console.log("[rapid-swipe] Full log:", JSON.stringify(log, null, 2));
     });
 });
 
@@ -419,7 +302,6 @@ test.describe("Random page swipe stability", () => {
         test(`page ${startPage}: swipe forward and verify stability`, async ({ page }) => {
             await page.goto(`/p/${startPage}`);
             await waitForMushafRender(page);
-            await clearSwipeLog(page);
 
             const initial = await getDisplayedPage(page);
             expect(initial).toBe(startPage);
@@ -436,97 +318,18 @@ test.describe("Random page swipe stability", () => {
 // 5. Partial Swipes
 // ---------------------------------------------------------------------------
 test.describe("Partial Swipes", () => {
-    test("touch drag without releasing does not trigger premature layout jump", async ({ page }) => {
+    test("small scroll (peek) does not change the page", async ({ page }) => {
         await page.goto("/p/1");
         await waitForMushafRender(page);
         await assertPage(page, 1, "start");
 
-        const box = await page.locator(".swipe-container").boundingBox();
-        if (!box) throw new Error("Could not find swipe container bounding box");
-
-        const startX = box.x + box.width / 2;
-        const startY = box.y + box.height / 2;
-
-        await page.evaluate(({ startX, startY }) => {
-            const container = document.querySelector(".swipe-container") as HTMLElement;
+        await page.evaluate(() => {
+            const container = document.querySelector(".swipe-container") as HTMLElement | null;
             if (!container) throw new Error("Swipe container not found");
-
-            const touchObj = new Touch({
-                identifier: 7,
-                target: container,
-                clientX: startX,
-                clientY: startY,
-                pageX: startX,
-                pageY: startY,
-                screenX: startX,
-                screenY: startY,
-            });
-
-            container.dispatchEvent(new TouchEvent("touchstart", {
-                cancelable: true,
-                bubbles: true,
-                touches: [touchObj],
-                targetTouches: [touchObj],
-                changedTouches: [touchObj],
-            }));
-
-            const moveTouch = new Touch({
-                identifier: 7,
-                target: container,
-                clientX: startX - 50,
-                clientY: startY,
-                pageX: startX - 50,
-                pageY: startY,
-                screenX: startX - 50,
-                screenY: startY,
-            });
-
-            container.dispatchEvent(new TouchEvent("touchmove", {
-                cancelable: true,
-                bubbles: true,
-                touches: [moveTouch],
-                targetTouches: [moveTouch],
-                changedTouches: [moveTouch],
-            }));
-        }, { startX, startY });
-
-        // Hold for 300ms (to check if old 150ms timeout fires)
-        await page.waitForTimeout(300);
-
-        // Before releasing, page should still officially be 1
-        await assertPage(page, 1, "during-partial-swipe");
-
-        await page.evaluate(({ startX, startY }) => {
-            const container = document.querySelector(".swipe-container") as HTMLElement;
-            if (!container) throw new Error("Swipe container not found");
-
-            const moveBack = new Touch({
-                identifier: 7,
-                target: container,
-                clientX: startX,
-                clientY: startY,
-                pageX: startX,
-                pageY: startY,
-                screenX: startX,
-                screenY: startY,
-            });
-
-            container.dispatchEvent(new TouchEvent("touchmove", {
-                cancelable: true,
-                bubbles: true,
-                touches: [moveBack],
-                targetTouches: [moveBack],
-                changedTouches: [moveBack],
-            }));
-
-            container.dispatchEvent(new TouchEvent("touchend", {
-                cancelable: true,
-                bubbles: true,
-                touches: [],
-                targetTouches: [],
-                changedTouches: [moveBack],
-            }));
-        }, { startX, startY });
+            const W = container.clientWidth;
+            // Start centered on the current page, then "peek" a bit toward the next page.
+            container.scrollTo({ left: W - 40, behavior: "auto" });
+        });
 
         await page.waitForTimeout(500);
 

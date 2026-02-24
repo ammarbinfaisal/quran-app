@@ -76,19 +76,12 @@ export default function SwipeReader({
   highlightedVerse,
 }: SwipeReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
   const chapters = useChapters();
 
-  // State Machine Refs
-  const stateRef = useRef<"IDLE" | "DRAGGING" | "ANIMATING">("IDLE");
-  const touchIdRef = useRef<number | null>(null);
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
-  const lastXRef = useRef(0);
-  const lastYRef = useRef(0);
-  const startTimeRef = useRef(0);
-  const isSwipeDecisionMadeRef = useRef(false);
-  const isHorizontalSwipeRef = useRef(false);
+  const isTouchActiveRef = useRef(false);
+  const ignoreScrollRef = useRef(false);
+  const settleTimerRef = useRef<number | null>(null);
+  const commitLockRef = useRef<number | null>(null);
   const widthRef = useRef(0);
 
   // Keep callback fresh without triggering renders
@@ -98,35 +91,45 @@ export default function SwipeReader({
   });
 
   // Track the pages we're currently rendering directly during component render
-  const renderedPages = [currentPage - 1, currentPage, currentPage + 1];
+  // Order matters: we want a RIGHT swipe (finger L→R) to go forward (page+1).
+  // In an LTR scroll container, dragging right reveals content on the left, so we
+  // place the "next" page on the left slot.
+  const renderedPages = [currentPage + 1, currentPage, currentPage - 1];
 
-  // Synchronous React mounting to prevent any flicker
-  useLayoutEffect(() => {
-    if (containerRef.current && trackRef.current) {
-      const W = containerRef.current.clientWidth;
-      widthRef.current = W;
-
-      // In RTL flex, Item 0 is offset 0, Item 1 is -W, Item 2 is -2W
-      // So pushing track right by `+W` perfectly centers Item 1
-      trackRef.current.style.transition = "none";
-      trackRef.current.style.transform = `translate3d(${W}px, 0, 0)`;
-      stateRef.current = "IDLE";
+  const centerOnCurrent = useCallback((behavior: ScrollBehavior = "auto") => {
+    const container = containerRef.current;
+    if (!container) return;
+    const W = container.clientWidth;
+    if (!W) return;
+    widthRef.current = W;
+    ignoreScrollRef.current = true;
+    container.scrollTo({ left: W, behavior });
+    if (behavior === "smooth") {
+      window.setTimeout(() => {
+        ignoreScrollRef.current = false;
+      }, 350);
+    } else {
+      requestAnimationFrame(() => {
+        ignoreScrollRef.current = false;
+      });
     }
-  }, [currentPage]);
+  }, []);
+
+  // Synchronous recenter to keep the "current" page in the middle slot without visible jump.
+  useLayoutEffect(() => {
+    commitLockRef.current = null;
+    centerOnCurrent("auto");
+  }, [currentPage, centerOnCurrent]);
 
   // Window resize handler
   useEffect(() => {
     const handleResize = () => {
-      if (containerRef.current && trackRef.current && stateRef.current === "IDLE") {
-        const W = containerRef.current.clientWidth;
-        widthRef.current = W;
-        trackRef.current.style.transition = "none";
-        trackRef.current.style.transform = `translate3d(${W}px, 0, 0)`;
-      }
+      if (!containerRef.current) return;
+      centerOnCurrent("auto");
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [centerOnCurrent]);
 
   // Keyboard navigation & Mouse Wheel
   useEffect(() => {
@@ -175,188 +178,69 @@ export default function SwipeReader({
     };
   }, [currentPage]);
 
-  // ---------------------------------------------------------------------------
-  // Touch Handlers
-  // ---------------------------------------------------------------------------
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Once the finger lifts, the swipe intent is committed. Ignore new touches
-    // during the in-flight transition (user can swipe back right after).
-    if (stateRef.current === "ANIMATING") return;
-    if (e.touches.length === 0) return;
+  const settleFromScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    // Follow the *newest* touch that was just added to the screen
-    const newTouch = e.changedTouches[e.changedTouches.length - 1] || e.touches[e.touches.length - 1];
-
-    if (stateRef.current === "DRAGGING" && touchIdRef.current !== null) {
-      // Handoff to the new finger without jumping the track.
-      // We calculate how much we've already naturally moved...
-      const currentDeltaX = lastXRef.current - startXRef.current;
-      const currentDeltaY = lastYRef.current - startYRef.current;
-
-      // ...and anchor the new finger so the math maintains the current displacement perfectly.
-      startXRef.current = newTouch.clientX - currentDeltaX;
-      startYRef.current = newTouch.clientY - currentDeltaY;
-    } else {
-      // First finger down
-      startXRef.current = newTouch.clientX;
-      startYRef.current = newTouch.clientY;
-      startTimeRef.current = Date.now();
-      isSwipeDecisionMadeRef.current = false;
-      isHorizontalSwipeRef.current = false;
-
-      if (containerRef.current) {
-        widthRef.current = containerRef.current.clientWidth;
-      }
-      stateRef.current = "DRAGGING";
-      if (trackRef.current) {
-        trackRef.current.style.transition = "none";
-      }
+    if (settleTimerRef.current) {
+      window.clearTimeout(settleTimerRef.current);
     }
 
-    touchIdRef.current = newTouch.identifier;
-    lastXRef.current = newTouch.clientX;
-    lastYRef.current = newTouch.clientY;
+    settleTimerRef.current = window.setTimeout(() => {
+      settleTimerRef.current = null;
+      if (ignoreScrollRef.current) return;
+      if (isTouchActiveRef.current) return;
+
+      const W = container.clientWidth || widthRef.current;
+      if (!W) return;
+      widthRef.current = W;
+
+      const rawIndex = Math.round(container.scrollLeft / W);
+      const slotIndex = Math.max(0, Math.min(2, rawIndex));
+
+      if (slotIndex === 1) return;
+      if (commitLockRef.current === currentPage) return;
+
+      const targetPage = slotIndex === 0 ? currentPage + 1 : currentPage - 1;
+      if (targetPage < 1 || targetPage > TOTAL_PAGES) {
+        centerOnCurrent("smooth");
+        return;
+      }
+
+      commitLockRef.current = currentPage;
+      onPageChangeRef.current(targetPage);
+    }, 120);
+  }, [centerOnCurrent, currentPage]);
+
+  useEffect(() => {
+    return () => {
+      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    };
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (stateRef.current !== "DRAGGING") return;
-    if (touchIdRef.current === null) return;
+  const handleScroll = useCallback(() => {
+    settleFromScroll();
+  }, [settleFromScroll]);
 
-    let touch: React.Touch | null = null;
-    for (let i = 0; i < e.touches.length; i++) {
-      if (e.touches[i].identifier === touchIdRef.current) {
-        touch = e.touches[i];
-        break;
-      }
-    }
-    if (!touch) return;
+  const handleTouchStart = useCallback(() => {
+    isTouchActiveRef.current = true;
+  }, []);
 
-    const currentX = touch.clientX;
-    const currentY = touch.clientY;
-    let deltaX = currentX - startXRef.current;
-
-    lastXRef.current = currentX;
-    lastYRef.current = currentY;
-
-    if (!isSwipeDecisionMadeRef.current) {
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(currentY - startYRef.current);
-
-      if (absX > 5 || absY > 5) {
-        isSwipeDecisionMadeRef.current = true;
-        if (absX > absY * 1.5) {
-          isHorizontalSwipeRef.current = true;
-        } else {
-          // Vertical scroll detected, cancel our swipe
-          stateRef.current = "IDLE";
-          touchIdRef.current = null;
-          return;
-        }
-      }
-    }
-
-    if (isHorizontalSwipeRef.current) {
-      const W = widthRef.current;
-
-      // Rubber banding at edges
-      if (currentPage === TOTAL_PAGES && deltaX > 0) {
-        deltaX = deltaX * 0.3;
-      } else if (currentPage === 1 && deltaX < 0) {
-        deltaX = deltaX * 0.3;
-      }
-
-      if (trackRef.current) {
-        trackRef.current.style.transform = `translate3d(${W + deltaX}px, 0, 0)`;
-      }
-    }
-  }, [currentPage]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (stateRef.current !== "DRAGGING") return;
-
-    // Check if the removed finger was the one we were tracking
-    let trackingFingerLifted = false;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === touchIdRef.current) {
-        trackingFingerLifted = true;
-        break;
-      }
-    }
-
-    if (!trackingFingerLifted) {
-      // Some other finger lifted, keep dragging with our tracked finger
-      return;
-    }
-
-    // If it was just a tap or vertical scroll
-    if (!isHorizontalSwipeRef.current) {
-      stateRef.current = "IDLE";
-      touchIdRef.current = null;
-      return;
-    }
-
-    // Process the swipe finish
-    stateRef.current = "ANIMATING";
-    const W = widthRef.current;
-
-    const deltaX = lastXRef.current - startXRef.current;
-    const timeDelta = Date.now() - startTimeRef.current;
-    const velocity = timeDelta > 0 ? deltaX / timeDelta : 0;
-
-    const threshold = W / 3;
-    let targetPage = currentPage;
-    let targetOffset = W;
-
-    // Drag left -> Go to Page-1 (Offset: 0)
-    if ((deltaX < -threshold || velocity < -0.5) && currentPage > 1) {
-      targetPage = currentPage - 1;
-      targetOffset = 0;
-    }
-    // Drag right -> Go to Page+1 (Offset: 2W)
-    else if ((deltaX > threshold || velocity > 0.5) && currentPage < TOTAL_PAGES) {
-      targetPage = currentPage + 1;
-      targetOffset = 2 * W;
-    }
-
-    if (trackRef.current) {
-      trackRef.current.style.transition = "transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1)";
-      trackRef.current.style.transform = `translate3d(${targetOffset}px, 0, 0)`;
-
-      // If we snapped back to the same page, reset IDLE here.
-      // If we changed page, the `useLayoutEffect` on `currentPage` change will reset IDLE.
-      let done = false;
-      const transitionCb = () => {
-        if (done) return;
-        done = true;
-        if (targetPage !== currentPage) {
-          onPageChangeRef.current(targetPage);
-        } else {
-          stateRef.current = "IDLE";
-        }
-        if (trackRef.current) {
-          trackRef.current.removeEventListener("transitionend", transitionCb);
-        }
-      };
-
-      trackRef.current.addEventListener("transitionend", transitionCb);
-      setTimeout(() => {
-        if (stateRef.current === "ANIMATING") transitionCb();
-      }, 260);
-    }
-
-    touchIdRef.current = null;
-  }, [currentPage]);
+  const handleTouchEnd = useCallback(() => {
+    isTouchActiveRef.current = false;
+    settleFromScroll();
+  }, [settleFromScroll]);
 
   return (
     <div
       ref={containerRef}
       className="swipe-container"
+      onScroll={handleScroll}
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
-      <div ref={trackRef} className="swipe-track">
+      <div className="swipe-track">
         {renderedPages.map((pageNum) => (
           <PageSlot
             key={pageNum}
