@@ -5,7 +5,8 @@ import type { MushafCode } from "../src/lib/preferences";
 import type { MushafPagePayload } from "../src/lib/mushaf/proto";
 
 // Checks that the locally generated mushaf payload matches the API's page-boundary
-// data when filtered by the font-rendering page (v2_page) and line number (line_v2).
+// data when filtered by the font-rendering page (v2_page) and line number (line_v2),
+// after applying the same `end`-marker line correction as generate-mushaf-assets.ts.
 //
 // Usage:
 //   bun scripts/verify-mushaf-boundaries.ts --samples 50 --seed 123
@@ -79,6 +80,8 @@ async function expectedWordsForPage(page: number, mushafId: number): Promise<Exp
   const verses = responses.flat();
 
   const out: Array<ExpectedWord & { position: number; surahId: number; verseId: number }> = [];
+  const verseMaxNonEndLine = new Map<string, number>();
+
   for (const verse of verses) {
     const { surahId, verseId } = parseVerseKey(verse.verse_key);
     const words = verse.words ?? [];
@@ -100,6 +103,10 @@ async function expectedWordsForPage(page: number, mushafId: number): Promise<Exp
       if (!text) continue;
 
       const position = typeof w.position === "number" && w.position > 0 ? w.position : i + 1;
+      if (charType !== "end") {
+        const prev = verseMaxNonEndLine.get(verse.verse_key) ?? 0;
+        if (lineNumber > prev) verseMaxNonEndLine.set(verse.verse_key, lineNumber);
+      }
       out.push({
         verseKey: verse.verse_key,
         text,
@@ -110,6 +117,12 @@ async function expectedWordsForPage(page: number, mushafId: number): Promise<Exp
         verseId,
       });
     }
+  }
+
+  for (const token of out) {
+    if (token.charTypeName !== "end") continue;
+    const max = verseMaxNonEndLine.get(token.verseKey);
+    if (typeof max === "number" && max > 0 && token.lineNumber < max) token.lineNumber = max;
   }
 
   out.sort((a, b) => {
@@ -252,4 +265,3 @@ async function main() {
 }
 
 await main();
-

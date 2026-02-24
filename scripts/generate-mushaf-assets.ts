@@ -408,10 +408,42 @@ function generatePayload(
     return 3;
   };
 
-  const sortedWords = resolvedWords.slice().sort((a, b) => {
-    const aLine = resolveLineNum(a.word);
-    const bLine = resolveLineNum(b.word);
-    if (aLine !== bLine) return aLine - bLine;
+  // Pre-filter to the physical font page and the token types we render.
+  // Then correct known API inconsistencies where an `end` marker reports an
+  // earlier line than the final content of its verse on the same page.
+  const allowedCharTypes = new Set(["word", "end", "pause"]);
+  const pageWords: Array<
+    ResolvedWord & { lineNum: number; effectiveLineNum: number; charTypeName: string }
+  > = [];
+  const verseMaxNonEndLine = new Map<string, number>();
+
+  for (const item of resolvedWords) {
+    const wordData = item.word;
+    const charTypeName = wordData.char_type_name ?? "word";
+    if (!allowedCharTypes.has(charTypeName)) continue;
+
+    const fontPage = wordData[fontPageField];
+    if (typeof fontPage === "number" && fontPage !== page) continue;
+
+    const lineNum = resolveLineNum(wordData);
+    if (charTypeName !== "end") {
+      const prev = verseMaxNonEndLine.get(item.verse_key) ?? 0;
+      if (lineNum > prev) verseMaxNonEndLine.set(item.verse_key, lineNum);
+    }
+
+    pageWords.push({ ...item, lineNum, effectiveLineNum: lineNum, charTypeName });
+  }
+
+  for (const item of pageWords) {
+    if (item.charTypeName !== "end") continue;
+    const maxLine = verseMaxNonEndLine.get(item.verse_key);
+    if (typeof maxLine === "number" && maxLine > 0 && item.effectiveLineNum < maxLine) {
+      item.effectiveLineNum = maxLine;
+    }
+  }
+
+  const sortedWords = pageWords.slice().sort((a, b) => {
+    if (a.effectiveLineNum !== b.effectiveLineNum) return a.effectiveLineNum - b.effectiveLineNum;
 
     const aOrder = getVerseOrder(a.verse_key);
     const bOrder = getVerseOrder(b.verse_key);
@@ -424,7 +456,7 @@ function generatePayload(
       typeof b.word.position === "number" && b.word.position > 0 ? b.word.position : b.word_index + 1;
     if (aPos !== bPos) return aPos - bPos;
 
-    return charTypeRank(a.word.char_type_name) - charTypeRank(b.word.char_type_name);
+    return charTypeRank(a.charTypeName) - charTypeRank(b.charTypeName);
   });
 
   const linesMap = new Map<
@@ -433,20 +465,10 @@ function generatePayload(
   >();
   let maxLine = 0;
 
-  for (const { word: wordData, verse_key } of sortedWords) {
-    // Only keep word-type tokens we care about.
-    const charType = wordData.char_type_name;
-    if (charType && charType !== "word" && charType !== "end" && charType !== "pause") {
-      continue;
-    }
-
-    // The font-file page is the authoritative source for which page this word
-    // renders on. Discard words belonging to a different font page.
-    const fontPage = wordData[fontPageField];
-    if (typeof fontPage === "number" && fontPage !== page) continue;
-
-    // Resolve the line number.
-    const lineNum = resolveLineNum(wordData);
+  for (const item of sortedWords) {
+    const wordData = item.word;
+    const charType = item.charTypeName;
+    const lineNum = item.effectiveLineNum;
     maxLine = Math.max(maxLine, lineNum);
 
     const rawText = getWordText(wordData, textField);
@@ -457,10 +479,10 @@ function generatePayload(
     const width = Math.max(1, [...rawText].length) * AVG_CHAR_WIDTH;
     existing.push({
       text: rawText,
-      verseKey: verse_key,
+      verseKey: item.verse_key,
       x,
       width,
-      charTypeName: charType ?? "word",
+      charTypeName: charType,
     });
     linesMap.set(lineNum, existing);
   }
