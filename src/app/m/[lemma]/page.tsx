@@ -1,15 +1,13 @@
-import fs from "fs";
-import path from "path";
 import { LemmaViewer } from "@/components/lemma/LemmaViewer";
 import { buckwalterToArabic } from "@/lib/transliteration";
 import { decodeRouteParam } from "@/lib/routeParams";
 
+export const revalidate = 604800; // ISR: 7 days
+export const dynamicParams = true;
+
 export async function generateStaticParams() {
-    const dir = path.join(process.cwd(), "public/data/lemmas");
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
-    return files.map((f) => ({
-        lemma: f.replace(/\.json$/, ""),
-    }));
+    // Build-time generating every lemma creates huge outputs; use on-demand ISR instead.
+    return [];
 }
 
 export default async function LemmaRoute({

@@ -12,6 +12,7 @@ interface MushafLineProps {
   onWordTap: (verseKey: string, wordIndex: number) => void;
   highlightedVerse?: string | null;
   fontReady: boolean;
+  showFontSkeleton: boolean;
   centered?: boolean;
   /** Per-verse word count from previous lines on this page, keyed by verseKey */
   verseWordOffsets?: Record<string, number>;
@@ -24,6 +25,7 @@ function MushafLineInner({
   onWordTap,
   highlightedVerse,
   fontReady,
+  showFontSkeleton,
   centered,
   verseWordOffsets,
 }: MushafLineProps) {
@@ -69,6 +71,7 @@ function MushafLineInner({
             onTap={onWordTap}
             highlighted={highlightedVerse === word.verseKey}
             fontReady={fontReady}
+            showFontSkeleton={showFontSkeleton}
           />
         ))}
       </div>
@@ -92,6 +95,7 @@ function MushafLineInner({
           onTap={onWordTap}
           highlighted={highlightedVerse === word.verseKey}
           fontReady={fontReady}
+          showFontSkeleton={showFontSkeleton}
         />
       ))}
     </div>

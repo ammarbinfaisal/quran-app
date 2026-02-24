@@ -130,6 +130,7 @@ export function VerseCard({
                                         onTap={() => { }}
                                         highlighted={morphIndex >= 0 && highlightedWords.includes(morphIndex + 1)}
                                         fontReady={fontReady}
+                                        showFontSkeleton={fontReady}
                                     />
                                 );
                             })}
@@ -146,8 +147,8 @@ export function VerseCard({
                     if (t.loading) {
                         return (
                             <div key={id} className="space-y-2 py-1 max-w-3xl">
-                                <div className="h-4 w-full rounded bg-[var(--color-muted)]/15 animate-pulse" />
-                                <div className="h-4 w-4/5 rounded bg-[var(--color-muted)]/15 animate-pulse" />
+                                <div className={`h-4 w-full rounded ${t.showSkeleton ? "bg-[var(--color-muted)]/15 animate-pulse" : "bg-transparent"}`} />
+                                <div className={`h-4 w-4/5 rounded ${t.showSkeleton ? "bg-[var(--color-muted)]/15 animate-pulse" : "bg-transparent"}`} />
                             </div>
                         );
                     }

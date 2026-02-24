@@ -32,7 +32,7 @@ function PageSlot({
   highlightedVerse?: string | null;
   chapters?: Chapter[];
 }) {
-  const { pageData, loading, fontReady } = useMushafPage(mushafCode, pageNumber);
+  const { pageData, loading, fontReady, showFontSkeleton } = useMushafPage(mushafCode, pageNumber);
   const nextPage = pageNumber < TOTAL_PAGES ? pageNumber + 1 : pageNumber;
   const { pageData: nextPageData } = useMushafPage(mushafCode, nextPage);
 
@@ -58,6 +58,7 @@ function PageSlot({
         highlightedVerse={highlightedVerse}
         chapters={chapters}
         fontReady={fontReady}
+        showFontSkeleton={showFontSkeleton}
         nextPageData={nextPageData}
       />
     </div>

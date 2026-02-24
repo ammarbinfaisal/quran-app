@@ -7,12 +7,15 @@ import {
   QCF_CODES,
   TRANSLATION_API_IDS,
 } from "@/lib/types";
-import { dbPut, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
+import { dbPut, dbPutMany, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
 import { getQcfFontUrl } from "@/lib/mushaf/fonts";
+import { compactToContent, parseTranslationSegments, segmentsToContent, type TranslationSegment, type TranslationContent, type CompactSeg } from "@/lib/footnotes";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const V2 = "v2:";
 
 /** Zero-padded page number, e.g. 1 -> "001" */
 function pad(page: number): string {
@@ -148,10 +151,35 @@ export async function downloadTranslation(
 
   for (let page = 1; page <= TOTAL_PAGES; page++) {
     tasks.push(async () => {
-      const entries = await fetchPageTranslations(page, apiId);
-      for (const entry of entries) {
-        await dbPut("translations", `${translationId}:${entry.verseKey}`, entry.text);
+      // Prefer static precomputed translation assets; fall back to API if missing.
+      const url = `/data/translations/${translationId}/p${pad(page)}.json`;
+      let wrote = false;
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, TranslationSegment[]>;
+          const toStore: Array<[string, TranslationContent]> = [];
+          for (const [verseKey, segments] of Object.entries(data)) {
+            toStore.push([`${V2}${translationId}:${verseKey}`, segmentsToContent(segments)]);
+          }
+          await dbPutMany("translations", toStore);
+          wrote = true;
+        }
+      } catch {
+        // fall through
       }
+
+      if (!wrote) {
+        const entries = await fetchPageTranslations(page, apiId);
+        const toStore: Array<[string, TranslationContent]> = [];
+        for (const entry of entries) {
+          const rawHtml = entry.text ?? "";
+          const segments = parseTranslationSegments(rawHtml, translationId);
+          toStore.push([`${V2}${translationId}:${entry.verseKey}`, segmentsToContent(segments)]);
+        }
+        await dbPutMany("translations", toStore);
+      }
+
       done++;
       report();
     });
@@ -176,7 +204,7 @@ export async function downloadAbuIyaad(
   const res = await fetch("/data/abu-iyaad.json");
   if (!res.ok) throw new Error(`Failed to fetch abu-iyaad.json: ${res.status}`);
 
-  const data = (await res.json()) as Record<string, string>;
+  const data = (await res.json()) as Record<string, CompactSeg[]>;
   const entries = Object.entries(data);
 
   const total = entries.length || 1;
@@ -188,17 +216,24 @@ export async function downloadAbuIyaad(
     label: 'Saving "abu-iyaad" translation',
   });
 
-  for (const [verseKey, text] of entries) {
-    await dbPut("translations", `abu-iyaad:${verseKey}`, text);
+  const batch: Array<[string, TranslationContent]> = [];
+  const flush = async () => {
+    if (batch.length === 0) return;
+    await dbPutMany("translations", batch);
+    batch.length = 0;
+  };
+
+  for (const [verseKey, segs] of entries) {
+    batch.push([`${V2}abu-iyaad:${verseKey}`, compactToContent(segs)]);
     done++;
-    if (done % 150 === 0) {
-      onProgress({
-        total,
-        done,
-        label: 'Saving "abu-iyaad" translation',
-      });
+    if (batch.length >= 400) {
+      await flush();
+      onProgress({ total, done, label: 'Saving "abu-iyaad" translation' });
+    } else if (done % 150 === 0) {
+      onProgress({ total, done, label: 'Saving "abu-iyaad" translation' });
     }
   }
+  await flush();
 
   await dbPut("translations", "abu-iyaad:complete", true);
   onProgress({
@@ -210,9 +245,10 @@ export async function downloadAbuIyaad(
 
 export async function removeTranslation(translationId: TranslationId): Promise<void> {
   const prefix = `${translationId}:`;
+  const v2Prefix = `${V2}${translationId}:`;
   const keys = await dbGetAllKeys("translations");
   for (const key of keys) {
-    if (key.startsWith(prefix)) {
+    if (key.startsWith(prefix) || key.startsWith(v2Prefix)) {
       await dbDelete("translations", key);
     }
   }

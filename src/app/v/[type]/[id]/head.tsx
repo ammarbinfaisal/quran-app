@@ -29,6 +29,7 @@ export default async function Head({
 }: {
   params: Promise<{ type: string; id: string }>;
 }) {
+  const isProd = process.env.NODE_ENV === "production";
   const { type, id } = await params;
   const n = parseInt(id, 10);
   const safeId = Number.isFinite(n) ? n : 1;
@@ -63,6 +64,16 @@ export default async function Head({
         />
       ))}
 
+      {isProd && pages.map((p) => (
+        <link
+          key={`tr-saheeh-${p}`}
+          rel="preload"
+          as="fetch"
+          href={`/data/translations/saheeh/p${pad3(p)}.json`}
+          crossOrigin="anonymous"
+        />
+      ))}
+
       <link
         rel="preload"
         as="fetch"
@@ -72,4 +83,3 @@ export default async function Head({
     </>
   );
 }
-

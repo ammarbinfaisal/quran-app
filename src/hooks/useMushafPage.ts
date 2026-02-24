@@ -29,10 +29,12 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
     const fam = getFontFamily(code, pageNum);
     return isFontLoaded(fam);
   });
+  const [showFontSkeleton, setShowFontSkeleton] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let skeletonTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function load() {
       try {
@@ -50,7 +52,14 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
 
         // sync font status
         const fam = getFontFamily(code, pageNum);
-        setFontReady(isFontLoaded(fam));
+        const initialFontReady = isFontLoaded(fam);
+        setFontReady(initialFontReady);
+        setShowFontSkeleton(false);
+        if (!initialFontReady) {
+          skeletonTimer = setTimeout(() => {
+            if (!cancelled) setShowFontSkeleton(true);
+          }, 140);
+        }
 
         // Kick off page JSON + font load in parallel to minimize first-render skeleton time.
         const dataPromise = loadMushafPage(code, pageNum);
@@ -60,7 +69,10 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
 
         fontPromise
           .then(() => {
-            if (!cancelled) setFontReady(true);
+            if (cancelled) return;
+            if (skeletonTimer) clearTimeout(skeletonTimer);
+            setFontReady(true);
+            setShowFontSkeleton(false);
           })
           .catch((err) => console.error("Font loading failed", err));
 
@@ -83,8 +95,9 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
 
     return () => {
       cancelled = true;
+      if (skeletonTimer) clearTimeout(skeletonTimer);
     };
   }, [code, pageNum]);
 
-  return { pageData, loading, fontReady, error };
+  return { pageData, loading, fontReady, showFontSkeleton, error };
 }

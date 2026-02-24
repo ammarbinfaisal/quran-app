@@ -27,6 +27,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ar" dir="ltr" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="dns-prefetch" href="https://api.quran.com" />
+        <link rel="preconnect" href="https://api.quran.com" crossOrigin="anonymous" />
       </head>
       <body>
         <ThemeInit />

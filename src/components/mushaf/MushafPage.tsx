@@ -14,6 +14,7 @@ interface MushafPageProps {
   highlightedVerse?: string | null;
   chapters?: Chapter[];
   fontReady: boolean;
+  showFontSkeleton: boolean;
   nextPageData?: MushafPagePayload | null;
 }
 
@@ -24,6 +25,7 @@ function MushafPageInner({
   highlightedVerse,
   chapters,
   fontReady,
+  showFontSkeleton,
   nextPageData,
 }: MushafPageProps) {
   const maxLines = MUSHAF_LINES[mushafCode] ?? 15;
@@ -160,6 +162,7 @@ function MushafPageInner({
             onWordTap={onWordTap}
             highlightedVerse={highlightedVerse}
             fontReady={fontReady}
+            showFontSkeleton={showFontSkeleton}
             centered={centeredLines.has(i)}
             verseWordOffsets={verseWordOffsetsByLine[i]}
           />

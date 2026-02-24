@@ -9,6 +9,7 @@ import {
 } from "../src/lib/mushaf/proto";
 import type { TranslationId } from "../src/lib/types";
 import { TRANSLATION_API_IDS } from "../src/lib/types";
+import { parseTranslationSegments, type TranslationSegment } from "../src/lib/footnotes";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -40,6 +41,12 @@ const PAGES_BY_MUSHAF_ID: Record<number, number> = { 1: TOTAL_PAGES };
 type FootnoteTranslationId = Exclude<TranslationId, "abu-iyaad">;
 const FOOTNOTE_TRANSLATIONS: FootnoteTranslationId[] = ["saheeh", "hilali-khan"];
 const FOOTNOTE_ASSET_FILE = "translation-footnotes.json";
+const TRANSLATION_ASSET_BASE_DIR = path.join(
+  process.cwd(),
+  "public",
+  "data",
+  "translations",
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -190,6 +197,12 @@ async function main() {
   await mkdir(footnoteDir, { recursive: true });
   const footnoteAssetPath = path.join(footnoteDir, FOOTNOTE_ASSET_FILE);
   const footnotesByTranslation = await loadExistingFootnotes(footnoteAssetPath);
+  const translationOutDirById = new Map<FootnoteTranslationId, string>();
+  for (const id of FOOTNOTE_TRANSLATIONS) {
+    const dir = path.join(TRANSLATION_ASSET_BASE_DIR, id);
+    await mkdir(dir, { recursive: true });
+    translationOutDirById.set(id, dir);
+  }
   for (const c of codes) statsByCode.set(c, makeStats());
 
   const dataDirs = new Map<MushafCode, string>();
@@ -236,6 +249,43 @@ async function main() {
       const maxPages = PAGES_BY_MUSHAF_ID[mushafId] ?? TOTAL_PAGES;
       const padded = String(page).padStart(3, "0");
 
+      // Collect footnotes and precompute translation assets from quran.com.
+      // These are independent from mushaf page JSON/PB generation, so we run them
+      // even if the mushaf page assets already exist (unless --pages excludes them).
+      if (mushafId === 1) {
+        await Promise.all(
+          FOOTNOTE_TRANSLATIONS.map(async (translationId) => {
+            const resourceId = TRANSLATION_API_IDS[translationId];
+            if (!resourceId) return;
+            try {
+              const data = await fetchTranslationPage(resourceId, page);
+
+              const pageFootnotes = data.foot_notes;
+              if (pageFootnotes) {
+                const target = footnotesByTranslation[translationId];
+                for (const [id, text] of Object.entries(pageFootnotes)) {
+                  if (!target[id]) target[id] = text;
+                }
+              }
+
+              const outDir = translationOutDirById.get(translationId);
+              if (outDir && data.translations?.length) {
+                const out: Record<string, TranslationSegment[]> = {};
+                for (const t of data.translations) {
+                  if (!t?.verse_key) continue;
+                  const html = t.text ?? "";
+                  out[t.verse_key] = parseTranslationSegments(html, translationId);
+                }
+                await Bun.write(path.join(outDir, `p${padded}.json`), JSON.stringify(out));
+              }
+            } catch (error: unknown) {
+              const err = error as Error;
+              console.error(`\nFailed to load translations p${page}/${translationId}: ${err.message}`);
+            }
+          }),
+        );
+      }
+
       if (!force) {
         const allExist = taskCodes.every((code) => {
           const dir = dataDirs.get(code)!;
@@ -263,29 +313,6 @@ async function main() {
         doneTasks++;
         updateProgress(doneTasks, totalTasks);
         continue;
-      }
-
-      // Collect footnotes from the primary page response.
-      if (mushafId === 1) {
-        await Promise.all(
-          FOOTNOTE_TRANSLATIONS.map(async (translationId) => {
-            const resourceId = TRANSLATION_API_IDS[translationId];
-            if (!resourceId) return;
-            try {
-              const data = await fetchTranslationPage(resourceId, page);
-              const pageFootnotes = data.foot_notes;
-              if (pageFootnotes) {
-                const target = footnotesByTranslation[translationId];
-                for (const [id, text] of Object.entries(pageFootnotes)) {
-                  if (!target[id]) target[id] = text;
-                }
-              }
-            } catch (error: unknown) {
-              const err = error as Error;
-              console.error(`\nFailed to load footnotes p${page}/${translationId}: ${err.message}`);
-            }
-          }),
-        );
       }
 
       for (const code of taskCodes) {

@@ -12,6 +12,7 @@ interface MushafWordProps {
   onTap: (verseKey: string, wordIndex: number) => void;
   highlighted: boolean;
   fontReady: boolean;
+  showFontSkeleton: boolean;
 }
 
 function MushafWordInner({
@@ -22,6 +23,7 @@ function MushafWordInner({
   onTap,
   highlighted,
   fontReady,
+  showFontSkeleton,
 }: MushafWordProps) {
   const fontFamily = getFontFamily(mushafCode, pageNum);
   const isQcf = isQcfCode(mushafCode);
@@ -31,6 +33,20 @@ function MushafWordInner({
   };
 
   if (!fontReady) {
+    if (!showFontSkeleton) {
+      return (
+        <span
+          className="mushaf-word"
+          style={{
+            display: "inline-block",
+            width: "2.5em",
+            height: "1.2em",
+            margin: "0 2px",
+          }}
+          aria-hidden="true"
+        />
+      );
+    }
     return (
       <span
         className="mushaf-word animate-pulse bg-[var(--color-muted)]/20 rounded-sm"

@@ -151,6 +151,7 @@ export function AyahSheet({
             const data = translations[id];
             const label = TRANSLATION_DISPLAY_NAMES[id] || id;
             const isLoading = data?.loading ?? true;
+            const showSkeleton = data?.showSkeleton ?? isLoading;
             const content = data?.content;
             const hasFootnotes = (translationFootnoteRefs[id]?.length ?? 0) > 0;
 
@@ -161,7 +162,7 @@ export function AyahSheet({
               <TranslationRow
                 key={id}
                 label={label}
-                loading={isLoading}
+                showSkeleton={showSkeleton}
                 content={content}
                 verseKey={activeVerseKey}
                 hasFootnotes={hasFootnotes}
@@ -192,7 +193,7 @@ export function AyahSheet({
 
 function TranslationRow({
   label,
-  loading,
+  showSkeleton,
   content,
   verseKey,
   hasFootnotes,
@@ -200,7 +201,7 @@ function TranslationRow({
   onFootnoteClick,
 }: {
   label: string;
-  loading: boolean;
+  showSkeleton: boolean;
   content: import("@/lib/footnotes").TranslationContent | undefined;
   verseKey?: string | null;
   hasFootnotes: boolean;
@@ -280,7 +281,7 @@ function TranslationRow({
       </div>
 
       {/* Content: skeleton or segmented text */}
-      {loading ? (
+      {showSkeleton ? (
         <div className="space-y-2 py-1" aria-label="Loading translation">
           <div className="h-3.5 w-full rounded bg-[var(--color-muted)]/15 animate-pulse" />
           <div className="h-3.5 w-4/5 rounded bg-[var(--color-muted)]/15 animate-pulse" />

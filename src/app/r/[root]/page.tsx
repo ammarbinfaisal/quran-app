@@ -1,15 +1,13 @@
-import fs from "fs";
-import path from "path";
 import { OccurrenceViewer } from "@/components/occurrence/OccurrenceViewer";
 import { buckwalterToArabic } from "@/lib/transliteration";
 import { decodeRouteParam } from "@/lib/routeParams";
 
+export const revalidate = 604800; // ISR: 7 days
+export const dynamicParams = true;
+
 export async function generateStaticParams() {
-    const dir = path.join(process.cwd(), "public/data/roots");
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
-    return files.map((f) => ({
-        root: f.replace(/\.json$/, ""),
-    }));
+    // Build-time generating every root creates huge outputs; use on-demand ISR instead.
+    return [];
 }
 
 export default async function RootRoute({

@@ -8,7 +8,7 @@ import { type MushafCode } from "@/lib/types";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
 import { fetchVersePages } from "@/lib/navigation/maps";
-import { dbGet } from "@/lib/offline/storage";
+import { dbGet, dbPut } from "@/lib/offline/storage";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import { useTheme } from "@/hooks/useTheme";
@@ -23,6 +23,30 @@ interface Occurrence {
 
 const INITIAL_VISIBLE = 60;
 const BATCH_SIZE = 20;
+
+function getOccurrenceCacheKeys(dataUrl: string): { readKeys: string[]; writeKeys: string[] } {
+    const readKeys: string[] = [dataUrl];
+    const writeKeys: string[] = [dataUrl];
+
+    // LemmaViewer / RootRoute use URL-encoded buckwalter in the path; downloads store by decoded key.
+    const mLemma = /^\/data\/lemmas\/(.+)\.json$/.exec(dataUrl);
+    if (mLemma?.[1]) {
+        const key = decodeURIComponent(mLemma[1]);
+        readKeys.unshift(key);
+        writeKeys.unshift(key);
+        return { readKeys, writeKeys };
+    }
+
+    const mRoot = /^\/data\/roots\/(.+)\.json$/.exec(dataUrl);
+    if (mRoot?.[1]) {
+        const key = `root:${decodeURIComponent(mRoot[1])}`;
+        readKeys.unshift(key);
+        writeKeys.unshift(key);
+        return { readKeys, writeKeys };
+    }
+
+    return { readKeys, writeKeys };
+}
 
 export function OccurrenceViewer({
     displayArabic,
@@ -60,12 +84,15 @@ export function OccurrenceViewer({
         setVisibleCount(INITIAL_VISIBLE);
 
         async function fetchData() {
+            const { readKeys, writeKeys } = getOccurrenceCacheKeys(dataUrl);
+
             try {
-                const cacheKey = dataUrl;
-                const cached = await dbGet<Occurrence[] | undefined>("lemmas", cacheKey);
-                if (cached && Array.isArray(cached)) {
-                    if (active) { setOccurrences(cached); setLoading(false); }
-                    return;
+                for (const cacheKey of readKeys) {
+                    const cached = await dbGet<Occurrence[] | undefined>("lemmas", cacheKey);
+                    if (cached && Array.isArray(cached)) {
+                        if (active) { setOccurrences(cached); setLoading(false); }
+                        return;
+                    }
                 }
             } catch { /* IDB unavailable */ }
 
@@ -73,6 +100,10 @@ export function OccurrenceViewer({
                 const res = await fetch(dataUrl);
                 if (!res.ok) throw new Error("not found");
                 const data: Occurrence[] = await res.json();
+                // Best-effort write-through for offline use
+                for (const cacheKey of writeKeys) {
+                    dbPut("lemmas", cacheKey, data).catch(() => { });
+                }
                 if (active) { setOccurrences(data); setLoading(false); }
             } catch {
                 if (active) { setOccurrences([]); setLoading(false); }

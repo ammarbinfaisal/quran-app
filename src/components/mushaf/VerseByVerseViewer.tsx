@@ -264,7 +264,7 @@ function VersePageBatch({
     filterId: number;
     chapters: Chapter[];
 }) {
-    const { pageData, fontReady } = useMushafPage(mushafCode, pageNum);
+    const { pageData, fontReady, showFontSkeleton } = useMushafPage(mushafCode, pageNum);
     const { prefs } = usePreferences();
 
     const verses = useMemo(() => {
@@ -312,6 +312,7 @@ function VersePageBatch({
                     onWordTap={onWordTap}
                     isHighlighted={v.verseKey === highlightedVerse}
                     fontReady={fontReady}
+                    showFontSkeleton={showFontSkeleton}
                     translationIds={prefs.translationIds}
                     chapters={chapters}
                 />
@@ -328,6 +329,7 @@ function VerseBlock({
     onWordTap,
     isHighlighted,
     fontReady,
+    showFontSkeleton,
     translationIds,
     chapters,
 }: {
@@ -338,6 +340,7 @@ function VerseBlock({
     onWordTap: (verseKey: string, wordIndex: number) => void;
     isHighlighted: boolean;
     fontReady: boolean;
+    showFontSkeleton: boolean;
     translationIds: TranslationId[];
     chapters: Chapter[];
 }) {
@@ -414,6 +417,7 @@ function VerseBlock({
                                 onTap={() => onWordTap(verseKey, morphIndex)}
                                 highlighted={isHighlighted}
                                 fontReady={fontReady}
+                                showFontSkeleton={showFontSkeleton}
                             />
                         );
                     })}
@@ -428,7 +432,11 @@ function VerseBlock({
                     const data = translations[tid];
                     if (!data || data.loading) {
                         return (
-                            <div key={tid} className="animate-pulse bg-[var(--color-muted)]/10 h-6 w-3/4 rounded" />
+                            <div
+                                key={tid}
+                                className={`h-6 w-3/4 rounded ${data?.showSkeleton ? "animate-pulse bg-[var(--color-muted)]/10" : "bg-transparent"}`}
+                                aria-label={data?.showSkeleton ? "Loading translation" : undefined}
+                            />
                         );
                     }
                     const content = data.content;

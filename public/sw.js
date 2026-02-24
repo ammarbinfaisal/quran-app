@@ -1,8 +1,15 @@
-const CACHE_NAME = "quran-assets-v7";
+const CACHE_NAME = "quran-assets-v8";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",
   "/favicon.ico",
+  "/data/chapters.json",
+  "/data/verse-pages.v2.json",
+  "/data/surah-pages.v2.json",
+  "/data/juz-pages.madani.json",
+  "/data/abu-iyaad.json",
+  "/data/abu-iyaad-surahs.json",
+  "/mushaf-data/translation-footnotes.json",
 ];
 
 const IS_DEV_HOST =
