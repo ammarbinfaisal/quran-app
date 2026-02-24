@@ -15,7 +15,6 @@ import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
-import { purgeOrphanedMushafPages } from "@/lib/mushaf/loader";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mushafPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
@@ -43,10 +42,6 @@ export function Reader({ initialPage }: { initialPage: number }) {
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const mushafCode = prefs.mushafCode;
-  
-  useEffect(() => {
-    void purgeOrphanedMushafPages();
-  }, []);
 
   useEffect(() => {
       setPage(initialPage);

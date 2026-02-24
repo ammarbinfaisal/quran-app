@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 import { dbPut, dbPutMany, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
 import { getQcfFontUrl } from "@/lib/mushaf/fonts";
+import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { compactToContent, parseTranslationSegments, segmentsToContent, type TranslationSegment, type TranslationContent, type CompactSeg } from "@/lib/footnotes";
 
 // ---------------------------------------------------------------------------
@@ -78,11 +79,11 @@ export async function downloadMushaf(
 
     // JSON data task
     tasks.push(async () => {
-      const url = `/mushaf-data/${code}/${pageKey}.json`;
+      const url = `/mushaf-data/${code}/${pageKey}.json?rev=${MUSHAF_ASSET_REV}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
       const data = await res.json();
-      await dbPut("mushaf-pages", `${code}:${pageKey}`, data);
+      await dbPut("mushaf-pages", `${code}:${MUSHAF_ASSET_REV}:${pageKey}`, data);
       done++;
       report();
     });
@@ -94,7 +95,7 @@ export async function downloadMushaf(
         const res = await fetch(fontUrl);
         if (!res.ok) throw new Error(`Failed to fetch font ${fontUrl}: ${res.status}`);
         const blob = await res.arrayBuffer();
-        await dbPut("mushaf-fonts", `${code}:${pageKey}`, blob);
+        await dbPut("mushaf-fonts", `${code}:${MUSHAF_ASSET_REV}:${pageKey}`, blob);
         done++;
         report();
       });
@@ -104,7 +105,7 @@ export async function downloadMushaf(
   await runWithConcurrency(tasks, 8);
 
   // Mark as complete
-  await dbPut("mushaf-pages", `${code}:complete`, true);
+  await dbPut("mushaf-pages", `${code}:${MUSHAF_ASSET_REV}:complete`, true);
   onProgress({ total: totalSteps, done: totalSteps, label: `Mushaf "${code}" downloaded` });
 }
 

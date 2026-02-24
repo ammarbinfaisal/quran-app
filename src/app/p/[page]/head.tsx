@@ -1,4 +1,5 @@
 import { TOTAL_PAGES } from "@/lib/constants";
+import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 
 function pad3(n: number) {
   return String(n).padStart(3, "0");
@@ -30,7 +31,7 @@ export default async function Head({
           rel="preload"
           as="font"
           type="font/woff2"
-          href={`/mushaf-fonts/v2/p${pad3(p)}.woff2`}
+          href={`/mushaf-fonts/v2/p${pad3(p)}.woff2?rev=${MUSHAF_ASSET_REV}`}
           crossOrigin="anonymous"
         />
       ))}
@@ -40,11 +41,10 @@ export default async function Head({
           key={`page-${p}`}
           rel="preload"
           as="fetch"
-          href={`/mushaf-data/v2/p${pad3(p)}.json`}
+          href={`/mushaf-data/v2/p${pad3(p)}.json?rev=${MUSHAF_ASSET_REV}`}
           crossOrigin="anonymous"
         />
       ))}
     </>
   );
 }
-

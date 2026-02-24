@@ -14,16 +14,12 @@ export function openDB(): Promise<IDBDatabase> {
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = () => {
       const db = request.result;
       for (const name of STORE_NAMES) {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name);
         }
-      }
-      // v3: clear mushaf-pages so stale cached data is evicted
-      if (event.oldVersion < 3 && db.objectStoreNames.contains("mushaf-pages")) {
-        request.transaction!.objectStore("mushaf-pages").clear();
       }
     };
 

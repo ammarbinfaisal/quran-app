@@ -1,6 +1,7 @@
 import type { MushafCode, MushafPagePayload } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
-import { dbGet, dbGetAllKeys, dbDelete, dbPut } from "@/lib/offline/storage";
+import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
+import { dbGet, dbPut } from "@/lib/offline/storage";
 
 // ---------------------------------------------------------------------------
 // Page number padding
@@ -10,24 +11,8 @@ function padPage(pageNum: number): string {
   return String(pageNum).padStart(3, "0");
 }
 
-// Bump CACHE_REV whenever mushaf data changes to force re-fetch for all users.
-// Works in tandem with the DB_VERSION clear in storage.ts.
-const CACHE_REV = "r2";
-
 function cacheKeyOf(code: MushafCode, pageNum: number) {
-  return `${code}:${CACHE_REV}:p${padPage(pageNum)}`;
-}
-
-/** Purge any IDB entries whose key doesn't match the current CACHE_REV. */
-export async function purgeOrphanedMushafPages(): Promise<void> {
-  try {
-    const keys = await dbGetAllKeys("mushaf-pages");
-    const prefix = `:${CACHE_REV}:`;
-    const stale = keys.filter((k) => !k.includes(prefix));
-    await Promise.all(stale.map((k) => dbDelete("mushaf-pages", k)));
-  } catch {
-    // non-fatal
-  }
+  return `${code}:${MUSHAF_ASSET_REV}:p${padPage(pageNum)}`;
 }
 
 function clamp(n: number, lo: number, hi: number) {
@@ -96,7 +81,7 @@ export async function loadMushafPage(
     }
 
     // 3) Network
-    const url = `/mushaf-data/${code}/p${padPage(pageNum)}.json`;
+    const url = `/mushaf-data/${code}/p${padPage(pageNum)}.json?rev=${MUSHAF_ASSET_REV}`;
     const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`Failed to load mushaf page ${code} p${pageNum}: ${res.status}`);

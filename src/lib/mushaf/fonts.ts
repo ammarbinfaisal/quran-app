@@ -5,6 +5,7 @@ import {
   FONT_CLEANUP_RADIUS,
   TOTAL_PAGES,
 } from "@/lib/constants";
+import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { dbGet, dbPut } from "@/lib/offline/storage";
 
 // ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ function mushafPageKey(pageNum: number): string {
 
 export function getQcfFontUrl(code: MushafCode, pageNum: number): string {
   const padded = padPage(pageNum);
-  return `/mushaf-fonts/${code}/p${padded}.woff2`;
+  return `/mushaf-fonts/${code}/p${padded}.woff2?rev=${MUSHAF_ASSET_REV}`;
 }
 
 export function getUnicodeFontUrl(_code: MushafCode): string {
@@ -102,7 +103,7 @@ async function loadQcfFontInner(
     }
   }
 
-  const idbKey = `${code}:${mushafPageKey(pageNum)}`;
+  const idbKey = `${code}:${MUSHAF_ASSET_REV}:${mushafPageKey(pageNum)}`;
   const url = getQcfFontUrl(code, pageNum);
 
   let source: string | ArrayBuffer = `url(${url})`;
