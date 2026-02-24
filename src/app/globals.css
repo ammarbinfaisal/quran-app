@@ -194,8 +194,10 @@ main {
   height: 100%;
   width: 100%;
   position: relative;
-  touch-action: pan-y;
-  /* Tell browser we handle horizontal touch */
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior-x: contain;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .swipe-track {
@@ -204,6 +206,8 @@ main {
   height: 100%;
   width: 100%;
   will-change: transform;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
 }
 
 .swipe-page {

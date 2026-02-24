@@ -16,6 +16,12 @@ interface SwipeReaderProps {
   highlightedVerse?: string | null;
 }
 
+const SWIPE_COMMIT_RATIO = 0.16;
+const SWIPE_MIN_COMMIT_PX = 28;
+const SWIPE_MIN_FLICK_DISTANCE_PX = 12;
+const SWIPE_FLICK_VELOCITY = 0.35;
+const SWIPE_TRANSITION_MS = 140;
+
 // ---------------------------------------------------------------------------
 // Single Page Slot
 // ---------------------------------------------------------------------------
@@ -90,6 +96,8 @@ export default function SwipeReader({
   const isSwipeDecisionMadeRef = useRef(false);
   const isHorizontalSwipeRef = useRef(false);
   const widthRef = useRef(0);
+  const rafIdRef = useRef<number | null>(null);
+  const pendingDeltaXRef = useRef<number>(0);
 
   // Keep callback fresh without triggering renders
   const onPageChangeRef = useRef(onPageChange);
@@ -128,6 +136,14 @@ export default function SwipeReader({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
   // Keyboard navigation & Mouse Wheel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -150,13 +166,13 @@ export default function SwipeReader({
           if (currentPage < TOTAL_PAGES) {
             onPageChangeRef.current(currentPage + 1);
             wheelLock = true;
-            setTimeout(() => { wheelLock = false; }, 500);
+            setTimeout(() => { wheelLock = false; }, 220);
           }
         } else {
           if (currentPage > 1) {
             onPageChangeRef.current(currentPage - 1);
             wheelLock = true;
-            setTimeout(() => { wheelLock = false; }, 500);
+            setTimeout(() => { wheelLock = false; }, 220);
           }
         }
       }
@@ -244,7 +260,7 @@ export default function SwipeReader({
 
       if (absX > 5 || absY > 5) {
         isSwipeDecisionMadeRef.current = true;
-        if (absX > absY * 1.5) {
+        if (absX > absY * 1.3) {
           isHorizontalSwipeRef.current = true;
         } else {
           // Vertical scroll detected, cancel our swipe
@@ -256,8 +272,6 @@ export default function SwipeReader({
     }
 
     if (isHorizontalSwipeRef.current) {
-      const W = widthRef.current;
-
       // Rubber banding at edges
       if (currentPage === TOTAL_PAGES && deltaX > 0) {
         deltaX = deltaX * 0.3;
@@ -265,8 +279,13 @@ export default function SwipeReader({
         deltaX = deltaX * 0.3;
       }
 
-      if (trackRef.current) {
-        trackRef.current.style.transform = `translate3d(${W + deltaX}px, 0, 0)`;
+      pendingDeltaXRef.current = deltaX;
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          if (!trackRef.current) return;
+          trackRef.current.style.transform = `translate3d(${widthRef.current + pendingDeltaXRef.current}px, 0, 0)`;
+        });
       }
     }
   }, [currentPage]);
@@ -298,28 +317,43 @@ export default function SwipeReader({
     // Process the swipe finish
     stateRef.current = "ANIMATING";
     const W = widthRef.current;
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+      if (trackRef.current) {
+        trackRef.current.style.transform = `translate3d(${W + pendingDeltaXRef.current}px, 0, 0)`;
+      }
+    }
 
     const deltaX = lastXRef.current - startXRef.current;
     const timeDelta = Date.now() - startTimeRef.current;
-    const velocity = timeDelta > 0 ? deltaX / timeDelta : 0;
+    const velocity = timeDelta > 0 ? deltaX / timeDelta : 0; // px/ms
 
-    const threshold = W / 3;
+    const distanceThreshold = Math.max(SWIPE_MIN_COMMIT_PX, W * SWIPE_COMMIT_RATIO);
     let targetPage = currentPage;
     let targetOffset = W;
 
-    // Drag left -> Go to Page-1 (Offset: 0)
-    if ((deltaX < -threshold || velocity < -0.5) && currentPage > 1) {
-      targetPage = currentPage - 1;
-      targetOffset = 0;
-    }
-    // Drag right -> Go to Page+1 (Offset: 2W)
-    else if ((deltaX > threshold || velocity > 0.5) && currentPage < TOTAL_PAGES) {
-      targetPage = currentPage + 1;
-      targetOffset = 2 * W;
+    const absDeltaX = Math.abs(deltaX);
+    const absVelocity = Math.abs(velocity);
+    const hasDistanceIntent = absDeltaX >= distanceThreshold;
+    const hasFlickIntent = absDeltaX >= SWIPE_MIN_FLICK_DISTANCE_PX && absVelocity >= SWIPE_FLICK_VELOCITY;
+    const shouldCommit = hasDistanceIntent || hasFlickIntent;
+
+    if (shouldCommit) {
+      // Drag left -> Go to Page-1 (Offset: 0)
+      if (deltaX < 0 && currentPage > 1) {
+        targetPage = currentPage - 1;
+        targetOffset = 0;
+      }
+      // Drag right -> Go to Page+1 (Offset: 2W)
+      else if (deltaX > 0 && currentPage < TOTAL_PAGES) {
+        targetPage = currentPage + 1;
+        targetOffset = 2 * W;
+      }
     }
 
     if (trackRef.current) {
-      trackRef.current.style.transition = "transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1)";
+      trackRef.current.style.transition = `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 0.8, 0.3, 1)`;
       trackRef.current.style.transform = `translate3d(${targetOffset}px, 0, 0)`;
 
       // If we snapped back to the same page, reset IDLE here.
@@ -341,7 +375,7 @@ export default function SwipeReader({
       trackRef.current.addEventListener("transitionend", transitionCb);
       setTimeout(() => {
         if (stateRef.current === "ANIMATING") transitionCb();
-      }, 260);
+      }, SWIPE_TRANSITION_MS + 40);
     }
 
     touchIdRef.current = null;
