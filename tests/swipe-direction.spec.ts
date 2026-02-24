@@ -23,7 +23,7 @@ async function getDisplayedPage(page: Page): Promise<number> {
     // Wait for URL to update (useShallowUrl has 300ms debounce)
     await page.waitForTimeout(500);
     const url = page.url();
-    const match = url.match(/\/(\d+)(?:\/|$)/);
+    const match = url.match(/\/p\/(\d+)(?:\/|$|\?)/);
     if (match) {
         return Number.parseInt(match[1], 10);
     }
@@ -32,34 +32,107 @@ async function getDisplayedPage(page: Page): Promise<number> {
     return Number.parseInt(text?.trim() ?? "0", 10);
 }
 
-/** Perform a swipe forward (next page). */
-async function swipeForward(page: Page) {
-    const container = page.locator(".swipe-container");
-    const info = await container.evaluate((el) => {
-        const dir = getComputedStyle(el).direction;
-        const before = el.scrollLeft;
-        const cw = el.clientWidth;
-        // In RTL with "negative" scrollLeft (Chrome): 
-        //   scrollLeft = 0 is rightmost, goes negative to the left
-        //   Forward (next page, higher number) = scroll LEFT = more negative
-        //   scrollBy({left: -cw}) goes left = forward
-        // In LTR: scrollBy({left: +cw}) goes right = forward
-        const delta = dir === "rtl" ? -cw : cw;
-        el.scrollBy({ left: delta, behavior: "smooth" });
-        const afterImmediate = el.scrollLeft;
-        return { dir, before, afterImmediate, delta, cw };
-    });
-    console.log("[swipeForward]", JSON.stringify(info));
+async function dispatchSwipe(page: Page, startX: number, endX: number, y: number, durationMs: number) {
+    await page.evaluate(({ startX, endX, y, durationMs }) => {
+        const container = document.querySelector(".swipe-container") as HTMLElement;
+        if (!container) throw new Error("Swipe container not found");
+
+        const startTouch = new Touch({
+            identifier: 1,
+            target: container,
+            clientX: startX,
+            clientY: y,
+            pageX: startX,
+            pageY: y,
+            screenX: startX,
+            screenY: y,
+        });
+
+        container.dispatchEvent(new TouchEvent("touchstart", {
+            cancelable: true,
+            bubbles: true,
+            touches: [startTouch],
+            targetTouches: [startTouch],
+            changedTouches: [startTouch],
+        }));
+
+        const steps = 10;
+        const stepDuration = durationMs / steps;
+        let currentStep = 0;
+
+        return new Promise<void>((resolve) => {
+            const interval = setInterval(() => {
+                currentStep++;
+                const progress = currentStep / steps;
+                const currentX = startX + (endX - startX) * progress;
+
+                const moveTouch = new Touch({
+                    identifier: 1,
+                    target: container,
+                    clientX: currentX,
+                    clientY: y,
+                    pageX: currentX,
+                    pageY: y,
+                    screenX: currentX,
+                    screenY: y,
+                });
+
+                container.dispatchEvent(new TouchEvent("touchmove", {
+                    cancelable: true,
+                    bubbles: true,
+                    touches: [moveTouch],
+                    targetTouches: [moveTouch],
+                    changedTouches: [moveTouch],
+                }));
+
+                if (currentStep >= steps) {
+                    clearInterval(interval);
+                    container.dispatchEvent(new TouchEvent("touchend", {
+                        cancelable: true,
+                        bubbles: true,
+                        touches: [],
+                        targetTouches: [],
+                        changedTouches: [moveTouch],
+                    }));
+                    resolve();
+                }
+            }, stepDuration);
+        });
+    }, { startX, endX, y, durationMs });
 }
 
-async function swipeBackward(page: Page) {
+async function getSwipeContainerRect(page: Page) {
     const container = page.locator(".swipe-container");
-    await container.evaluate((el) => {
-        const dir = getComputedStyle(el).direction;
-        const cw = el.clientWidth;
-        const delta = dir === "rtl" ? cw : -cw;
-        el.scrollBy({ left: delta, behavior: "smooth" });
-    });
+    await container.waitFor({ state: "attached" });
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const rect = await container.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return { x: r.x, y: r.y, width: r.width, height: r.height };
+        });
+        if (rect.width > 0 && rect.height > 0) return rect;
+        await page.waitForTimeout(50);
+    }
+
+    throw new Error("Swipe container not found");
+}
+
+/** Perform a swipe forward (next page). SwipeReader treats drag right as next page. */
+async function swipeForward(page: Page) {
+    const box = await getSwipeContainerRect(page);
+    const y = box.y + box.height / 2;
+    const startX = box.x + box.width * 0.2;
+    const endX = box.x + box.width * 0.8;
+    await dispatchSwipe(page, startX, endX, y, 200);
+}
+
+/** Perform a swipe backward (previous page). */
+async function swipeBackward(page: Page) {
+    const box = await getSwipeContainerRect(page);
+    const y = box.y + box.height / 2;
+    const startX = box.x + box.width * 0.8;
+    const endX = box.x + box.width * 0.2;
+    await dispatchSwipe(page, startX, endX, y, 200);
 }
 
 /** Read all swipe debug log entries from window.__swipeLog. */
@@ -113,7 +186,7 @@ async function assertPageStable(page: Page, expected: number, label: string) {
 // ---------------------------------------------------------------------------
 test.describe("Swipe from direct URL navigation", () => {
     test("navigate to page 5, swipe forward, verify page 6 is stable", async ({ page }) => {
-        await page.goto("/p/v2/5");
+        await page.goto("/p/5");
         await waitForMushafRender(page);
         await clearSwipeLog(page);
 
@@ -133,7 +206,7 @@ test.describe("Swipe from direct URL navigation", () => {
     });
 
     test("navigate to page 10, swipe backward, verify page 9 is stable", async ({ page }) => {
-        await page.goto("/p/v2/10");
+        await page.goto("/p/10");
         await waitForMushafRender(page);
         await clearSwipeLog(page);
 
@@ -148,7 +221,7 @@ test.describe("Swipe from direct URL navigation", () => {
     });
 
     test("navigate to page 1, swipe forward twice, verify page 3", async ({ page }) => {
-        await page.goto("/p/v2/1");
+        await page.goto("/p/1");
         await waitForMushafRender(page);
 
         const initial = await getDisplayedPage(page);
@@ -173,7 +246,7 @@ test.describe("Swipe from direct URL navigation", () => {
 test.describe("Swipe after Navigation Picker jump", () => {
     test("jump to Al-Baqarah page 2, then swipe forward", async ({ page }) => {
         // Start at page 1
-        await page.goto("/p/v2/1");
+        await page.goto("/p/1");
         await waitForMushafRender(page);
 
         // Show chrome by tapping the reading area (use force to avoid overlay issues)
@@ -186,23 +259,13 @@ test.describe("Swipe after Navigation Picker jump", () => {
         await page.waitForTimeout(500);
 
         // Select Al-Baqarah (chapter 2) — it starts at page 2
-        // Surah list is inside the fixed bottom sheet container
-        const surahList = page.locator(".fixed.bottom-0");
-        // Playwright tests expect exact text, Surah names might render with '2. Al-Baqarah' or similar
-        const surahButton = surahList.locator('button').filter({ hasText: /Al-Baqarah/i }).first();
+        const sheet = page.locator(".fixed.inset-x-0.bottom-0");
+        const surahButton = sheet.locator("button").filter({ hasText: /Al-Baqarah/i }).first();
         await surahButton.click();
         await page.waitForTimeout(300);
 
-        // Select page column — find the "Page" tab if available, or the page entry
-        // Look for a page number to click
-        const pageEntry = surahList.locator("button").filter({ hasText: /^2$/ }).first();
-        if (await pageEntry.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await pageEntry.click();
-        }
-        await page.waitForTimeout(500);
-
-        // Try to navigate — click "Go" or similar, or close picker if auto-navigating
-        // The nav picker auto-navigates on selection in some implementations
+        const goButton = sheet.locator("button").filter({ hasText: /^Go to / }).first();
+        await goButton.click({ timeout: 5000 });
         await page.waitForTimeout(500);
 
         // After jump, verify the page number and then swipe
@@ -227,7 +290,7 @@ test.describe("Swipe after Navigation Picker jump", () => {
 // ---------------------------------------------------------------------------
 test.describe("Chained swipes and navigation jumps", () => {
     test("multiple forward swipes in sequence", async ({ page }) => {
-        await page.goto("/p/v2/1");
+        await page.goto("/p/1");
         await waitForMushafRender(page);
 
         let currentExpected = 1;
@@ -245,7 +308,7 @@ test.describe("Chained swipes and navigation jumps", () => {
     });
 
     test("alternating forward and backward swipes", async ({ page }) => {
-        await page.goto("/p/v2/5");
+        await page.goto("/p/5");
         await waitForMushafRender(page);
 
         let currentExpected = 5;
@@ -287,7 +350,7 @@ test.describe("Chained swipes and navigation jumps", () => {
     });
 
     test("keyboard jump then swipe then keyboard", async ({ page }) => {
-        await page.goto("/p/v2/3");
+        await page.goto("/p/3");
         await waitForMushafRender(page);
 
         // Start at page 3
@@ -315,7 +378,7 @@ test.describe("Chained swipes and navigation jumps", () => {
     });
 
     test("rapid consecutive swipes don't break state", async ({ page }) => {
-        await page.goto("/p/v2/5");
+        await page.goto("/p/5");
         await waitForMushafRender(page);
         await assertPage(page, 5, "start");
 
@@ -354,7 +417,7 @@ test.describe("Random page swipe stability", () => {
 
     for (const startPage of testPages) {
         test(`page ${startPage}: swipe forward and verify stability`, async ({ page }) => {
-            await page.goto(`/${startPage}/v2`);
+            await page.goto(`/p/${startPage}`);
             await waitForMushafRender(page);
             await clearSwipeLog(page);
 
@@ -374,22 +437,58 @@ test.describe("Random page swipe stability", () => {
 // ---------------------------------------------------------------------------
 test.describe("Partial Swipes", () => {
     test("touch drag without releasing does not trigger premature layout jump", async ({ page }) => {
-        await page.goto("/p/v2/1");
+        await page.goto("/p/1");
         await waitForMushafRender(page);
         await assertPage(page, 1, "start");
 
-        // Simulate touch and drag (partial swipe)
-        const container = page.locator(".swipe-container");
-        const box = await container.boundingBox();
+        const box = await page.locator(".swipe-container").boundingBox();
         if (!box) throw new Error("Could not find swipe container bounding box");
 
         const startX = box.x + box.width / 2;
         const startY = box.y + box.height / 2;
 
-        await page.mouse.move(startX, startY);
-        await page.mouse.down();
-        // Drag slightly to peer to next page
-        await page.mouse.move(startX - 50, startY, { steps: 10 });
+        await page.evaluate(({ startX, startY }) => {
+            const container = document.querySelector(".swipe-container") as HTMLElement;
+            if (!container) throw new Error("Swipe container not found");
+
+            const touchObj = new Touch({
+                identifier: 7,
+                target: container,
+                clientX: startX,
+                clientY: startY,
+                pageX: startX,
+                pageY: startY,
+                screenX: startX,
+                screenY: startY,
+            });
+
+            container.dispatchEvent(new TouchEvent("touchstart", {
+                cancelable: true,
+                bubbles: true,
+                touches: [touchObj],
+                targetTouches: [touchObj],
+                changedTouches: [touchObj],
+            }));
+
+            const moveTouch = new Touch({
+                identifier: 7,
+                target: container,
+                clientX: startX - 50,
+                clientY: startY,
+                pageX: startX - 50,
+                pageY: startY,
+                screenX: startX - 50,
+                screenY: startY,
+            });
+
+            container.dispatchEvent(new TouchEvent("touchmove", {
+                cancelable: true,
+                bubbles: true,
+                touches: [moveTouch],
+                targetTouches: [moveTouch],
+                changedTouches: [moveTouch],
+            }));
+        }, { startX, startY });
 
         // Hold for 300ms (to check if old 150ms timeout fires)
         await page.waitForTimeout(300);
@@ -397,9 +496,37 @@ test.describe("Partial Swipes", () => {
         // Before releasing, page should still officially be 1
         await assertPage(page, 1, "during-partial-swipe");
 
-        // Move back to origin and release (aborted swipe)
-        await page.mouse.move(startX, startY, { steps: 10 });
-        await page.mouse.up();
+        await page.evaluate(({ startX, startY }) => {
+            const container = document.querySelector(".swipe-container") as HTMLElement;
+            if (!container) throw new Error("Swipe container not found");
+
+            const moveBack = new Touch({
+                identifier: 7,
+                target: container,
+                clientX: startX,
+                clientY: startY,
+                pageX: startX,
+                pageY: startY,
+                screenX: startX,
+                screenY: startY,
+            });
+
+            container.dispatchEvent(new TouchEvent("touchmove", {
+                cancelable: true,
+                bubbles: true,
+                touches: [moveBack],
+                targetTouches: [moveBack],
+                changedTouches: [moveBack],
+            }));
+
+            container.dispatchEvent(new TouchEvent("touchend", {
+                cancelable: true,
+                bubbles: true,
+                touches: [],
+                targetTouches: [],
+                changedTouches: [moveBack],
+            }));
+        }, { startX, startY });
 
         await page.waitForTimeout(500);
 

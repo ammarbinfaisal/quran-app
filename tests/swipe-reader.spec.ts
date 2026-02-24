@@ -15,15 +15,16 @@ async function dispatchSwipe(
     page: Page,
     startX: number,
     endX: number,
-    durationMs: number = 100
+    durationMs: number = 100,
+    identifier: number = 1
 ) {
     await page.evaluate(
-        ({ startX, endX, durationMs }) => {
+        ({ startX, endX, durationMs, identifier }) => {
             const container = document.querySelector(".swipe-container") as HTMLElement;
             if (!container) throw new Error("Swipe container not found");
 
             const touchObj = new Touch({
-                identifier: 1,
+                identifier,
                 target: container,
                 clientX: startX,
                 clientY: 300,
@@ -53,7 +54,7 @@ async function dispatchSwipe(
                     const currentX = startX + (endX - startX) * progress;
 
                     const moveTouch = new Touch({
-                        identifier: 1,
+                        identifier,
                         target: container,
                         clientX: currentX,
                         clientY: 300,
@@ -87,8 +88,42 @@ async function dispatchSwipe(
                 }, stepDuration);
             });
         },
-        { startX, endX, durationMs }
+        { startX, endX, durationMs, identifier }
     );
+}
+
+async function dispatchTap(page: Page, x: number, y: number = 300) {
+    await page.evaluate(({ x, y }) => {
+        const container = document.querySelector(".swipe-container") as HTMLElement;
+        if (!container) throw new Error("Swipe container not found");
+
+        const touchObj = new Touch({
+            identifier: 99,
+            target: container,
+            clientX: x,
+            clientY: y,
+            pageX: x,
+            pageY: y,
+            screenX: x,
+            screenY: y,
+        });
+
+        container.dispatchEvent(new TouchEvent("touchstart", {
+            cancelable: true,
+            bubbles: true,
+            touches: [touchObj],
+            targetTouches: [touchObj],
+            changedTouches: [touchObj],
+        }));
+
+        container.dispatchEvent(new TouchEvent("touchend", {
+            cancelable: true,
+            bubbles: true,
+            touches: [],
+            targetTouches: [],
+            changedTouches: [touchObj],
+        }));
+    }, { x, y });
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +133,7 @@ async function dispatchSwipe(
 test.describe("JS-Controlled SwipeReader Test Suite", () => {
     test.beforeEach(async ({ page }) => {
         // Go to a known page, e.g., page 10
-        await page.goto("/p/v2/10");
+        await page.goto("/p/10");
         // Wait for the container
         await page.waitForSelector(".swipe-container");
         // Wait for the track and the active page to appear
@@ -114,28 +149,25 @@ test.describe("JS-Controlled SwipeReader Test Suite", () => {
 
         const startX = box.x + box.width / 2;
         // Move only 20% of screen width (RTL meaning right = positive, left = negative translation)
-        const endX = startX - box.width * 0.2;
+        const endX = startX - box.width * 0.15;
 
-        await dispatchSwipe(page, startX, endX, 300);
+        // Ensure velocity stays below the swipe threshold.
+        await dispatchSwipe(page, startX, endX, 800);
 
         // After snap back, wait for transition
         await page.waitForTimeout(500);
 
         // Expect we are still on page 10
-        await expect(page).toHaveURL(/\/10\/v2/);
+        await expect(page).toHaveURL(/\/p\/10(?:\?|$)/);
     });
 
-    test("Long drag (> 50%) -> Turn to next Page (RTL: drag left goes to next page)", async ({ page }) => {
+    test("Long drag (> 50%) -> Turn to next page (drag right)", async ({ page }) => {
         const box = await page.locator(".swipe-container").boundingBox();
         expect(box).toBeTruthy();
         if (!box) return;
 
-        // In RTL, dragging left means we expose the page on the right. 
-        // And in RTL pagination, the "next" page (e.g. 11) is on the left physically?
-        // Wait, Quran pages: Page 10 is on right side of book, Page 11 is on left.
-        // So to go from 10 to 11, we drag left.
-        const startX = box.x + box.width * 0.8;
-        const endX = box.x + box.width * 0.2; // 60% drag left
+        const startX = box.x + box.width * 0.2;
+        const endX = box.x + box.width * 0.8; // 60% drag right
 
         await dispatchSwipe(page, startX, endX, 300);
 
@@ -143,7 +175,7 @@ test.describe("JS-Controlled SwipeReader Test Suite", () => {
         await page.waitForTimeout(800);
 
         // Now URL should be 11
-        await expect(page).toHaveURL(/\/11\/v2/);
+        await expect(page).toHaveURL(/\/p\/11(?:\?|$)/);
     });
 
     test("Fast swipe velocity -> Turn page even with short drag", async ({ page }) => {
@@ -152,13 +184,13 @@ test.describe("JS-Controlled SwipeReader Test Suite", () => {
 
         // Small drag distance (20%), but VERY fast (10ms)
         const startX = box.x + box.width / 2;
-        const endX = startX - box.width * 0.2;
+        const endX = startX + box.width * 0.2;
 
         await dispatchSwipe(page, startX, endX, 10);
 
-        // Fast swipe left -> goes to page 11
+        // Fast swipe right -> goes to page 11
         await page.waitForTimeout(800);
-        await expect(page).toHaveURL(/\/11\/v2/);
+        await expect(page).toHaveURL(/\/p\/11(?:\?|$)/);
     });
 
     test("Touches are ignored while animating", async ({ page }) => {
@@ -166,19 +198,34 @@ test.describe("JS-Controlled SwipeReader Test Suite", () => {
         if (!box) return;
 
         // Dispatch a fast swipe to trigger a page change animation
-        const startX = box.x + box.width * 0.8;
-        const endX = box.x + box.width * 0.2;
+        const startX = box.x + box.width * 0.2;
+        const endX = box.x + box.width * 0.8;
         await dispatchSwipe(page, startX, endX, 50);
 
-        // IMMEDIATELY while animating (~300ms transition), fire another swipe back
-        await dispatchSwipe(page, endX, startX, 50);
+        // IMMEDIATELY while animating (~300ms transition), fire another swipe back.
+        await dispatchSwipe(page, endX, startX, 50, 2);
 
         // Wait for everything
         await page.waitForTimeout(800);
 
-        // The second swipe should be ignored due to the animating state trap,
-        // so we end up on page 11.
-        await expect(page).toHaveURL(/\/11\/v2/);
+        // The second swipe should not revert the in-flight swipe. We end up on page 11.
+        await expect(page).toHaveURL(/\/p\/11(?:\?|$)/);
+    });
+
+    test("Tap during animation does not revert the swipe", async ({ page }) => {
+        const box = await page.locator(".swipe-container").boundingBox();
+        if (!box) return;
+
+        const startX = box.x + box.width * 0.2;
+        const endX = box.x + box.width * 0.8;
+
+        await dispatchSwipe(page, startX, endX, 150);
+
+        // During the 300ms transition, tap should not cancel/revert.
+        await dispatchTap(page, box.x + box.width / 2, 300);
+
+        await page.waitForTimeout(800);
+        await expect(page).toHaveURL(/\/p\/11(?:\?|$)/);
     });
 
     test("Multi-touch ignores second finger", async ({ page }) => {
@@ -186,7 +233,16 @@ test.describe("JS-Controlled SwipeReader Test Suite", () => {
         await page.evaluate(() => {
             const container = document.querySelector(".swipe-container") as HTMLElement;
 
-            const touch1 = new Touch({ identifier: 1, target: container, clientX: 200, clientY: 300 });
+            const touch1 = new Touch({
+                identifier: 1,
+                target: container,
+                clientX: 200,
+                clientY: 300,
+                pageX: 200,
+                pageY: 300,
+                screenX: 200,
+                screenY: 300,
+            });
             // const touch2 = new Touch({ identifier: 2, target: container, clientX: 300, clientY: 300 });
 
             // Put first finger down
@@ -195,13 +251,31 @@ test.describe("JS-Controlled SwipeReader Test Suite", () => {
             }));
 
             // Move first finger
-            const moveTouch1 = new Touch({ identifier: 1, target: container, clientX: 100, clientY: 300 });
+            const moveTouch1 = new Touch({
+                identifier: 1,
+                target: container,
+                clientX: 300,
+                clientY: 300,
+                pageX: 300,
+                pageY: 300,
+                screenX: 300,
+                screenY: 300,
+            });
             container.dispatchEvent(new TouchEvent("touchmove", {
                 touches: [moveTouch1], changedTouches: [moveTouch1]
             }));
 
             // Put second finger down and move it (should be ignored by state machine identifier check)
-            const moveTouch2 = new Touch({ identifier: 2, target: container, clientX: 400, clientY: 300 });
+            const moveTouch2 = new Touch({
+                identifier: 2,
+                target: container,
+                clientX: 400,
+                clientY: 300,
+                pageX: 400,
+                pageY: 300,
+                screenX: 400,
+                screenY: 300,
+            });
             container.dispatchEvent(new TouchEvent("touchstart", {
                 touches: [moveTouch1, moveTouch2], changedTouches: [moveTouch2]
             }));
