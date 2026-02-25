@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
-const NAVIGATE_DEBOUNCE_MS = 300;
+const NAVIGATE_DEBOUNCE_MS = 1200;
 
 export function HomeSearchBar() {
   const router = useRouter();
@@ -60,4 +60,3 @@ export function HomeSearchBar() {
     </div>
   );
 }
-
