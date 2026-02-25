@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
 import { HomeSearchBar } from "@/components/home/HomeSearchBar";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
+
+const RECENTS_LIMIT = 5;
 
 export default function HomePage() {
   const { history, refresh } = useReadingHistory();
@@ -19,7 +21,14 @@ export default function HomePage() {
     document.documentElement.style.setProperty("--mushaf-font-scale", String(prefs.fontScale));
   }, [applyTheme, prefs.theme, prefs.fontScale]);
 
-  const continueEntry = history[0] ?? null;
+  const continueEntry = useMemo(() => {
+    if (history.length === 0) return null;
+    return history.reduce((latest, entry) =>
+      entry.timestamp > latest.timestamp ? entry : latest,
+    );
+  }, [history]);
+
+  const recentEntries = useMemo(() => history.slice(0, RECENTS_LIMIT), [history]);
 
   return (
     <main className="h-full w-full overflow-hidden">
@@ -72,8 +81,8 @@ export default function HomePage() {
               </p>
             ) : (
               <ul className="divide-y divide-[var(--color-muted)]/20">
-                {history.map((entry) => (
-                  <li key={entry.chapterId}>
+                {recentEntries.map((entry) => (
+                  <li key={`${entry.chapterId}:${entry.timestamp}`}>
                     <button
                       type="button"
                       onClick={() =>
