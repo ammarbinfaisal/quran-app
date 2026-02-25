@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Loader2, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
 import { TOTAL_PAGES } from "@/lib/constants";
 import type { Chapter } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { fetchVersePages } from "@/lib/navigation/maps";
-import type { QuranSearchHit, QuranSearchResponse } from "@/lib/search";
-
-const SEARCH_DEBOUNCE_MS = 300;
-const SEARCH_RESULTS_LIMIT = 30;
 
 interface NavigationPickerProps {
   open: boolean;
@@ -25,11 +21,7 @@ export default function NavigationPicker({
 }: NavigationPickerProps) {
   const chapters = useChapters();
   const { prefs } = usePreferences();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<QuranSearchHit[]>([]);
-  const [searchTotalMatches, setSearchTotalMatches] = useState(0);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
+  const [surahFilter, setSurahFilter] = useState("");
 
   // Selection state
   const [selectedSurah, setSelectedSurah] = useState<Chapter | null>(null);
@@ -39,22 +31,8 @@ export default function NavigationPicker({
   // Verse→page map (loaded lazily on first open)
   const verseMapRef = useRef<Record<string, number | [number, number]> | null>(null);
 
-  const searchQueryTrimmed = searchQuery.trim();
-  const hasSearchText = searchQueryTrimmed.length > 0;
-
-  const handleSearchInputChange = (value: string) => {
-    setSearchQuery(value);
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setSearchResults([]);
-      setSearchTotalMatches(0);
-      setSearchLoading(false);
-      setSearchError(null);
-      return;
-    }
-    setSearchLoading(true);
-    setSearchError(null);
-  };
+  const surahFilterTrimmed = surahFilter.trim().toLowerCase();
+  const hasSurahFilter = surahFilterTrimmed.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -73,62 +51,19 @@ export default function NavigationPicker({
     verseMapRef.current = null;
   }, [prefs.mushafCode]);
 
-  useEffect(() => {
-    if (!hasSearchText) return;
+  // Surah filtering is purely client-side; no API calls here.
 
-    const controller = new AbortController();
-    let active = true;
-    const timeoutId = window.setTimeout(() => {
-      fetch(
-        `/api/search?q=${encodeURIComponent(searchQueryTrimmed)}&limit=${SEARCH_RESULTS_LIMIT}`,
-        { signal: controller.signal },
-      )
-        .then(async (res) => {
-          const payload = (await res.json().catch(() => null)) as unknown;
-          if (!res.ok) {
-            const error =
-              typeof payload === "object" &&
-              payload !== null &&
-              "error" in payload &&
-              typeof (payload as { error?: unknown }).error === "string"
-                ? (payload as { error: string }).error
-                : "Search is unavailable right now.";
-            throw new Error(error);
-          }
-          return payload as QuranSearchResponse;
-        })
-        .then((data) => {
-          if (!active) return;
-          setSearchResults(data.results);
-          setSearchTotalMatches(data.total_matches);
-        })
-        .catch((error: unknown) => {
-          if (!active) return;
-          if (error instanceof DOMException && error.name === "AbortError") return;
-          setSearchError(
-            error instanceof Error ? error.message : "Search is unavailable right now.",
-          );
-        })
-        .finally(() => {
-          if (!active) return;
-          setSearchLoading(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [hasSearchText, searchQueryTrimmed]);
-
-  const chaptersById = useMemo(() => {
-    const byId = new Map<number, Chapter>();
-    for (const chapter of chapters) {
-      byId.set(chapter.id, chapter);
-    }
-    return byId;
-  }, [chapters]);
+  const filteredChapters = useMemo(() => {
+    if (!hasSurahFilter) return chapters;
+    const q = surahFilterTrimmed;
+    const raw = surahFilter.trim();
+    return chapters.filter((c) => {
+      if (String(c.id).startsWith(q)) return true;
+      if (c.nameSimple.toLowerCase().includes(q)) return true;
+      if (raw && c.nameArabic.includes(raw)) return true;
+      return false;
+    });
+  }, [chapters, hasSurahFilter, surahFilter, surahFilterTrimmed]);
 
   // All pages 1..TOTAL_PAGES — page column is always global and independent.
   const allPages = useMemo(
@@ -159,21 +94,6 @@ export default function NavigationPicker({
     }
   };
 
-  const handleSearchResultClick = (hit: QuranSearchHit) => {
-    const chapter = chaptersById.get(hit.surah) ?? null;
-    setSelectedSurah(chapter);
-    setSelectedAyah(hit.ayah);
-
-    const verseKey = `${hit.surah}:${hit.ayah}`;
-    const map = verseMapRef.current;
-    if (map && map[verseKey] !== undefined) {
-      const val = map[verseKey];
-      setSelectedPage(Array.isArray(val) ? val[0] : val);
-      return;
-    }
-    setSelectedPage(chapter?.pages[0] ?? null);
-  };
-
   const handlePageClick = (p: number) => {
     setSelectedPage(p);
     // Clear ayah selection when page is tapped directly.
@@ -182,11 +102,7 @@ export default function NavigationPicker({
   };
 
   const resetState = () => {
-    setSearchQuery("");
-    setSearchResults([]);
-    setSearchTotalMatches(0);
-    setSearchLoading(false);
-    setSearchError(null);
+    setSurahFilter("");
     setSelectedSurah(null);
     setSelectedAyah(null);
     setSelectedPage(null);
@@ -209,66 +125,6 @@ export default function NavigationPicker({
     onClose();
   };
 
-  const renderSearchPanel = () => {
-    if (searchError && searchResults.length === 0) {
-      return (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-3 text-xs text-red-700">
-          {searchError}
-        </div>
-      );
-    }
-
-    if (!searchLoading && searchResults.length === 0) {
-      return (
-        <div className="px-3 py-8 text-center text-xs text-[var(--color-muted)]">
-          No matches for <span className="font-medium text-[var(--color-text)]">{searchQueryTrimmed}</span>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {searchLoading && (
-          <div className="flex items-center gap-2 rounded-lg bg-[var(--color-bg)]/70 px-3 py-2 text-xs text-[var(--color-muted)]">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Searching…
-          </div>
-        )}
-        {searchError && searchResults.length > 0 && (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
-            {searchError}
-          </div>
-        )}
-        {searchResults.map((hit) => {
-          const chapter = chaptersById.get(hit.surah);
-          const isActive = selectedSurah?.id === hit.surah && selectedAyah === hit.ayah;
-          return (
-            <button
-              key={hit.verse_key}
-              onClick={() => handleSearchResultClick(hit)}
-              className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                isActive
-                  ? "border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10"
-                  : "border-[var(--color-muted)]/20 bg-[var(--color-surface)] active:bg-black/5"
-              }`}
-            >
-              <div className="text-[11px] text-[var(--color-muted)]">
-                {chapter?.nameSimple ?? `Surah ${hit.surah}`} · Ayah {hit.ayah}
-              </div>
-              <p
-                className="mt-1 text-base leading-7 text-[var(--color-text)]"
-                dir="rtl"
-                lang="ar"
-              >
-                {hit.text_uthmani}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={handleClose} />
@@ -281,22 +137,18 @@ export default function NavigationPicker({
             </div>
             <input
               type="text"
-              placeholder="Search Quran text..."
-              value={searchQuery}
-              onChange={(e) => handleSearchInputChange(e.target.value)}
-              aria-label="Search Quran text"
+              placeholder="Search surah by number or name…"
+              value={surahFilter}
+              onChange={(e) => setSurahFilter(e.target.value)}
+              aria-label="Search surah"
               className="block w-full rounded-lg border-none bg-[var(--color-bg)] py-2 pl-9 pr-9 text-sm text-[var(--color-text)] placeholder:text-[var(--color-muted)]/70 focus:ring-1 focus:ring-[var(--color-accent)]"
             />
-            {searchLoading ? (
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                <Loader2 className="h-4 w-4 animate-spin text-[var(--color-muted)]" />
-              </div>
-            ) : hasSearchText ? (
+            {hasSurahFilter ? (
               <button
                 type="button"
-                onClick={() => handleSearchInputChange("")}
+                onClick={() => setSurahFilter("")}
                 className="absolute inset-y-0 right-0 flex items-center pr-3 text-[var(--color-muted)]"
-                aria-label="Clear search query"
+                aria-label="Clear surah filter"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -313,37 +165,45 @@ export default function NavigationPicker({
 
         {/* Columns Container */}
         <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--color-bg)]/30">
-          {/* Col 1: Surah / Search results */}
+          {/* Col 1: Surah */}
           <div className="flex-1 overflow-y-auto border-r border-[var(--color-muted)]/10">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)] px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)]">
-              <span>{hasSearchText ? "Search" : "Surah"}</span>
-              {hasSearchText && !searchLoading && searchTotalMatches > 0 && (
+              <span>Surah</span>
+              {hasSurahFilter && (
                 <span className="text-[10px] normal-case tracking-normal">
-                  {searchTotalMatches} match{searchTotalMatches === 1 ? "" : "es"}
+                  {filteredChapters.length} result{filteredChapters.length === 1 ? "" : "s"}
                 </span>
               )}
             </div>
             <div className="p-2 space-y-1">
-              {hasSearchText
-                ? renderSearchPanel()
-                : chapters.map((c) => {
-                    const isActive = selectedSurah?.id === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => handleSurahClick(c)}
-                        className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                          isActive
-                            ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
-                            : "text-[var(--color-text)] active:bg-black/5"
-                        }`}
-                      >
-                        <span>
-                          {c.id}. {c.nameSimple}
-                        </span>
-                      </button>
-                    );
-                  })}
+              {filteredChapters.length === 0 ? (
+                <div className="px-3 py-8 text-center text-xs text-[var(--color-muted)]">
+                  No surahs match{" "}
+                  <span className="font-medium text-[var(--color-text)]">
+                    {surahFilter.trim()}
+                  </span>
+                  .
+                </div>
+              ) : (
+                filteredChapters.map((c) => {
+                  const isActive = selectedSurah?.id === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSurahClick(c)}
+                      className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                        isActive
+                          ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
+                          : "text-[var(--color-text)] active:bg-black/5"
+                      }`}
+                    >
+                      <span>
+                        {c.id}. {c.nameSimple}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 

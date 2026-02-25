@@ -1,8 +1,5 @@
 export interface QuranSearchHit {
   verse_key: string;
-  surah: number;
-  ayah: number;
-  text_uthmani: string;
 }
 
 export interface QuranSearchResponse {

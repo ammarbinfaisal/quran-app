@@ -96,15 +96,17 @@ export function VerseCard({
         <div className="flex flex-col gap-6 border-b border-[var(--color-muted)]/10 pb-8 mb-4">
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div className="flex items-center gap-1.5 shrink-0 sm:pt-2">
-                    <span className="text-sm font-semibold text-[var(--color-muted)]">{verseKey}</span>
-                    {verseLink && (
+                    {verseLink ? (
                         <Link
                             href={verseLink}
-                            className="text-[var(--color-muted)] hover:text-[var(--color-accent)] transition-colors"
+                            className="inline-flex items-center gap-1.5 text-[var(--color-muted)] hover:text-[var(--color-accent)] transition-colors"
                             aria-label={`Open ${verseKey} in reader`}
                         >
+                            <span className="text-sm font-semibold">{verseKey}</span>
                             <ExternalLink className="h-3.5 w-3.5" />
                         </Link>
+                    ) : (
+                        <span className="text-sm font-semibold text-[var(--color-muted)]">{verseKey}</span>
                     )}
                 </div>
 

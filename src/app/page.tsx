@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
+import { HomeSearchBar } from "@/components/home/HomeSearchBar";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -56,6 +57,9 @@ export default function HomePage() {
         </div>
 
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mb-5">
+            <HomeSearchBar />
+          </div>
           <QuickNavigation />
 
           <section className="mt-5 flex flex-col pb-4">
