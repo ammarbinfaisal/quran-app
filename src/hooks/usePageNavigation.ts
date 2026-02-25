@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { getPreferences } from "@/lib/preferences";
-import { vbvPath, mushafPath } from "@/lib/url";
+import { vbvPath, mushafPath, scrollPath } from "@/lib/url";
 import { loadMushafPage, preloadAdjacentPages } from "@/lib/mushaf/loader";
 import { loadQcfFont, preloadAdjacentFonts } from "@/lib/mushaf/fonts";
 import { prefetchTranslationPage } from "@/lib/translations/loader";
@@ -43,6 +43,8 @@ export function usePageNavigation() {
       if (viewMode === "vbv") {
         // Always navigate to page submode regardless of vbvSubmode preference
         router.push(vbvPath("p", clamped, verse));
+      } else if (viewMode === "scroll") {
+        router.push(scrollPath("p", clamped, verse));
       } else {
         router.push(mushafPath(clamped, verse));
       }
@@ -60,6 +62,12 @@ export function usePageNavigation() {
         warmPage(Math.max(1, Math.min(TOTAL_PAGES, firstPage)));
         // Always navigate to surah submode regardless of vbvSubmode preference
         router.push(vbvPath("s", surahId));
+      } else if (viewMode === "scroll") {
+        const chapters = getChapters();
+        const ch = chapters.find((c) => c.id === surahId);
+        const firstPage = ch?.pages?.[0] ?? startPage;
+        warmPage(Math.max(1, Math.min(TOTAL_PAGES, firstPage)));
+        router.push(scrollPath("s", surahId));
       } else {
         const clamped = Math.max(1, Math.min(TOTAL_PAGES, startPage));
         warmPage(clamped);
@@ -78,6 +86,11 @@ export function usePageNavigation() {
         warmPage(Math.max(1, Math.min(TOTAL_PAGES, firstPage)));
         // Always navigate to juz submode regardless of vbvSubmode preference
         router.push(vbvPath("j", juzId));
+      } else if (viewMode === "scroll") {
+        const j = JUZ_PAGE_RANGES.find((jz) => jz.juz === juzId);
+        const firstPage = j?.pages?.[0] ?? startPage;
+        warmPage(Math.max(1, Math.min(TOTAL_PAGES, firstPage)));
+        router.push(scrollPath("j", juzId));
       } else {
         const clamped = Math.max(1, Math.min(TOTAL_PAGES, startPage));
         warmPage(clamped);

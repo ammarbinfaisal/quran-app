@@ -13,7 +13,7 @@ import { FootnoteSheet } from "@/components/ayah/FootnoteSheet";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
-import { mushafPath, vbvPath } from "@/lib/url";
+import { mushafPath, scrollPath, vbvPath } from "@/lib/url";
 import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
 
 export function VerseCard({
@@ -82,6 +82,12 @@ export function VerseCard({
             if (sub === "s") return vbvPath("s", pageToSurah(versePage, chapters), verseKey);
             if (sub === "j") return vbvPath("j", pageToJuz(versePage), verseKey);
             return vbvPath("p", versePage, verseKey);
+        }
+        if (prefs.viewMode === "scroll") {
+            const sub = prefs.scrollSubmode ?? "p";
+            if (sub === "s") return scrollPath("s", pageToSurah(versePage, chapters), verseKey);
+            if (sub === "j") return scrollPath("j", pageToJuz(versePage), verseKey);
+            return scrollPath("p", versePage, verseKey);
         }
         return mushafPath(versePage, verseKey);
     })();

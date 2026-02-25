@@ -17,3 +17,20 @@ export function getFirstFullyVisibleVerse(scrollContainer: HTMLElement): string 
   }
   return null;
 }
+
+/**
+ * Finds the first page marker at or below the top of the given scroll container.
+ */
+export function getFirstFullyVisiblePage(scrollContainer: HTMLElement): number | null {
+  const blocks = scrollContainer.querySelectorAll<HTMLElement>("[data-scroll-page]");
+  const containerRect = scrollContainer.getBoundingClientRect();
+
+  for (const block of blocks) {
+    const rect = block.getBoundingClientRect();
+    if (rect.top >= containerRect.top - 1) {
+      const page = Number.parseInt(block.dataset.scrollPage ?? "", 10);
+      if (Number.isFinite(page)) return page;
+    }
+  }
+  return null;
+}

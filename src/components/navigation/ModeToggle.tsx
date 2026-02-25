@@ -1,113 +1,198 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, AlignLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AlignLeft, BookOpen, ScrollText } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
 import { usePreferences } from "@/hooks/usePreferences";
-import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
+import { pageToFirstVerse, pageToJuz, pageToSurah, fetchVersePages } from "@/lib/navigation/maps";
 import { JUZ_PAGE_RANGES } from "@/lib/juz";
-import { parseVbvPath, vbvPath } from "@/lib/url";
-import { getFirstFullyVisibleVerse } from "@/lib/viewport";
-import { fetchVersePages, pageToFirstVerse } from "@/lib/navigation/maps";
+import { parseScrollPath, parseVbvPath, mushafPath, scrollPath, vbvPath } from "@/lib/url";
+import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
+import { IconSegmentedToggle, type IconSegmentedOption } from "@/components/navigation/IconSegmentedToggle";
 
+type MainMode = "p" | "v" | "s";
+
+const MODE_OPTIONS: ReadonlyArray<IconSegmentedOption<MainMode>> = [
+  { value: "p", label: "Page", Icon: BookOpen },
+  { value: "v", label: "Verse", Icon: AlignLeft },
+  { value: "s", label: "Scroll", Icon: ScrollText },
+];
+
+function getMainMode(pathname: string): MainMode {
+  if (pathname.startsWith("/v/")) return "v";
+  if (pathname.startsWith("/s/")) return "s";
+  return "p";
+}
+
+function getStartPageFromSubmode(
+  type: "p" | "s" | "j",
+  id: number,
+  chapters: ReturnType<typeof useChapters>,
+): number {
+  if (type === "p") return id;
+  if (type === "s") {
+    const chapter = chapters.find((c) => c.id === id);
+    return chapter ? chapter.pages[0] : 1;
+  }
+  const juz = JUZ_PAGE_RANGES.find((entry) => entry.juz === id);
+  return juz ? juz.pages[0] : 1;
+}
+
+interface AnchorPosition {
+  page: number;
+  verse: string | null;
+}
 
 export function ModeToggle() {
-    const pathname = usePathname();
-    const router = useRouter();
-    const chapters = useChapters();
-    const { prefs } = usePreferences();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const chapters = useChapters();
+  const { prefs } = usePreferences();
 
-    const isVerseMode = pathname.startsWith("/v/");
+  const mode = useMemo(() => getMainMode(pathname), [pathname]);
+  const [pendingMode, setPendingMode] = useState<MainMode | null>(null);
+  const [isRoutePending, startRouteTransition] = useTransition();
 
-    const handleToggle = async () => {
-        if (isVerseMode) {
-            // Verse Mode -> Mushaf Mode
-            const scrollContainer = document.querySelector("[data-vbv-scroll]");
-            let targetVerse: string | null = null;
-            let targetPage: number | null = null;
+  useEffect(() => {
+    if (!pendingMode) return;
+    if (mode === pendingMode && !isRoutePending) {
+      const timer = window.setTimeout(() => {
+        setPendingMode(null);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [mode, pendingMode, isRoutePending]);
 
-            if (scrollContainer) {
-                targetVerse = getFirstFullyVisibleVerse(scrollContainer as HTMLElement);
-                if (targetVerse) {
-                    const versePages = await fetchVersePages(prefs.mushafCode);
-                    const lookup = versePages[targetVerse];
-                    if (lookup) {
-                        targetPage = typeof lookup === "number" ? lookup : lookup[0];
-                    }
-                }
-            }
+  async function resolveAnchor(): Promise<AnchorPosition> {
+    if (mode === "v") {
+      const scrollContainer = document.querySelector("[data-vbv-scroll]") as HTMLElement | null;
+      let targetVerse: string | null = null;
+      let targetPage: number | null = null;
 
-            if (targetPage) {
-                router.push(`/p/${targetPage}?verse=${targetVerse || ""}`);
-            } else {
-                // Fallback to current logic if we can't find the verse
-                const parsed = parseVbvPath(pathname);
-                if (parsed?.type === "p") {
-                    router.push(`/p/${parsed.id}`);
-                } else if (parsed?.type === "s") {
-                    const chapter = chapters.find((c) => c.id === parsed.id);
-                    const startPage = chapter ? chapter.pages[0] : 1;
-                    router.push(`/p/${startPage}`);
-                } else if (parsed?.type === "j") {
-                    const juz = JUZ_PAGE_RANGES.find((j) => j.juz === parsed.id);
-                    const startPage = juz ? juz.pages[0] : 1;
-                    router.push(`/p/${startPage}`);
-                } else {
-                    router.push(`/p/1`);
-                }
-            }
-        } else {
-            // Mushaf Mode -> Verse Mode (use preferred submode)
-            const matchPage = pathname.match(/\/p\/([0-9]+)/);
-            const page = matchPage ? parseInt(matchPage[1], 10) : 1;
-            const submode = prefs.vbvSubmode ?? "s";
-
-            // Find the first verse on this page to preserve position
-            const firstVerse = await pageToFirstVerse(page, prefs.mushafCode);
-
-            if (submode === "s") {
-                const surahId = pageToSurah(page, chapters);
-                router.push(vbvPath("s", surahId, firstVerse));
-            } else if (submode === "j") {
-                const juzId = pageToJuz(page);
-                router.push(vbvPath("j", juzId, firstVerse));
-            } else {
-                router.push(vbvPath("p", page, firstVerse));
-            }
+      if (scrollContainer) {
+        targetVerse = getFirstFullyVisibleVerse(scrollContainer);
+        if (targetVerse) {
+          const versePages = await fetchVersePages(prefs.mushafCode);
+          const lookup = versePages[targetVerse];
+          if (lookup) {
+            targetPage = typeof lookup === "number" ? lookup : lookup[0];
+          }
         }
+      }
+
+      if (!targetPage) {
+        const parsed = parseVbvPath(pathname);
+        if (parsed) {
+          targetPage = getStartPageFromSubmode(parsed.type, parsed.id, chapters);
+        }
+      }
+
+      return {
+        page: targetPage ?? 1,
+        verse: targetVerse,
+      };
+    }
+
+    if (mode === "s") {
+      const scrollContainer = document.querySelector("[data-scroll-reader]") as HTMLElement | null;
+      let targetVerse: string | null = null;
+      let targetPage: number | null = null;
+
+      if (scrollContainer) {
+        targetVerse = getFirstFullyVisibleVerse(scrollContainer);
+        if (targetVerse) {
+          const versePages = await fetchVersePages(prefs.mushafCode);
+          const lookup = versePages[targetVerse];
+          if (lookup) {
+            targetPage = typeof lookup === "number" ? lookup : lookup[0];
+          }
+        }
+
+        if (!targetPage) {
+          targetPage = getFirstFullyVisiblePage(scrollContainer);
+        }
+      }
+
+      if (!targetPage) {
+        const parsed = parseScrollPath(pathname);
+        if (parsed) {
+          targetPage = getStartPageFromSubmode(parsed.type, parsed.id, chapters);
+        }
+      }
+
+      return {
+        page: targetPage ?? 1,
+        verse: targetVerse,
+      };
+    }
+
+    const matchPage = pathname.match(/\/p\/([0-9]+)/);
+    const page = matchPage ? Number.parseInt(matchPage[1], 10) : 1;
+    const verse = searchParams.get("verse");
+
+    return {
+      page: Number.isFinite(page) ? page : 1,
+      verse,
     };
+  }
 
-    return (
-        <button
-            onClick={handleToggle}
-            className={cn(
-                "relative flex h-8 items-center rounded-full bg-[var(--color-surface)] p-[2px] transition-colors",
-                "shadow-inner w-[72px]"
-            )}
-            aria-label="Toggle Reading Mode"
-        >
-            <div
-                className={cn(
-                    "absolute top-[2px] bottom-[2px] w-[34px] rounded-full bg-[var(--color-bg)] shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.3,1)]",
-                    isVerseMode ? "translate-x-[34px]" : "translate-x-0"
-                )}
-            />
+  async function buildTargetPath(targetMode: MainMode): Promise<string> {
+    const anchor = await resolveAnchor();
 
-            <div className="relative z-10 flex w-full items-center justify-between px-2">
-                <BookOpen
-                    className={cn(
-                        "h-4 w-4 transition-colors duration-300",
-                        !isVerseMode ? "text-[var(--color-text)]" : "text-[var(--color-muted)]"
-                    )}
-                />
-                <AlignLeft
-                    className={cn(
-                        "h-4 w-4 transition-colors duration-300",
-                        isVerseMode ? "text-[var(--color-text)]" : "text-[var(--color-muted)]"
-                    )}
-                />
-            </div>
-        </button>
-    );
+    if (targetMode === "p") {
+      return mushafPath(anchor.page, anchor.verse);
+    }
+
+    const targetVerse = anchor.verse ?? (await pageToFirstVerse(anchor.page, prefs.mushafCode));
+
+    if (targetMode === "v") {
+      const submode = prefs.vbvSubmode ?? "s";
+      if (submode === "s") {
+        return vbvPath("s", pageToSurah(anchor.page, chapters), targetVerse);
+      }
+      if (submode === "j") {
+        return vbvPath("j", pageToJuz(anchor.page), targetVerse);
+      }
+      return vbvPath("p", anchor.page, targetVerse);
+    }
+
+    const submode = prefs.scrollSubmode ?? "p";
+    if (submode === "s") {
+      return scrollPath("s", pageToSurah(anchor.page, chapters), targetVerse);
+    }
+    if (submode === "j") {
+      return scrollPath("j", pageToJuz(anchor.page), targetVerse);
+    }
+    return scrollPath("p", anchor.page, targetVerse);
+  }
+
+  async function handleSelect(nextMode: MainMode) {
+    if (nextMode === mode || pendingMode !== null) return;
+
+    setPendingMode(nextMode);
+
+    try {
+      const targetPath = await buildTargetPath(nextMode);
+      startRouteTransition(() => {
+        router.push(targetPath, { scroll: false });
+      });
+    } catch {
+      setPendingMode(null);
+    }
+  }
+
+  return (
+    <IconSegmentedToggle
+      options={MODE_OPTIONS}
+      value={mode}
+      pendingValue={pendingMode}
+      ariaLabel="Reading mode"
+      onSelect={handleSelect}
+      itemWidthPx={24}
+      iconClassName="h-3.5 w-3.5"
+      className="w-[76px]"
+    />
+  );
 }

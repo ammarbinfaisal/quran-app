@@ -105,7 +105,7 @@ export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors }> = {
 // Reading mode
 // ---------------------------------------------------------------------------
 export type ReadingMode = "swipe" | "scroll";
-export type ViewMode = "mushaf" | "vbv";
+export type ViewMode = "mushaf" | "vbv" | "scroll";
 export type VbvSubmode = "s" | "j" | "p";
 
 // ---------------------------------------------------------------------------
@@ -118,6 +118,7 @@ export interface UserPreferences {
   fontScale: number; // 1-10
   viewMode: ViewMode;
   vbvSubmode: VbvSubmode;
+  scrollSubmode: VbvSubmode;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -127,6 +128,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   fontScale: 1,
   viewMode: "mushaf",
   vbvSubmode: "s",
+  scrollSubmode: "p",
 };
 
 // ---------------------------------------------------------------------------

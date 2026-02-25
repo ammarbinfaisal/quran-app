@@ -3,20 +3,24 @@
 import type { VbvSubmode } from "@/lib/types";
 import { SubmodeToggle } from "@/components/navigation/SubmodeToggle";
 
-interface VbvSubmodeToggleProps {
+interface ScrollSubmodeToggleProps {
   currentType: VbvSubmode;
   currentId: number;
   onNavigate: (type: VbvSubmode, id: number, verse?: string | null) => void;
 }
 
-export function VbvSubmodeToggle({ currentType, currentId, onNavigate }: VbvSubmodeToggleProps) {
+export function ScrollSubmodeToggle({
+  currentType,
+  currentId,
+  onNavigate,
+}: ScrollSubmodeToggleProps) {
   return (
     <SubmodeToggle
       currentType={currentType}
       currentId={currentId}
-      ariaLabel="VbV submode"
-      preferenceKey="vbvSubmode"
-      scrollSelector="[data-vbv-scroll]"
+      ariaLabel="Scroll submode"
+      preferenceKey="scrollSubmode"
+      scrollSelector="[data-scroll-reader]"
       onNavigate={onNavigate}
     />
   );

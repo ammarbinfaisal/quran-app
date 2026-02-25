@@ -63,6 +63,7 @@ function MushafWordInner({
       <span
         className={`mushaf-word ${textClass}`}
         data-highlighted={highlighted}
+        data-verse-key={word.verseKey}
         style={style}
         onClick={() => onTap(word.verseKey, wordIndex)}
         dangerouslySetInnerHTML={{ __html: word.text }}
@@ -74,6 +75,7 @@ function MushafWordInner({
     <span
       className={`mushaf-word ${textClass}`}
       data-highlighted={highlighted}
+      data-verse-key={word.verseKey}
       style={style}
       onClick={() => onTap(word.verseKey, wordIndex)}
     >
