@@ -42,7 +42,7 @@ export function SearchViewer() {
     setInput(urlQ);
   }, [urlQ]);
 
-  // Debounced URL sync. Clearing takes the user back to home.
+  // Debounced URL sync. Clearing keeps the user on /search and removes the query.
   useEffect(() => {
     const trimmed = trimmedInput;
     const current = urlQ.trim();
@@ -50,7 +50,7 @@ export function SearchViewer() {
 
     const timeoutId = window.setTimeout(() => {
       if (!trimmed) {
-        if (current) router.replace("/");
+        if (current) router.replace("/search");
         return;
       }
       router.replace(`/search?q=${encodeURIComponent(trimmed)}`);
@@ -297,4 +297,3 @@ export function SearchViewer() {
     </div>
   );
 }
-
