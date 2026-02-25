@@ -56,11 +56,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 function ThemeInit() {
   const script = `
     (function() {
+      var THEME_ACCENT = {
+        "light-warm": "#8b6914",
+        "dark-warm": "#c4a35a",
+        "white-green": "#2d6a4f"
+      };
+
+      function applyThemeColor(theme) {
+        var color = THEME_ACCENT[theme] || THEME_ACCENT["light-warm"];
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) {
+          meta = document.createElement("meta");
+          meta.setAttribute("name", "theme-color");
+          document.head.appendChild(meta);
+        }
+        meta.setAttribute("content", color);
+      }
+
       try {
         var p = JSON.parse(localStorage.getItem('quran-preferences') || '{}');
-        if (p.theme) document.documentElement.setAttribute('data-theme', p.theme);
+        var theme = p.theme || "light-warm";
+        document.documentElement.setAttribute('data-theme', theme);
+        applyThemeColor(theme);
         if (p.fontScale) document.documentElement.style.setProperty('--mushaf-font-scale', p.fontScale);
       } catch(e) {}
+
+      window.addEventListener("preferences-changed", function(e) {
+        try {
+          var next = e && e.detail ? e.detail : null;
+          if (!next || !next.theme) return;
+          document.documentElement.setAttribute("data-theme", next.theme);
+          applyThemeColor(next.theme);
+        } catch(_) {}
+      });
     })();
   `;
   return <script dangerouslySetInnerHTML={{ __html: script }} />;
