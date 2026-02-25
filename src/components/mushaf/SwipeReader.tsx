@@ -14,6 +14,7 @@ interface SwipeReaderProps {
   onPageChange: (page: number) => void;
   onWordTap: (verseKey: string, wordIndex: number) => void;
   highlightedVerse?: string | null;
+  onInteractionStart?: () => void;
 }
 
 const SWIPE_COMMIT_RATIO = 0.16;
@@ -80,6 +81,7 @@ export default function SwipeReader({
   onPageChange,
   onWordTap,
   highlightedVerse,
+  onInteractionStart,
 }: SwipeReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -98,11 +100,17 @@ export default function SwipeReader({
   const widthRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
   const pendingDeltaXRef = useRef<number>(0);
+  const interactionStartedRef = useRef(false);
 
   // Keep callback fresh without triggering renders
   const onPageChangeRef = useRef(onPageChange);
   useLayoutEffect(() => {
     onPageChangeRef.current = onPageChange;
+  });
+
+  const onInteractionStartRef = useRef(onInteractionStart);
+  useLayoutEffect(() => {
+    onInteractionStartRef.current = onInteractionStart;
   });
 
   // Track the pages we're currently rendering directly during component render
@@ -149,9 +157,11 @@ export default function SwipeReader({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
         e.preventDefault();
+        onInteractionStartRef.current?.();
         if (currentPage < TOTAL_PAGES) onPageChangeRef.current(currentPage + 1);
       } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
         e.preventDefault();
+        onInteractionStartRef.current?.();
         if (currentPage > 1) onPageChangeRef.current(currentPage - 1);
       }
     };
@@ -162,6 +172,7 @@ export default function SwipeReader({
     const handleWheel = (e: WheelEvent) => {
       if (wheelLock) return;
       if (Math.abs(e.deltaY) > 20) {
+        onInteractionStartRef.current?.();
         if (e.deltaY > 0) {
           if (currentPage < TOTAL_PAGES) {
             onPageChangeRef.current(currentPage + 1);
@@ -214,6 +225,7 @@ export default function SwipeReader({
       startYRef.current = newTouch.clientY - currentDeltaY;
     } else {
       // First finger down
+      interactionStartedRef.current = false;
       startXRef.current = newTouch.clientX;
       startYRef.current = newTouch.clientY;
       startTimeRef.current = Date.now();
@@ -262,6 +274,10 @@ export default function SwipeReader({
         isSwipeDecisionMadeRef.current = true;
         if (absX > absY * 1.3) {
           isHorizontalSwipeRef.current = true;
+          if (!interactionStartedRef.current) {
+            interactionStartedRef.current = true;
+            onInteractionStartRef.current?.();
+          }
         } else {
           // Vertical scroll detected, cancel our swipe
           stateRef.current = "IDLE";

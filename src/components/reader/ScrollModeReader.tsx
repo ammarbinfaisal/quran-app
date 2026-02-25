@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -17,6 +17,7 @@ import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { scrollPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 
 export function ScrollModeReader({
   type,
@@ -37,7 +38,17 @@ export function ScrollModeReader({
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
-  const highlightedVerse = searchParams.get("verse");
+  const verseParam = searchParams.get("verse");
+  const [highlightedVerse, setHighlightedVerse] = useState<string | null>(verseParam);
+  const clearedVerseRef = useRef(false);
+
+  useEffect(() => {
+    setHighlightedVerse(verseParam);
+  }, [verseParam]);
+
+  useEffect(() => {
+    clearedVerseRef.current = false;
+  }, [highlightedVerse, type, id]);
 
   useEffect(() => {
     setPreference("viewMode", "scroll");
@@ -79,6 +90,13 @@ export function ScrollModeReader({
       <div
         className="scroll-container flex-1 min-h-0 bg-[var(--color-bg)]"
         data-scroll-reader
+        onScroll={() => {
+          if (!highlightedVerse) return;
+          if (clearedVerseRef.current) return;
+          clearedVerseRef.current = true;
+          setHighlightedVerse(null);
+          removeQueryParamFromCurrentUrl("verse");
+        }}
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest("button, a")) {
             toggleChrome();

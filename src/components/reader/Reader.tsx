@@ -19,6 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { mushafPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useTrackReading } from "@/hooks/useReadingHistory";
+import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -27,13 +28,14 @@ function clampPage(p: number) {
 export function Reader({ initialPage }: { initialPage: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const highlightedVerse = searchParams.get("verse");
+  const verseParam = searchParams.get("verse");
   const { prefs } = usePreferences();
   const { applyTheme } = useTheme();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } =
     useImmersiveMode();
 
   const [page, setPage] = useState(initialPage);
+  const [highlightedVerse, setHighlightedVerse] = useState<string | null>(verseParam);
   const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
   const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(
     null,
@@ -49,6 +51,10 @@ export function Reader({ initialPage }: { initialPage: number }) {
   useEffect(() => {
     setPage(initialPage);
   }, [initialPage]);
+
+  useEffect(() => {
+    setHighlightedVerse(verseParam);
+  }, [verseParam]);
 
   const replaceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,6 +118,12 @@ export function Reader({ initialPage }: { initialPage: number }) {
     [showChrome],
   );
 
+  const clearHighlightedVerse = useCallback(() => {
+    if (!highlightedVerse) return;
+    setHighlightedVerse(null);
+    removeQueryParamFromCurrentUrl("verse");
+  }, [highlightedVerse]);
+
   const ReaderComponent = SwipeReader;
 
   return (
@@ -133,6 +145,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
             onPageChange={handlePageChange}
             onWordTap={handleWordTap}
             highlightedVerse={highlightedVerse}
+            onInteractionStart={clearHighlightedVerse}
           />
         </div>
 

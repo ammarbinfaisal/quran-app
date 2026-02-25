@@ -32,6 +32,8 @@ export default function ScrollReader({
   const [juzRanges, setJuzRanges] = useState<readonly JuzPageRange[]>([]);
   const [pagesToShow, setPagesToShow] = useState(5);
   const [targetHighlightedPage, setTargetHighlightedPage] = useState<number | null>(null);
+  const didAutoScrollToHighlightRef = useRef(false);
+  const lastHighlightedVerseRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (type !== "j") return;
@@ -61,6 +63,11 @@ export default function ScrollReader({
 
   useEffect(() => {
     if (!highlightedVerse) return;
+
+    if (lastHighlightedVerseRef.current === highlightedVerse) return;
+    lastHighlightedVerseRef.current = highlightedVerse;
+    didAutoScrollToHighlightRef.current = false;
+
     let active = true;
 
     fetchVersePages(mushafCode).then((versePages) => {
@@ -70,27 +77,34 @@ export default function ScrollReader({
       const page = typeof lookup === "number" ? lookup : lookup[0];
       setTargetHighlightedPage(page);
       const indexInRange = fullPageRange.indexOf(page);
-      if (indexInRange !== -1 && indexInRange >= pagesToShow) {
-        setPagesToShow(indexInRange + 1);
+      if (indexInRange !== -1) {
+        setPagesToShow((prev) => (prev >= indexInRange + 1 ? prev : indexInRange + 1));
       }
     }).catch(() => {});
 
     return () => {
       active = false;
     };
-  }, [highlightedVerse, fullPageRange, mushafCode, pagesToShow]);
+  }, [highlightedVerse, fullPageRange, mushafCode]);
 
   useEffect(() => {
+    if (!highlightedVerse) return;
     if (!targetHighlightedPage) return;
+    if (didAutoScrollToHighlightRef.current) return;
+    if (!visiblePages.includes(targetHighlightedPage)) return;
+
+    didAutoScrollToHighlightRef.current = true;
     const timer = setTimeout(() => {
-      const pageNode = document.querySelector(`[data-scroll-page="${targetHighlightedPage}"]`);
+      const pageNode = document.querySelector(
+        `[data-scroll-page="${targetHighlightedPage}"]`,
+      );
       if (pageNode) {
         pageNode.scrollIntoView({ behavior: "instant", block: "start" });
       }
-    }, 180);
+    }, 80);
 
     return () => clearTimeout(timer);
-  }, [targetHighlightedPage, pagesToShow]);
+  }, [highlightedVerse, targetHighlightedPage, visiblePages]);
 
   const observerInstanceRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {
