@@ -1,33 +1,42 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { getReadingHistory, updateReadingHistory } from "@/lib/history";
 import { getChapters, getChaptersOnPage } from "@/lib/chapters";
 import { READING_HISTORY_DEBOUNCE_MS } from "@/lib/constants";
 import type { HistoryEntry, Chapter } from "@/lib/types";
 
 export function useReadingHistory() {
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    if (typeof window !== "undefined") return getReadingHistory();
-    return [];
-  });
-
-  useEffect(() => {
-    const onHistoryChanged = () => setHistory(getReadingHistory());
+  const subscribe = useCallback((onStoreChange: () => void) => {
+    const onHistoryChanged = () => onStoreChange();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "quran-reading-history") onHistoryChanged();
+      if (e.key === "quran-reading-history") onStoreChange();
     };
 
     window.addEventListener("reading-history-changed", onHistoryChanged);
     window.addEventListener("storage", onStorage);
+    // Handles bfcache restores where the component instance may not remount.
+    window.addEventListener("pageshow", onHistoryChanged);
+
     return () => {
       window.removeEventListener("reading-history-changed", onHistoryChanged);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pageshow", onHistoryChanged);
     };
   }, []);
 
+  const getSnapshot = useCallback(() => getReadingHistory(), []);
+  const getServerSnapshot = useCallback(() => [], []);
+
+  const history = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
   const refresh = useCallback(() => {
-    setHistory(getReadingHistory());
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent<HistoryEntry[]>("reading-history-changed", {
+        detail: getReadingHistory(),
+      }),
+    );
   }, []);
 
   return { history, refresh };
