@@ -19,6 +19,7 @@ export function getReadingHistory(): HistoryEntry[] {
  * history, update its verse/page/timestamp. Keep only the last N chapters.
  */
 export function updateReadingHistory(entry: HistoryEntry): void {
+  if (typeof window === "undefined") return;
   const history = getReadingHistory();
   const idx = history.findIndex((h) => h.chapterId === entry.chapterId);
   if (idx >= 0) {
@@ -29,8 +30,17 @@ export function updateReadingHistory(entry: HistoryEntry): void {
     history.length = HISTORY_MAX_ENTRIES;
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  window.dispatchEvent(
+    new CustomEvent<HistoryEntry[]>("reading-history-changed", {
+      detail: history,
+    }),
+  );
 }
 
 export function clearHistory(): void {
+  if (typeof window === "undefined") return;
   localStorage.removeItem(STORAGE_KEY);
+  window.dispatchEvent(
+    new CustomEvent<HistoryEntry[]>("reading-history-changed", { detail: [] }),
+  );
 }

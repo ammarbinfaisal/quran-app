@@ -18,6 +18,7 @@ import { devLog } from "@/lib/devLog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mushafPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { useTrackReading } from "@/hooks/useReadingHistory";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -43,24 +44,31 @@ export function Reader({ initialPage }: { initialPage: number }) {
 
   const mushafCode = prefs.mushafCode;
 
+  useTrackReading(page);
+
   useEffect(() => {
-      setPage(initialPage);
-    }, [initialPage]);
-  
+    setPage(initialPage);
+  }, [initialPage]);
+
   const replaceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  const handlePageChange = useCallback((next: number) => {
-    const p = clampPage(next);
-    setPage(p);
-  
-    if (replaceTimer.current) clearTimeout(replaceTimer.current);
-    replaceTimer.current = setTimeout(() => {
-      router.replace(mushafPath(p, null), { scroll: false });
-    }, 150);
-  }, [router]);
-  
-  useEffect(() => () => {
-    if (replaceTimer.current) clearTimeout(replaceTimer.current);
+
+  const handlePageChange = useCallback(
+    (next: number) => {
+      const p = clampPage(next);
+      setPage(p);
+
+      if (replaceTimer.current) clearTimeout(replaceTimer.current);
+      replaceTimer.current = setTimeout(() => {
+        router.replace(mushafPath(p, null), { scroll: false });
+      }, 150);
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (replaceTimer.current) clearTimeout(replaceTimer.current);
+    };
   }, []);
 
   useEffect(() => {

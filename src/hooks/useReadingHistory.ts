@@ -12,6 +12,20 @@ export function useReadingHistory() {
     return [];
   });
 
+  useEffect(() => {
+    const onHistoryChanged = () => setHistory(getReadingHistory());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "quran-reading-history") onHistoryChanged();
+    };
+
+    window.addEventListener("reading-history-changed", onHistoryChanged);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("reading-history-changed", onHistoryChanged);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
   const refresh = useCallback(() => {
     setHistory(getReadingHistory());
   }, []);
