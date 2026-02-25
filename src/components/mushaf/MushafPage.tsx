@@ -29,6 +29,7 @@ function MushafPageInner({
   nextPageData,
 }: MushafPageProps) {
   const maxLines = MUSHAF_LINES[mushafCode] ?? 15;
+  const isSpecialPage = pageData.page === 1 || pageData.page === 2;
   const renderedChildren = [];
   const linesByNumber = new Map(pageData.lines.map((l) => [l.lineNumber, l]));
 
@@ -150,12 +151,16 @@ function MushafPageInner({
     }
   }
 
+  const slotClass = isSpecialPage
+    ? "flex items-center justify-center shrink-0 h-[calc(100%/15)]"
+    : "flex-1 flex items-center justify-center";
+
   for (let i = 1; i <= maxLines; i++) {
     const textLine = linesByNumber.get(i);
 
     if (textLine) {
       renderedChildren.push(
-        <div key={`line-${i}`} className="flex-1 flex items-center justify-center">
+        <div key={`line-${i}`} className={slotClass}>
           <MushafLine
             line={textLine}
             mushafCode={mushafCode}
@@ -177,7 +182,7 @@ function MushafPageInner({
       if (targetSurah) {
         if (targetSurah.headerLineTarget === i) {
           renderedChildren.push(
-            <div key={`empty-${i}`} className="flex-1 flex items-center justify-center">
+            <div key={`empty-${i}`} className={slotClass}>
               <SurahHeader
                 nameSimple={targetSurah.chapter.nameSimple}
                 surahNumber={targetSurah.chapter.id}
@@ -188,12 +193,12 @@ function MushafPageInner({
           );
         } else if (targetSurah.bismillahLineTarget === i) {
           renderedChildren.push(
-            <div key={`empty-${i}`} className="flex-1 flex items-center justify-center">
+            <div key={`empty-${i}`} className={slotClass}>
               <Bismillah className="h-4/6 w-auto max-w-[70vw] text-[var(--color-text)] opacity-90 mx-auto" />
             </div>
           );
         }
-      } else {
+      } else if (!isSpecialPage) {
         renderedChildren.push(<div key={`empty-${i}`} className="flex-1" />);
       }
     }
@@ -202,6 +207,7 @@ function MushafPageInner({
   return (
     <div
       className="mushaf-page relative w-full h-full flex flex-col justify-between"
+      style={isSpecialPage ? { justifyContent: 'center' } : undefined}
     >
       {renderedChildren}
       <div className="page-number flex-shrink-0 h-4">{pageData.page}</div>
