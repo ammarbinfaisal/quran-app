@@ -64,6 +64,50 @@ export function getFontFamily(code: MushafCode, pageNum: number): string {
 // loading promise (not an immediately-resolved one).
 const fontLoadPromises = new Map<string, Promise<void>>();
 
+// Ref-counted list of mounted QCF pages currently rendered by React.
+// Cleanup must not evict fonts needed by any of these pages.
+const activeQcfPageRefs = new Map<MushafCode, Map<number, number>>();
+
+function getActivePageRefMap(code: MushafCode): Map<number, number> {
+  let pageRefs = activeQcfPageRefs.get(code);
+  if (!pageRefs) {
+    pageRefs = new Map<number, number>();
+    activeQcfPageRefs.set(code, pageRefs);
+  }
+  return pageRefs;
+}
+
+function getActiveQcfPages(code: MushafCode): number[] {
+  const pageRefs = activeQcfPageRefs.get(code);
+  if (!pageRefs) return [];
+  return Array.from(pageRefs.keys());
+}
+
+export function retainActiveQcfPage(code: MushafCode, pageNum: number): void {
+  if (!isQcfCode(code)) return;
+  const pageRefs = getActivePageRefMap(code);
+  pageRefs.set(pageNum, (pageRefs.get(pageNum) ?? 0) + 1);
+}
+
+export function releaseActiveQcfPage(code: MushafCode, pageNum: number): void {
+  if (!isQcfCode(code)) return;
+  const pageRefs = activeQcfPageRefs.get(code);
+  if (!pageRefs) return;
+
+  const currentCount = pageRefs.get(pageNum);
+  if (!currentCount) return;
+
+  if (currentCount <= 1) {
+    pageRefs.delete(pageNum);
+  } else {
+    pageRefs.set(pageNum, currentCount - 1);
+  }
+
+  if (pageRefs.size === 0) {
+    activeQcfPageRefs.delete(code);
+  }
+}
+
 /**
  * Load a QCF font for a specific mushaf page using the FontFace API.
  * No-ops if the font is already loaded.
@@ -237,6 +281,7 @@ export function preloadAdjacentFonts(
 
   const toDelete: FontFace[] = [];
   const prefix = `QCF_${code}_P`;
+  const retentionCenters = [currentPage, ...getActiveQcfPages(code)];
 
   for (const f of document.fonts) {
     if (!f.family.startsWith(prefix)) continue;
@@ -245,7 +290,11 @@ export function preloadAdjacentFonts(
     const page = parseInt(pageStr, 10);
     if (isNaN(page)) continue;
 
-    if (Math.abs(page - currentPage) > FONT_CLEANUP_RADIUS) {
+    const isProtected = retentionCenters.some(
+      (center) => Math.abs(page - center) <= FONT_CLEANUP_RADIUS,
+    );
+
+    if (!isProtected) {
       toDelete.push(f);
     }
   }

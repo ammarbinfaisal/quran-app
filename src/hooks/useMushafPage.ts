@@ -12,6 +12,8 @@ import {
   loadQcfFont,
   loadUnicodeFont,
   preloadAdjacentFonts,
+  releaseActiveQcfPage,
+  retainActiveQcfPage,
 } from "@/lib/mushaf/fonts";
 import type { MushafCode, MushafPagePayload } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -35,6 +37,11 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
   useEffect(() => {
     let cancelled = false;
     let skeletonTimer: ReturnType<typeof setTimeout> | null = null;
+    const shouldTrackQcfPage = isQcfCode(code);
+
+    if (shouldTrackQcfPage) {
+      retainActiveQcfPage(code, pageNum);
+    }
 
     async function load() {
       try {
@@ -91,11 +98,14 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
 
     load();
     preloadAdjacentPages(code, pageNum, 6);
-    if (isQcfCode(code)) preloadAdjacentFonts(code, pageNum);
+    if (shouldTrackQcfPage) preloadAdjacentFonts(code, pageNum);
 
     return () => {
       cancelled = true;
       if (skeletonTimer) clearTimeout(skeletonTimer);
+      if (shouldTrackQcfPage) {
+        releaseActiveQcfPage(code, pageNum);
+      }
     };
   }, [code, pageNum]);
 
