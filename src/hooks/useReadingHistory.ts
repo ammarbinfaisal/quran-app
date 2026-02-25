@@ -1,34 +1,37 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useSyncExternalStore } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getReadingHistory, updateReadingHistory } from "@/lib/history";
 import { getChapters, getChaptersOnPage } from "@/lib/chapters";
 import { READING_HISTORY_DEBOUNCE_MS } from "@/lib/constants";
 import type { HistoryEntry, Chapter } from "@/lib/types";
 
 export function useReadingHistory() {
-  const subscribe = useCallback((onStoreChange: () => void) => {
-    const onHistoryChanged = () => onStoreChange();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "quran-reading-history") onStoreChange();
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    if (typeof window !== "undefined") return getReadingHistory();
+    return [];
+  });
+
+  useEffect(() => {
+    const onHistoryChanged = (e: Event) => {
+      setHistory((e as CustomEvent<HistoryEntry[]>).detail);
     };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "quran-reading-history") setHistory(getReadingHistory());
+    };
+    // Handles bfcache restores where the component instance may not remount.
+    const onPageShow = () => setHistory(getReadingHistory());
 
     window.addEventListener("reading-history-changed", onHistoryChanged);
     window.addEventListener("storage", onStorage);
-    // Handles bfcache restores where the component instance may not remount.
-    window.addEventListener("pageshow", onHistoryChanged);
+    window.addEventListener("pageshow", onPageShow);
 
     return () => {
       window.removeEventListener("reading-history-changed", onHistoryChanged);
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("pageshow", onHistoryChanged);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
-
-  const getSnapshot = useCallback(() => getReadingHistory(), []);
-  const getServerSnapshot = useCallback(() => [], []);
-
-  const history = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const refresh = useCallback(() => {
     if (typeof window === "undefined") return;
