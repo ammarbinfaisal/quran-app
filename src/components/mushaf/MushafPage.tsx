@@ -39,7 +39,6 @@ function MushafPageInner({
     chapter: Chapter;
     headerLineTarget: number;
     bismillahLineTarget: number | null;
-    firstVerseLineNumber: number;
   }[] = [];
 
   if (chapters?.length && pageData.lines.length) {
@@ -71,7 +70,6 @@ function MushafPageInner({
             chapter,
             headerLineTarget,
             bismillahLineTarget,
-            firstVerseLineNumber: start.lineNumber,
           });
         }
       }
@@ -115,7 +113,6 @@ function MushafPageInner({
               chapter,
               headerLineTarget,
               bismillahLineTarget,
-              firstVerseLineNumber: firstVerseAbsolute,
             });
           }
         }
@@ -124,7 +121,7 @@ function MushafPageInner({
   }
 
   // Build a set of line numbers that should be centered
-  // (header line, bismillah line, and the first verse line of a surah start)
+  // (header line and bismillah line only)
   // Pages 1-2 (Al-Fatiha / start of Al-Baqarah) have all lines centered
   const centeredLines = new Set<number>();
   if (pageData.page === 1 || pageData.page === 2) {
@@ -133,7 +130,6 @@ function MushafPageInner({
     for (const s of surahsStartingOnPage) {
       if (s.headerLineTarget > 0) centeredLines.add(s.headerLineTarget);
       if (s.bismillahLineTarget != null) centeredLines.add(s.bismillahLineTarget);
-      centeredLines.add(s.firstVerseLineNumber);
     }
   }
 
