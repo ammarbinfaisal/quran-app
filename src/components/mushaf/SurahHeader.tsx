@@ -45,7 +45,7 @@ export function SurahHeader({
                     "rounded-2xl border bg-[var(--color-surface)] shadow-sm",
                     "border-[var(--color-muted)]/15",
                     variant === "mushaf"
-                        ? "px-2 py-0.5 max-h-full w-full"
+                        ? "px-2 py-0.5 w-full"
                         : "px-4 py-3",
                     className
                 )}
@@ -74,8 +74,9 @@ export function SurahHeader({
 
                     <div
                         className={cn(
-                            "leading-tight",
-                            variant === "mushaf" ? "text-center" : "text-center sm:text-left"
+                            variant === "mushaf"
+                                ? "text-center leading-none"
+                                : "text-center sm:text-left leading-tight"
                         )}
                     >
                         <div
