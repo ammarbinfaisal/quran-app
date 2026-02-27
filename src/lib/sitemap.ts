@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { TOTAL_CHAPTERS, TOTAL_PAGES } from "@/lib/constants";
-import { absoluteUrl } from "@/lib/seo";
 
 type ChangeFrequency =
   | "always"
@@ -108,56 +107,4 @@ export function getSitemapChunks(): SitemapChunk[] {
 
   cachedChunks = chunks;
   return chunks;
-}
-
-export function getSitemapChunkById(id: string): SitemapChunk | undefined {
-  return getSitemapChunks().find((chunk) => chunk.id === id);
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-export function buildSitemapIndexXml(lastmod: string): string {
-  const rows = getSitemapChunks()
-    .map((chunk) => {
-      const loc = escapeXml(absoluteUrl(`/sitemaps/${chunk.id}.xml`));
-      return `<sitemap><loc>${loc}</loc><lastmod>${lastmod}</lastmod></sitemap>`;
-    })
-    .join("");
-
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    rows,
-    "</sitemapindex>",
-  ].join("");
-}
-
-export function buildSitemapXml(chunk: SitemapChunk, lastmod: string): string {
-  const rows = chunk.paths
-    .map((routePath) => {
-      const loc = escapeXml(absoluteUrl(routePath));
-      return [
-        "<url>",
-        `<loc>${loc}</loc>`,
-        `<lastmod>${lastmod}</lastmod>`,
-        `<changefreq>${chunk.changefreq}</changefreq>`,
-        `<priority>${chunk.priority.toFixed(2)}</priority>`,
-        "</url>",
-      ].join("");
-    })
-    .join("");
-
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    rows,
-    "</urlset>",
-  ].join("");
 }
