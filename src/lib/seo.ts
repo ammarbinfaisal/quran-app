@@ -1,3 +1,4 @@
+const PRODUCTION_SITE_URL = "https://quran.tarteel.tv";
 const LOCAL_FALLBACK_URL = "http://localhost:3000";
 
 export const SITE_NAME = "quran";
@@ -6,12 +7,12 @@ export const SITE_DESCRIPTION = "quran app";
 export function getSiteUrl(): string {
   const raw =
     process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : LOCAL_FALLBACK_URL);
+    (process.env.NODE_ENV === "production" ? PRODUCTION_SITE_URL : LOCAL_FALLBACK_URL);
 
   try {
     return new URL(raw).origin;
   } catch {
-    return LOCAL_FALLBACK_URL;
+    return process.env.NODE_ENV === "production" ? PRODUCTION_SITE_URL : LOCAL_FALLBACK_URL;
   }
 }
 

@@ -4,14 +4,12 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
   createWebSiteJsonLd,
+  getSiteUrl,
 } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
-  ),
+  metadataBase: new URL(getSiteUrl()),
   title: SITE_NAME,
   description: SITE_DESCRIPTION,
   manifest: "/manifest.webmanifest",
