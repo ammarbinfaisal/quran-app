@@ -15,10 +15,11 @@ export default function TwitterImage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background:
-            "radial-gradient(900px 500px at 30% 30%, #fde68a 0%, transparent 60%), radial-gradient(900px 500px at 70% 60%, #f7f1e4 0%, transparent 60%), linear-gradient(135deg, #f7f1e4 0%, #f3e4c7 55%, #efe8d6 100%)",
-          color: "#2c2c2c",
-          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          backgroundColor: "#ffffff",
+          backgroundImage:
+            "radial-gradient(1100px 520px at 25% 20%, rgba(229, 231, 235, 0.8) 0%, transparent 62%), radial-gradient(900px 500px at 80% 70%, rgba(243, 244, 246, 0.9) 0%, transparent 64%)",
+          color: "#111827",
+          fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
         }}
       >
         <div
@@ -29,9 +30,9 @@ export default function TwitterImage() {
             gap: 18,
             padding: 64,
             borderRadius: 48,
-            background: "rgba(255, 255, 255, 0.35)",
-            border: "1px solid rgba(160, 144, 112, 0.25)",
-            boxShadow: "0 24px 80px rgba(0, 0, 0, 0.12)",
+            background: "rgba(255, 255, 255, 0.95)",
+            border: "1px solid #d1d5db",
+            boxShadow: "0 20px 70px rgba(17, 24, 39, 0.12)",
           }}
         >
           <div
@@ -46,15 +47,15 @@ export default function TwitterImage() {
                 width: 44,
                 height: 44,
                 borderRadius: 14,
-                background: "linear-gradient(135deg, #8b6914 0%, #c4a35a 100%)",
-                boxShadow: "0 10px 24px rgba(139, 105, 20, 0.25)",
+                background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
+                border: "1px solid #d1d5db",
               }}
             />
             <div
               style={{
                 fontSize: 24,
                 letterSpacing: 2,
-                color: "rgba(44, 44, 44, 0.7)",
+                color: "#4b5563",
                 textTransform: "uppercase",
               }}
             >
@@ -68,6 +69,7 @@ export default function TwitterImage() {
               lineHeight: 1,
               fontWeight: 800,
               letterSpacing: -2,
+              color: "#111827",
             }}
           >
             quran

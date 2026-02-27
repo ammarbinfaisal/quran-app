@@ -9,8 +9,7 @@ import { useImmersiveMode } from "@/hooks/useImmersiveMode";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { ScrollSubmodeToggle } from "@/components/navigation/ScrollSubmodeToggle";
-import { AyahSheet } from "@/components/ayah/AyahSheet";
-import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
+import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import ScrollReader from "@/components/mushaf/ScrollReader";
 import { setPreference } from "@/lib/preferences";
@@ -150,17 +149,10 @@ export function ScrollModeReader({
         }}
       />
 
-      <AyahSheet
-        open={!!selectedVerse && selectedWordIndex === null}
-        verseKey={selectedVerse}
+      <WordTapSheets
+        selectedVerse={selectedVerse}
+        selectedWordIndex={selectedWordIndex}
         translationIds={prefs.translationIds}
-        onClose={() => setSelectedVerse(null)}
-      />
-
-      <MorphologySheet
-        open={!!selectedVerse && selectedWordIndex !== null}
-        verseKey={selectedVerse}
-        wordIndex={selectedWordIndex}
         mushafCode={prefs.mushafCode}
         onClose={() => {
           setSelectedVerse(null);

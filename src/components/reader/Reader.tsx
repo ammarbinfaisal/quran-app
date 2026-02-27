@@ -10,8 +10,7 @@ import SwipeReader from "@/components/mushaf/SwipeReader";
 
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
-import { AyahSheet } from "@/components/ayah/AyahSheet";
-import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
+import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
@@ -172,17 +171,10 @@ export function Reader({ initialPage }: { initialPage: number }) {
         />
       </div>
 
-      <AyahSheet
-        open={!!selectedVerse && selectedWordIndex === null}
-        verseKey={selectedVerse}
+      <WordTapSheets
+        selectedVerse={selectedVerse}
+        selectedWordIndex={selectedWordIndex}
         translationIds={prefs.translationIds}
-        onClose={() => setSelectedVerse(null)}
-      />
-
-      <MorphologySheet
-        open={!!selectedVerse && selectedWordIndex !== null}
-        verseKey={selectedVerse}
-        wordIndex={selectedWordIndex}
         mushafCode={mushafCode}
         onClose={() => {
           setSelectedVerse(null);

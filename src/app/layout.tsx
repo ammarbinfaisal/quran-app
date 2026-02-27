@@ -1,4 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  createWebSiteJsonLd,
+} from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -6,23 +12,31 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ??
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
   ),
-  title: "quran",
-  description: "quran app",
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
   manifest: "/manifest.webmanifest",
+  alternates: {
+    canonical: "/",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "quran",
+    title: SITE_NAME,
   },
   openGraph: {
-    title: "quran",
-    description: "quran app",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: "/",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "quran",
-    description: "quran app",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -31,7 +45,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#8b6914",
+  themeColor: "#111827",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -42,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="dns-prefetch" href="https://api.quran.com" />
         <link rel="preconnect" href="https://api.quran.com" crossOrigin="anonymous" />
+        <JsonLd id="website-jsonld" data={createWebSiteJsonLd()} />
       </head>
       <body>
         <ThemeInit />

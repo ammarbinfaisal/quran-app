@@ -1,23 +1,18 @@
 "use client";
 
 import React, { useMemo, useEffect, useState } from "react";
-import type { MushafCode, MushafWord as MushafWordType, TranslationId } from "@/lib/types";
-import { TRANSLATION_DISPLAY_NAMES } from "@/lib/types";
+import type { MushafCode, MushafWord as MushafWordType } from "@/lib/types";
+import type { Chapter } from "@/lib/types";
 import { useChapters } from "@/hooks/useChapters";
 import { useMushafPage } from "@/hooks/useMushafPage";
-import { MushafWord } from "@/components/mushaf/MushafWord";
-import { useTranslations } from "@/hooks/useTranslations";
 import { usePreferences } from "@/hooks/usePreferences";
 import type { JuzPageRange } from "@/lib/juz";
 import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
-import { SurahHeader } from "@/components/mushaf/SurahHeader";
-import { ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
-import type { Chapter } from "@/lib/types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isQcfCode } from "@/lib/mushaf/fonts";
 import { loadMushafPage } from "@/lib/mushaf/loader";
 import { loadTranslation } from "@/lib/translations/loader";
-import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
-import { FootnoteSheet } from "@/components/ayah/FootnoteSheet";
+import { VerseCard } from "@/components/lemma/VerseCard";
 
 interface VerseByVerseViewerProps {
     type: "p" | "s" | "j";
@@ -118,7 +113,7 @@ export function VerseByVerseViewer({
         observerInstanceRef.current = observer;
     }, [fullPageRange.length]);
 
-    // Translation Prefetch: warm IDB for upcoming pages so VerseBlock resolves instantly
+    // Translation Prefetch: warm IDB for upcoming pages so VerseCard resolves instantly
     const { prefs } = usePreferences();
     useEffect(() => {
         if (prefs.translationIds.length === 0) return;
@@ -267,7 +262,6 @@ function VersePageBatch({
     chapters: Chapter[];
 }) {
     const { pageData, fontReady, showFontSkeleton } = useMushafPage(mushafCode, pageNum);
-    const { prefs } = usePreferences();
 
     const verses = useMemo(() => {
         if (!pageData) return [];
@@ -277,13 +271,10 @@ function VersePageBatch({
         for (const line of pageData.lines) {
             for (const word of line.words) {
                 if (!word.verseKey) continue;
-
-                // Filter by type
                 if (filterType === "s") {
                     const surah = parseInt(word.verseKey.split(":")[0], 10);
                     if (surah !== filterId) continue;
                 }
-
                 if (!blocks[word.verseKey]) {
                     blocks[word.verseKey] = [];
                     order.push(word.verseKey);
@@ -295,8 +286,9 @@ function VersePageBatch({
         return order.map((key) => ({
             verseKey: key,
             words: blocks[key],
+            chapter: chapters.find(c => c.id === parseInt(key.split(":")[0], 10)),
         }));
-    }, [pageData, filterType, filterId]);
+    }, [pageData, filterType, filterId, chapters]);
 
     if (!pageData) {
         return <div className="p-8 text-center text-[var(--color-muted)] animate-pulse">Loading verses...</div>;
@@ -305,7 +297,7 @@ function VersePageBatch({
     return (
         <>
             {verses.map((v) => (
-                <VerseBlock
+                <VerseCard
                     key={v.verseKey}
                     verseKey={v.verseKey}
                     words={v.words}
@@ -315,191 +307,11 @@ function VersePageBatch({
                     isHighlighted={v.verseKey === highlightedVerse}
                     fontReady={fontReady}
                     showFontSkeleton={showFontSkeleton}
-                    translationIds={prefs.translationIds}
-                    chapters={chapters}
+                    chapter={v.chapter}
                 />
             ))}
         </>
     );
 }
 
-function VerseBlock({
-    verseKey,
-    words,
-    mushafCode,
-    pageNum,
-    onWordTap,
-    isHighlighted,
-    fontReady,
-    showFontSkeleton,
-    translationIds,
-    chapters,
-}: {
-    verseKey: string;
-    words: MushafWordType[];
-    mushafCode: MushafCode;
-    pageNum: number;
-    onWordTap: (verseKey: string, wordIndex: number) => void;
-    isHighlighted: boolean;
-    fontReady: boolean;
-    showFontSkeleton: boolean;
-    translationIds: TranslationId[];
-    chapters: Chapter[];
-}) {
-    const translations = useTranslations(verseKey, translationIds);
-    const { prefs } = usePreferences();
 
-    const [footnoteSheetOpen, setFootnoteSheetOpen] = useState(false);
-    const [activeFootnotes, setActiveFootnotes] = useState<{
-        refs: FootnoteReference[];
-        label: string;
-    } | null>(null);
-
-    const [surahNum, ayahNum] = useMemo(() => {
-        const parts = verseKey.split(":");
-        return [parseInt(parts[0], 10), parseInt(parts[1], 10)];
-    }, [verseKey]);
-
-    const chapter = useMemo(() => chapters.find(c => c.id === surahNum), [chapters, surahNum]);
-
-    function handleFootnoteClick(tid: TranslationId, ref: FootnoteReference) {
-        setActiveFootnotes({
-            refs: [ref],
-            label: TRANSLATION_DISPLAY_NAMES[tid] ?? tid,
-        });
-        setFootnoteSheetOpen(true);
-    }
-
-    return (
-        <div
-            className="border-b border-muted/1 px-4 py-8"
-            style={{
-                contentVisibility: "auto",
-                containIntrinsicBlockSize: "auto 200px"
-            }}
-            data-highlighted={isHighlighted}
-            data-verse-key={verseKey}
-        >
-            {ayahNum === 1 && chapter && (
-                <div className="mb-10">
-                    <SurahHeader
-                        nameSimple={chapter.nameSimple}
-                        surahNumber={chapter.id}
-                        variant="viewer"
-                        showBismillah={
-                            !!chapter.bismillahPre &&
-                            chapter.id !== 1 &&
-                            chapter.id !== 9
-                        }
-                    />
-                </div>
-            )}
-
-            <div className="flex flex-col items-start gap-3 mb-8" dir="rtl">
-                <div className="text-xs font-bold text-muted tabular-nums border border-muted/20 px-2 py-0.5 rounded shadow-sm">
-                    {verseKey}
-                </div>
-                <div
-                    className="flex flex-wrap w-full gap-x-2.5 gap-y-5 leading-[2.5]"
-                    style={{
-                        fontSize: `clamp(1.25rem, ${(prefs.fontScale ?? 3) * 0.35 + 1}rem, 3.5rem)`,
-                    }}
-                >
-                    {words.map((word, idx) => {
-                        const morphIndex = word.charTypeName === "word"
-                            ? words.slice(0, idx).filter(w => w.charTypeName === "word").length
-                            : -1;
-
-                        return (
-                            <MushafWord
-                                key={`${word.verseKey}-${idx}`}
-                                word={word}
-                                wordIndex={morphIndex}
-                                mushafCode={mushafCode}
-                                pageNum={pageNum}
-                                onTap={() => onWordTap(verseKey, morphIndex)}
-                                highlighted={isHighlighted}
-                                fontReady={fontReady}
-                                showFontSkeleton={showFontSkeleton}
-                            />
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className="space-y-5 max-w-2xl mx-auto" style={{
-                fontSize: `clamp(0.85rem, ${(prefs.fontScale ?? 3) * 0.04 + 0.75}rem, 1.2rem)`,
-            }}>
-                {translationIds.map((tidStr) => {
-                    const tid = tidStr as TranslationId;
-                    const data = translations[tid];
-                    if (!data || data.loading) {
-                        return (
-                            <div
-                                key={tid}
-                                className={`h-6 w-3/4 rounded ${data?.showSkeleton ? "animate-pulse bg-[var(--color-muted)]/10" : "bg-transparent"}`}
-                                aria-label={data?.showSkeleton ? "Loading translation" : undefined}
-                            />
-                        );
-                    }
-                    const content = data.content;
-                    if (!content?.plain) return null;
-                    const isAbuIyaad = tid === "abu-iyaad";
-                    const displayName = TRANSLATION_DISPLAY_NAMES[tid] ?? tid;
-                    const segments = content.segments;
-                    return (
-                        <div key={tid}>
-                            <div className="text-xs font-bold text-[var(--color-muted)] uppercase tracking-widest mb-2 opacity-60 flex items-center gap-2">
-                                <span>{displayName}</span>
-                                {isAbuIyaad && (
-                                    <a
-                                        href={`https://www.thenoblequran.com/q/#/verse/${surahNum}/${ayahNum}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="p-1 hover:text-[var(--color-accent)] transition-colors"
-                                    >
-                                        <ExternalLink className="h-3 w-3" />
-                                    </a>
-                                )}
-                            </div>
-                            <div className="text-[1.05em] text-[var(--color-text)] opacity-90 leading-relaxed font-medium">
-                                {segments.map((part: TranslationSegment, idx: number) => {
-                                    if (part.type === "text") {
-                                        return <span key={idx}>{part.text}</span>;
-                                    }
-                                    if (part.type === "annotation") {
-                                        return (
-                                            <span key={idx} className="text-[var(--color-muted)] opacity-70">
-                                                {part.text}
-                                            </span>
-                                        );
-                                    }
-                                    return (
-                                        <button
-                                            key={idx}
-                                            type="button"
-                                            onClick={() => handleFootnoteClick(tid, { id: part.id, label: part.label })}
-                                            className="inline-flex items-center justify-center px-1 text-[10px] font-bold text-[var(--color-accent)] hover:underline active:opacity-60"
-                                            aria-label={`Footnote ${part.label}`}
-                                        >
-                                            [{part.label}]
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {activeFootnotes && (
-                <FootnoteSheet
-                    open={footnoteSheetOpen}
-                    onClose={() => setFootnoteSheetOpen(false)}
-                    footnoteRefs={activeFootnotes.refs}
-                    translationLabel={activeFootnotes.label}
-                />
-            )}
-        </div>
-    );
-}

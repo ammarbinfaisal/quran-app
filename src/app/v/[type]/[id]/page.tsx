@@ -1,6 +1,8 @@
 import { VerseReader } from "@/components/reader/VerseReader";
 import { InvalidPathMessage } from "@/components/ui/InvalidPathMessage";
 import { Suspense } from "react";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { createWebPageJsonLd } from "@/lib/seo";
 
 export async function generateStaticParams() {
   const params = [];
@@ -40,10 +42,21 @@ export default async function VerseModeRoute({
 
   const validType = type as "p" | "s" | "j";
   const num = parseInt(id, 10);
+  const label = validType === "p" ? "Page" : validType === "s" ? "Surah" : "Juz";
 
   return (
-    <Suspense>
-      <VerseReader type={validType} id={num} />
-    </Suspense>
+    <>
+      <JsonLd
+        id={`verse-mode-${validType}-${num}-jsonld`}
+        data={createWebPageJsonLd({
+          path: `/v/${validType}/${num}`,
+          title: `Verse Mode ${label} ${num}`,
+          description: `Read Quran in verse mode by ${label.toLowerCase()} ${num}.`,
+        })}
+      />
+      <Suspense>
+        <VerseReader type={validType} id={num} />
+      </Suspense>
+    </>
   );
 }

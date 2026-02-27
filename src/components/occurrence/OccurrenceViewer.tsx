@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Home } from "lucide-react";
 import { arabicToBuckwalter } from "@/lib/transliteration";
@@ -14,6 +14,7 @@ import { DownloadManager } from "@/components/offline/DownloadManager";
 import { useTheme } from "@/hooks/useTheme";
 import { usePreferences } from "@/hooks/usePreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 
 interface Occurrence {
     surah: number;
@@ -69,6 +70,8 @@ export function OccurrenceViewer({
     const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [downloadsOpen, setDownloadsOpen] = useState(false);
+    const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
+    const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
     const { prefs } = usePreferences();
     const { applyTheme } = useTheme();
 
@@ -82,6 +85,8 @@ export function OccurrenceViewer({
         let active = true;
         setLoading(true);
         setVisibleCount(INITIAL_VISIBLE);
+        setSelectedVerse(null);
+        setSelectedWordIndex(null);
 
         async function fetchData() {
             const { readKeys, writeKeys } = getOccurrenceCacheKeys(dataUrl);
@@ -186,6 +191,10 @@ export function OccurrenceViewer({
     }, [visibleVerses, mushafCode]);
 
     const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerses.length > 0);
+    const handleWordTap = useCallback((verseKey: string, wordIndex: number) => {
+        setSelectedVerse(verseKey);
+        setSelectedWordIndex(wordIndex >= 0 ? wordIndex : null);
+    }, []);
 
     return (
         <div className="flex h-full w-full flex-col bg-[var(--color-bg)]">
@@ -236,6 +245,8 @@ export function OccurrenceViewer({
                                 highlightedWords={highlightedWords}
                                 mushafCode={mushafCode}
                                 fontReady={fontsReady}
+                                onWordTap={handleWordTap}
+                                showVerseLink
                             />
                         ))}
                         {/* Infinite scroll sentinel */}
@@ -256,6 +267,17 @@ export function OccurrenceViewer({
                 showModeToggle={showModeToggle}
                 onDownloadsClick={() => setDownloadsOpen(true)}
                 onSettingsClick={() => setSettingsOpen(true)}
+            />
+
+            <WordTapSheets
+                selectedVerse={selectedVerse}
+                selectedWordIndex={selectedWordIndex}
+                translationIds={prefs.translationIds}
+                mushafCode={mushafCode}
+                onClose={() => {
+                    setSelectedVerse(null);
+                    setSelectedWordIndex(null);
+                }}
             />
 
             <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />

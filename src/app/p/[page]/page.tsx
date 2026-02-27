@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { Reader } from "@/components/reader/Reader";
 import { Suspense } from "react";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { createWebPageJsonLd } from "@/lib/seo";
 
 export async function generateStaticParams() {
   const params = [];
@@ -29,8 +31,18 @@ export default async function MushafPageRoute({
   if (page == null) notFound();
 
   return (
-    <Suspense>
-      <Reader initialPage={page} />
-    </Suspense>
+    <>
+      <JsonLd
+        id={`mushaf-page-${page}-jsonld`}
+        data={createWebPageJsonLd({
+          path: `/p/${page}`,
+          title: `Page ${page}`,
+          description: `Read Quran mushaf page ${page}.`,
+        })}
+      />
+      <Suspense>
+        <Reader initialPage={page} />
+      </Suspense>
+    </>
   );
 }

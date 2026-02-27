@@ -12,7 +12,7 @@ export function generateImageMetadata() {
 
 function IconSvg({ dimension }: { dimension: number }) {
   const base = Math.max(1, Math.round(dimension / 16));
-  const letterSize = Math.round(dimension * 0.62);
+  const letterSize = Math.round(dimension * 0.58);
   return (
     <div
       style={{
@@ -22,9 +22,8 @@ function IconSvg({ dimension }: { dimension: number }) {
         alignItems: "center",
         justifyContent: "center",
         borderRadius: Math.round(dimension * 0.24),
-        background:
-          "radial-gradient(circle at 30% 30%, #fde68a 0%, transparent 55%), linear-gradient(135deg, #f7f1e4 0%, #efe8d6 100%)",
-        border: `${base}px solid rgba(160, 144, 112, 0.25)`,
+        background: "#ffffff",
+        border: `${base}px solid #d1d5db`,
       }}
     >
       <div
@@ -32,21 +31,21 @@ function IconSvg({ dimension }: { dimension: number }) {
           width: Math.round(dimension * 0.82),
           height: Math.round(dimension * 0.82),
           borderRadius: Math.round(dimension * 0.22),
-          background: "linear-gradient(135deg, #8b6914 0%, #c4a35a 100%)",
+          background: "linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)",
+          border: `${base}px solid #e5e7eb`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow:
-            dimension >= 192 ? "0 18px 44px rgba(139, 105, 20, 0.25)" : "none",
+          boxShadow: dimension >= 192 ? "0 10px 28px rgba(17, 24, 39, 0.14)" : "none",
         }}
       >
         <div
           style={{
-            fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
             fontSize: letterSize,
             lineHeight: 1,
-            fontWeight: 900,
-            color: "#1a1410",
+            fontWeight: 800,
+            color: "#111827",
             transform: "translateY(-2%)",
           }}
         >

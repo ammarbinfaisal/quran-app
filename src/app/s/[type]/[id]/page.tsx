@@ -1,6 +1,8 @@
 import { ScrollModeReader } from "@/components/reader/ScrollModeReader";
 import { InvalidPathMessage } from "@/components/ui/InvalidPathMessage";
 import { Suspense } from "react";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { createWebPageJsonLd } from "@/lib/seo";
 
 export async function generateStaticParams() {
   const params = [];
@@ -37,10 +39,21 @@ export default async function ScrollModeRoute({
 
   const validType = type as "p" | "s" | "j";
   const num = Number.parseInt(id, 10);
+  const label = validType === "p" ? "Page" : validType === "s" ? "Surah" : "Juz";
 
   return (
-    <Suspense>
-      <ScrollModeReader type={validType} id={num} />
-    </Suspense>
+    <>
+      <JsonLd
+        id={`scroll-mode-${validType}-${num}-jsonld`}
+        data={createWebPageJsonLd({
+          path: `/s/${validType}/${num}`,
+          title: `Scroll Mode ${label} ${num}`,
+          description: `Read Quran in scroll mode by ${label.toLowerCase()} ${num}.`,
+        })}
+      />
+      <Suspense>
+        <ScrollModeReader type={validType} id={num} />
+      </Suspense>
+    </>
   );
 }

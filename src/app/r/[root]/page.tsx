@@ -1,6 +1,8 @@
 import { OccurrenceViewer } from "@/components/occurrence/OccurrenceViewer";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { buckwalterToArabic } from "@/lib/transliteration";
 import { decodeRouteParam } from "@/lib/routeParams";
+import { createWebPageJsonLd } from "@/lib/seo";
 
 export const revalidate = 604800; // ISR: 7 days
 export const dynamicParams = true;
@@ -21,12 +23,22 @@ export default async function RootRoute({
     const dataUrl = `/data/roots/${encodeURIComponent(buckwalter)}.json`;
 
     return (
-        <OccurrenceViewer
-            displayArabic={arabicRoot}
-            subtitle="Root"
-            dataUrl={dataUrl}
-            mushafCode="v2"
-            showModeToggle={false}
-        />
+        <>
+            <JsonLd
+                id={`root-${buckwalter}-jsonld`}
+                data={createWebPageJsonLd({
+                    path: `/r/${encodeURIComponent(buckwalter)}`,
+                    title: `Root ${arabicRoot}`,
+                    description: `Browse Quran occurrences for root ${arabicRoot}.`,
+                })}
+            />
+            <OccurrenceViewer
+                displayArabic={arabicRoot}
+                subtitle="Root"
+                dataUrl={dataUrl}
+                mushafCode="v2"
+                showModeToggle={false}
+            />
+        </>
     );
 }
