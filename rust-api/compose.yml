@@ -1,0 +1,12 @@
+services:
+  quran-search-api:
+    build:
+      context: .
+    ports:
+      - "7890:7890"
+    environment:
+      PORT: "7890"
+      QURAN_DATA_PATH: /app/data/quran-uthmani.json
+      QURAN_LOG_SEARCH_REQUESTS: "true"
+    volumes:
+      - ./data:/app/data:ro
