@@ -146,6 +146,12 @@ main {
   padding: 0 1px;
 }
 
+/* QCF words stretch to fill the line like a printed mushaf */
+.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-word {
+  flex-grow: 1;
+  text-align: center;
+}
+
 .mushaf-word[data-highlighted="true"] {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
   border-radius: 4px;

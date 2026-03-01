@@ -1,613 +1,571 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { Database } from "bun:sqlite";
 import { TOTAL_PAGES } from "../src/lib/constants";
-import type { MushafCode } from "../src/lib/preferences";
 import {
   encodeMushafPagePayload,
   type MushafPagePayload,
 } from "../src/lib/mushaf/proto";
-import type { TranslationId } from "../src/lib/types";
-import { TRANSLATION_API_IDS } from "../src/lib/types";
-import { parseTranslationSegments, type TranslationSegment } from "../src/lib/footnotes";
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-const ALL_CODES: MushafCode[] = ["v2"];
-const CONCURRENCY = 5;
-const MAX_RETRIES = 3;
-const RETRY_BASE_MS = 1000;
-const AVG_CHAR_WIDTH = 20;
-const API_BASE = "https://api.quran.com/api/v4";
-const WORD_FIELDS = ["code_v2", "v1_page", "v2_page", "line_v1", "line_v2"].join(",");
+const DEFAULT_LAYOUT_ZIP = "qpc-v2-15-lines.db.zip";
+const DEFAULT_WORDS_ZIP = "qpc-v2.db.zip";
+const DEFAULT_FONTS_ZIP = "QPC V2 Font.woff2.bz2";
+const DEFAULT_CODE = "v2";
 
-// For each mushaf code: which word field holds the rendered text.
-const TEXT_FIELD_BY_CODE: Record<MushafCode, keyof VerseWord> = { v2: "code_v2" };
+type SupportedCode = "v2";
 
-// For each mushaf code: which word field holds the line number within the page.
-const LINE_FIELD_BY_CODE: Record<MushafCode, keyof VerseWord> = { v2: "line_v2" };
-
-// For each mushaf code: which word field holds the font-file page number.
-// The font-file page is the source of truth for which page a glyph belongs to.
-// It may differ from the API layout page (page_number) at verse boundaries —
-// the same verse can straddle two pages and the API groups words by layout page,
-// while the font file groups by physical rendering page.
-const FONT_PAGE_FIELD_BY_CODE: Record<MushafCode, keyof VerseWord> = { v2: "v2_page" };
-
-const MUSHAF_ID_BY_CODE: Record<MushafCode, number> = { v2: 1 };
-const PAGES_BY_MUSHAF_ID: Record<number, number> = { 1: TOTAL_PAGES };
-
-type FootnoteTranslationId = Exclude<TranslationId, "abu-iyaad">;
-const FOOTNOTE_TRANSLATIONS: FootnoteTranslationId[] = ["saheeh", "hilali-khan"];
-const FOOTNOTE_ASSET_FILE = "translation-footnotes.json";
-const TRANSLATION_ASSET_BASE_DIR = path.join(
-  process.cwd(),
-  "public",
-  "data",
-  "translations",
-);
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-type VerseWord = {
-  char_type_name?: string;
-  position?: number;
-  text?: string;
-  code_v2?: string;
-  text_uthmani?: string;
-  text_qpc_hafs?: string;
-  text_indopak?: string;
-  line_number?: number;
-  line_v2?: number;
-  page_number?: number;
-  v1_page?: number;
-  v2_page?: number;
+type LayoutInfoRow = {
+  name: string;
+  number_of_pages: number;
+  lines_per_page: number;
+  font_name: string;
 };
 
-type RawVerse = {
-  verse_key: string;
-  words?: VerseWord[];
+type LayoutPageRow = {
+  page_number: number;
+  line_number: number;
+  line_type: string;
+  is_centered: number | null;
+  first_word_id: number | null;
+  last_word_id: number | null;
+  surah_number: number | null;
 };
 
-// A fully resolved word entry used during payload generation.
-// word_index is the 0-based position within the verse (stable API identity).
-type ResolvedWord = {
-  word_index: number;
-  verse_key: string;
-  word: VerseWord;
+type WordRow = {
+  id: number;
+  location: string;
+  surah: number;
+  ayah: number;
+  word: number;
+  text: string;
 };
 
-// ---------------------------------------------------------------------------
-// API client
-// ---------------------------------------------------------------------------
-async function fetchVersesByPage(page: number, mushafId: number): Promise<RawVerse[]> {
-  const url =
-    `${API_BASE}/verses/by_page/${page}` +
-    `?language=ar&words=true&per_page=50&word_fields=${encodeURIComponent(WORD_FIELDS)}&mushaf=${mushafId}`;
+type GenerationStats = {
+  generated: number;
+  skipped: number;
+  errors: number;
+  lineWarnings: number;
+};
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      const data = (await res.json()) as { verses?: RawVerse[] };
-      return data.verses ?? [];
-    } catch (err) {
-      if (attempt === MAX_RETRIES) throw err;
-      await sleep(RETRY_BASE_MS * 2 ** (attempt - 1));
-    }
+type DbHandle = {
+  dbPath: string;
+  cleanup: () => Promise<void>;
+};
+
+function usageAndExit(message?: string): never {
+  if (message) {
+    console.error(message);
   }
-  return []; // unreachable
-}
-
-interface TranslationPageResponse {
-  translations?: Array<{ verse_key: string; text?: string }>;
-  foot_notes?: Record<string, string>;
-}
-
-async function fetchTranslationPage(
-  resourceId: number,
-  page: number,
-): Promise<TranslationPageResponse> {
-  const url = new URL(`${API_BASE}/quran/translations/${resourceId}`);
-  url.searchParams.set("fields", "verse_key,text");
-  url.searchParams.set("page_number", String(page));
-  url.searchParams.set("foot_notes", "true");
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Translation API ${res.status}: ${res.statusText}`);
-  return res.json() as Promise<TranslationPageResponse>;
-}
-
-// ---------------------------------------------------------------------------
-// Word collection: fetch page N-1 + N + N+1, deduplicate by (verse_key, word_index)
-//
-// Why fetch three pages?
-//   The quran.com API groups words by *layout page* (page_number), while the
-//   QCF font file groups by *rendering page* (v2_page). At page boundaries a
-//   verse can straddle two layout pages in either direction:
-//     - trailing words that render on font page N may only appear in API page N+1
-//     - leading words that render on font page N may only appear in API page N-1
-//   By fetching (N-1, N, N+1) and later filtering by v2_page === N, we get the
-//   complete set of words that physically render on font page N.
-// ---------------------------------------------------------------------------
-async function collectWordsForPage(
-  page: number,
-  mushafId: number,
-  maxPages: number,
-): Promise<{ words: ResolvedWord[]; rawVerses: RawVerse[] }> {
-  // Fetch the primary page (required).
-  const primaryVerses = await fetchVersesByPage(page, mushafId);
-
-  // Fetch the previous page (best-effort — needed for leading spillover words).
-  let prevVerses: RawVerse[] = [];
-  if (page > 1) {
-    try {
-      prevVerses = await fetchVersesByPage(page - 1, mushafId);
-    } catch {
-      // Non-fatal: we'll still generate a best-effort asset for page N.
-    }
-  }
-
-  // Fetch the next page (best-effort — needed for spillover words).
-  let nextVerses: RawVerse[] = [];
-  if (page < maxPages) {
-    try {
-      nextVerses = await fetchVersesByPage(page + 1, mushafId);
-    } catch {
-      // Non-fatal: we'll still generate a best-effort asset for page N.
-    }
-  }
-
-  // Merge the two responses into a single deduplicated word list.
-  // Key: `${verse_key}:${word_index}` — stable per the API (word order within
-  // a verse never changes between requests).
-  const seen = new Map<string, ResolvedWord>();
-
-  function addVerses(verses: RawVerse[]) {
-    for (const verse of verses) {
-      const words = verse.words ?? [];
-      for (let i = 0; i < words.length; i++) {
-        const key = `${verse.verse_key}:${i}`;
-        if (!seen.has(key)) {
-          seen.set(key, { word_index: i, verse_key: verse.verse_key, word: words[i] });
-        }
-      }
-    }
-  }
-
-  addVerses(primaryVerses);
-  addVerses(prevVerses);
-  addVerses(nextVerses);
-
-  return {
-    words: Array.from(seen.values()),
-    rawVerses: primaryVerses,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Stats
-// ---------------------------------------------------------------------------
-type ErrorBucket = "API Fail" | "Encoding Fail" | "Other";
-type CodeStats = { success: number; skipped: number; errors: Record<ErrorBucket, number> };
-
-function makeStats(): CodeStats {
-  return { success: 0, skipped: 0, errors: { "API Fail": 0, "Encoding Fail": 0, Other: 0 } };
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-async function main() {
-  const codes = parseCodesArg(getArg("--codes"), getArg("--code"));
-  const explicitPages = getArg("--pages");
-  const force = hasFlag("--force");
-
-  const publicRoot = path.join(process.cwd(), "public");
-  const statsByCode = new Map<MushafCode, CodeStats>();
-  const footnoteDir = path.join(publicRoot, "mushaf-data");
-  await mkdir(footnoteDir, { recursive: true });
-  const footnoteAssetPath = path.join(footnoteDir, FOOTNOTE_ASSET_FILE);
-  const footnotesByTranslation = await loadExistingFootnotes(footnoteAssetPath);
-  const translationOutDirById = new Map<FootnoteTranslationId, string>();
-  for (const id of FOOTNOTE_TRANSLATIONS) {
-    const dir = path.join(TRANSLATION_ASSET_BASE_DIR, id);
-    await mkdir(dir, { recursive: true });
-    translationOutDirById.set(id, dir);
-  }
-  for (const c of codes) statsByCode.set(c, makeStats());
-
-  const dataDirs = new Map<MushafCode, string>();
-  for (const code of codes) {
-    const dir = path.join(publicRoot, "mushaf-data", code);
-    await mkdir(dir, { recursive: true });
-    dataDirs.set(code, dir);
-  }
-
-  type Task = { mushafId: number; page: number; codes: MushafCode[] };
-  const tasksQueue: Task[] = [];
-
-  const codesByMushaf = new Map<number, MushafCode[]>();
-  for (const code of codes) {
-    const mId = MUSHAF_ID_BY_CODE[code];
-    const arr = codesByMushaf.get(mId) ?? [];
-    arr.push(code);
-    codesByMushaf.set(mId, arr);
-  }
-
-  for (const [mushafId, mCodes] of codesByMushaf.entries()) {
-    const maxPages = PAGES_BY_MUSHAF_ID[mushafId] ?? TOTAL_PAGES;
-    const isAll = hasFlag("--all") || !explicitPages;
-    const { start, end } = isAll
-      ? { start: 1, end: maxPages }
-      : parsePageRange(explicitPages ?? "1-1");
-
-    for (let p = start; p <= Math.min(end, maxPages); p++) {
-      tasksQueue.push({ mushafId, page: p, codes: mCodes });
-    }
-  }
-
-  const totalTasks = tasksQueue.length;
-  let doneTasks = 0;
-  console.log(`Generating: codes=[${codes.join(",")}] (${totalTasks} tasks) force=${force}`);
-
-  let queueIdx = 0;
-  const worker = async () => {
-    while (queueIdx < tasksQueue.length) {
-      const task = tasksQueue[queueIdx++];
-      if (!task) break;
-
-      const { mushafId, page, codes: taskCodes } = task;
-      const maxPages = PAGES_BY_MUSHAF_ID[mushafId] ?? TOTAL_PAGES;
-      const padded = String(page).padStart(3, "0");
-
-      // Collect footnotes and precompute translation assets from quran.com.
-      // These are independent from mushaf page JSON/PB generation, so we run them
-      // even if the mushaf page assets already exist (unless --pages excludes them).
-      if (mushafId === 1) {
-        await Promise.all(
-          FOOTNOTE_TRANSLATIONS.map(async (translationId) => {
-            const resourceId = TRANSLATION_API_IDS[translationId];
-            if (!resourceId) return;
-            try {
-              const data = await fetchTranslationPage(resourceId, page);
-
-              const pageFootnotes = data.foot_notes;
-              if (pageFootnotes) {
-                const target = footnotesByTranslation[translationId];
-                for (const [id, text] of Object.entries(pageFootnotes)) {
-                  if (!target[id]) target[id] = text;
-                }
-              }
-
-              const outDir = translationOutDirById.get(translationId);
-              if (outDir && data.translations?.length) {
-                const out: Record<string, TranslationSegment[]> = {};
-                for (const t of data.translations) {
-                  if (!t?.verse_key) continue;
-                  const html = t.text ?? "";
-                  out[t.verse_key] = parseTranslationSegments(html, translationId);
-                }
-                await Bun.write(path.join(outDir, `p${padded}.json`), JSON.stringify(out));
-              }
-            } catch (error: unknown) {
-              const err = error as Error;
-              console.error(`\nFailed to load translations p${page}/${translationId}: ${err.message}`);
-            }
-          }),
-        );
-      }
-
-      if (!force) {
-        const allExist = taskCodes.every((code) => {
-          const dir = dataDirs.get(code)!;
-          return (
-            existsSync(path.join(dir, `p${padded}.json`)) &&
-            existsSync(path.join(dir, `p${padded}.pb`))
-          );
-        });
-        if (allExist) {
-          for (const code of taskCodes) statsByCode.get(code)!.skipped++;
-          doneTasks++;
-          updateProgress(doneTasks, totalTasks);
-          continue;
-        }
-      }
-
-      // Collect words for this page (with next-page spillover).
-      let collected: { words: ResolvedWord[]; rawVerses: RawVerse[] } | null = null;
-      try {
-        collected = await collectWordsForPage(page, mushafId, maxPages);
-      } catch (error: unknown) {
-        const err = error as Error;
-        console.error(`\nFailed API m${mushafId}/p${page}: ${err.message}`);
-        for (const code of taskCodes) statsByCode.get(code)!.errors["API Fail"]++;
-        doneTasks++;
-        updateProgress(doneTasks, totalTasks);
-        continue;
-      }
-
-      for (const code of taskCodes) {
-        const dir = dataDirs.get(code)!;
-        const stats = statsByCode.get(code)!;
-
-        if (!force) {
-          const jsonExists = existsSync(path.join(dir, `p${padded}.json`));
-          const pbExists = existsSync(path.join(dir, `p${padded}.pb`));
-          if (jsonExists && pbExists) {
-            stats.skipped++;
-            continue;
-          }
-        }
-
-        try {
-          const payload = generatePayload(collected.words, code, page);
-          if (!payload.lines.length) throw new Error("No lines generated");
-
-          await Bun.write(path.join(dir, `p${padded}.json`), JSON.stringify(payload));
-          const buffer = encodeMushafPagePayload(payload);
-          await Bun.write(path.join(dir, `p${padded}.pb`), buffer);
-          stats.success++;
-        } catch (error: unknown) {
-          const err = error as Error;
-          console.error(`\nFailed encoding p${page}/${code}: ${err.message}`);
-          stats.errors[err.message.includes("Encoding") ? "Encoding Fail" : "Other"]++;
-        }
-      }
-
-      doneTasks++;
-      updateProgress(doneTasks, totalTasks);
-    }
-  };
-
-  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-  await persistFootnotes(footnoteAssetPath, footnotesByTranslation);
-
-  process.stdout.write("\n");
-  printSummary(statsByCode);
-}
-
-// ---------------------------------------------------------------------------
-// Payload generation
-// ---------------------------------------------------------------------------
-function generatePayload(
-  resolvedWords: ResolvedWord[],
-  code: MushafCode,
-  page: number,
-): MushafPagePayload {
-  const textField = TEXT_FIELD_BY_CODE[code];
-  const lineField = LINE_FIELD_BY_CODE[code];
-  const fontPageField = FONT_PAGE_FIELD_BY_CODE[code];
-
-  const verseOrderCache = new Map<string, { surahId: number; verseId: number }>();
-  const getVerseOrder = (verseKey: string) => {
-    const cached = verseOrderCache.get(verseKey);
-    if (cached) return cached;
-    const [s, v] = verseKey.split(":");
-    const surahId = Number.parseInt(s ?? "", 10) || 0;
-    const verseId = Number.parseInt(v ?? "", 10) || 0;
-    const out = { surahId, verseId };
-    verseOrderCache.set(verseKey, out);
-    return out;
-  };
-
-  const resolveLineNum = (wordData: VerseWord) => {
-    const lineNumRaw = wordData[lineField];
-    return typeof lineNumRaw === "number" && lineNumRaw > 0
-      ? lineNumRaw
-      : typeof wordData.line_number === "number" && wordData.line_number > 0
-        ? wordData.line_number
-        : 1;
-  };
-
-  const charTypeRank = (t: string | undefined) => {
-    if (t === "word") return 0;
-    if (t === "pause") return 1;
-    if (t === "end") return 2;
-    return 3;
-  };
-
-  // Pre-filter to the physical font page and the token types we render.
-  // Then correct known API inconsistencies where an `end` marker reports an
-  // earlier line than the final content of its verse on the same page.
-  const allowedCharTypes = new Set(["word", "end", "pause"]);
-  const pageWords: Array<
-    ResolvedWord & { lineNum: number; effectiveLineNum: number; charTypeName: string }
-  > = [];
-  const verseMaxNonEndLine = new Map<string, number>();
-
-  for (const item of resolvedWords) {
-    const wordData = item.word;
-    const charTypeName = wordData.char_type_name ?? "word";
-    if (!allowedCharTypes.has(charTypeName)) continue;
-
-    const fontPage = wordData[fontPageField];
-    if (typeof fontPage === "number" && fontPage !== page) continue;
-
-    const lineNum = resolveLineNum(wordData);
-    if (charTypeName !== "end") {
-      const prev = verseMaxNonEndLine.get(item.verse_key) ?? 0;
-      if (lineNum > prev) verseMaxNonEndLine.set(item.verse_key, lineNum);
-    }
-
-    pageWords.push({ ...item, lineNum, effectiveLineNum: lineNum, charTypeName });
-  }
-
-  for (const item of pageWords) {
-    if (item.charTypeName !== "end") continue;
-    const maxLine = verseMaxNonEndLine.get(item.verse_key);
-    if (typeof maxLine === "number" && maxLine > 0 && item.effectiveLineNum < maxLine) {
-      item.effectiveLineNum = maxLine;
-    }
-  }
-
-  const sortedWords = pageWords.slice().sort((a, b) => {
-    if (a.effectiveLineNum !== b.effectiveLineNum) return a.effectiveLineNum - b.effectiveLineNum;
-
-    const aOrder = getVerseOrder(a.verse_key);
-    const bOrder = getVerseOrder(b.verse_key);
-    if (aOrder.surahId !== bOrder.surahId) return aOrder.surahId - bOrder.surahId;
-    if (aOrder.verseId !== bOrder.verseId) return aOrder.verseId - bOrder.verseId;
-
-    const aPos =
-      typeof a.word.position === "number" && a.word.position > 0 ? a.word.position : a.word_index + 1;
-    const bPos =
-      typeof b.word.position === "number" && b.word.position > 0 ? b.word.position : b.word_index + 1;
-    if (aPos !== bPos) return aPos - bPos;
-
-    return charTypeRank(a.charTypeName) - charTypeRank(b.charTypeName);
-  });
-
-  const linesMap = new Map<
-    number,
-    { text: string; verseKey: string; x: number; width: number; charTypeName: string }[]
-  >();
-  let maxLine = 0;
-
-  for (const item of sortedWords) {
-    const wordData = item.word;
-    const charType = item.charTypeName;
-    const lineNum = item.effectiveLineNum;
-    maxLine = Math.max(maxLine, lineNum);
-
-    const rawText = getWordText(wordData, textField);
-    if (!rawText) continue;
-
-    const existing = linesMap.get(lineNum) ?? [];
-    const x = existing.length * AVG_CHAR_WIDTH;
-    const width = Math.max(1, [...rawText].length) * AVG_CHAR_WIDTH;
-    existing.push({
-      text: rawText,
-      verseKey: item.verse_key,
-      x,
-      width,
-      charTypeName: charType,
-    });
-    linesMap.set(lineNum, existing);
-  }
-
-  const lines: MushafPagePayload["lines"] = [];
-  for (let i = 1; i <= maxLine; i++) {
-    const words = linesMap.get(i);
-    if (words?.length) lines.push({ lineNumber: i, words });
-  }
-  return { page, mushafCode: code, lines };
-}
-
-function getWordText(word: VerseWord, preferredField: keyof VerseWord): string {
-  const candidates: (keyof VerseWord)[] = [preferredField, "code_v2", "text_qpc_hafs", "text"];
-  for (const key of candidates) {
-    const value = normalizeWordText(word[key]);
-    if (value) return value;
-  }
-  return "";
-}
-
-function normalizeWordText(value: unknown): string {
-  if (typeof value !== "string") return "";
-  const cleaned = value.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
-  const trimmed = cleaned.trim();
-  if (!trimmed) return "";
-  return decodeNumericHtmlEntities(trimmed);
-}
-
-function decodeNumericHtmlEntities(input: string): string {
-  return input.replace(/&#(x?[0-9a-fA-F]+);?/g, (_m, raw) => {
-    const base = raw[0].toLowerCase() === "x" ? 16 : 10;
-    const digits = base === 16 ? raw.slice(1) : raw;
-    const cp = Number.parseInt(digits, base);
-    if (!Number.isFinite(cp) || cp <= 0 || cp > 0x10ffff) return _m;
-    try {
-      return String.fromCodePoint(cp);
-    } catch {
-      return _m;
-    }
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function updateProgress(done: number, total: number) {
-  if (done % 10 === 0 || done === total) {
-    const pct = ((done / total) * 100).toFixed(1);
-    process.stdout.write(`\rProgress: ${done}/${total} (${pct}%)`);
-  }
-}
-
-function printSummary(statsByCode: Map<MushafCode, CodeStats>) {
-  console.log("\n--- Generation Summary ---");
-  const table: Record<string, unknown> = {};
-  for (const [code, s] of statsByCode) {
-    const errs = Object.values(s.errors).reduce((a, b) => a + b, 0);
-    table[code] = { success: s.success, skipped: s.skipped, errors: errs };
-  }
-  console.table(table);
-  const totalErrors = [...statsByCode.values()].reduce(
-    (sum, s) => sum + Object.values(s.errors).reduce((a, b) => a + b, 0),
-    0,
+  console.error(
+    [
+      "Usage:",
+      "  bun scripts/generate-mushaf-assets.ts --all",
+      "  bun scripts/generate-mushaf-assets.ts --pages 1-3",
+      "  bun scripts/generate-mushaf-assets.ts --pages 1,2,604",
+      "  bun scripts/generate-mushaf-assets.ts --seed-sample",
+      "",
+      "Options:",
+      "  --all                 Generate all pages (default if no page option is provided)",
+      "  --pages <spec>        Page range (e.g. 1-20) or comma list (e.g. 1,2,50)",
+      "  --seed-sample         Generate only pages 1-3",
+      "  --force               Overwrite existing output files",
+      "  --code <code>         Only 'v2' is supported",
+      "  --layout-zip <path>   Layout ZIP source (default: qpc-v2-15-lines.db.zip)",
+      "  --layout-db <path>    Layout SQLite source (bypasses ZIP extraction)",
+      "  --words-zip <path>    Words DB ZIP source (default: qpc-v2.db.zip)",
+      "  --words-db <path>     Words SQLite source (bypasses ZIP extraction)",
+      "  --out-dir <path>      Output directory for generated page assets",
+      "  --extract-fonts       Extract per-page woff2 fonts from archive",
+      "  --fonts-zip <path>    Font archive path (default: QPC V2 Font.woff2.bz2)",
+      "",
+      "Source model:",
+      "  - Page structure is taken from the layout SQLite (pages table).",
+      "  - Word data is read from the words SQLite (words table).",
+      "  - Only rows with line_type='ayah' are emitted into page payload lines.",
+    ].join("\n"),
   );
-  if (totalErrors > 0) {
-    console.error(`\n${totalErrors} errors occurred. Re-run without --force to fill gaps.`);
-  }
+  process.exit(1);
 }
 
-function parseCodesArg(codesArg: string | null, codeArg: string | null): MushafCode[] {
-  const raw = codesArg ?? codeArg;
-  if (!raw || raw === "all") return ALL_CODES;
-  return raw.split(",").map((s) => s.trim()) as MushafCode[];
+function getArg(name: string): string | null {
+  const idx = process.argv.indexOf(name);
+  if (idx === -1) return null;
+  const value = process.argv[idx + 1];
+  if (!value || value.startsWith("--")) return null;
+  return value;
 }
 
-function getArg(name: string) {
-  const idx = process.argv.lastIndexOf(name);
-  return idx !== -1 ? process.argv[idx + 1] : null;
-}
-
-function hasFlag(name: string) {
+function hasFlag(name: string): boolean {
   return process.argv.includes(name);
 }
 
-function parsePageRange(input: string) {
-  const [s, e] = input.split("-").map(Number);
-  return { start: s || 1, end: e || s || 1 };
+function pad3(n: number): string {
+  return String(n).padStart(3, "0");
 }
 
-async function loadExistingFootnotes(
-  filePath: string,
-): Promise<Record<FootnoteTranslationId, Record<string, string>>> {
-  const template = FOOTNOTE_TRANSLATIONS.reduce(
-    (acc, id) => { acc[id] = {}; return acc; },
-    {} as Record<FootnoteTranslationId, Record<string, string>>,
-  );
-  if (!existsSync(filePath)) return template;
+function ensureSupportedCodeOrExit(): SupportedCode {
+  const codeArg = getArg("--code");
+  const raw = (codeArg ?? DEFAULT_CODE).trim();
+  if (raw !== DEFAULT_CODE) {
+    usageAndExit(
+      `Unsupported code: ${raw}. Only '${DEFAULT_CODE}' is supported.`,
+    );
+  }
+  return DEFAULT_CODE;
+}
+
+function parsePageSpec(spec: string): number[] {
+  const trimmed = spec.trim();
+  if (!trimmed) usageAndExit("--pages cannot be empty.");
+
+  const out = new Set<number>();
+  const parts = trimmed
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  for (const part of parts) {
+    const rangeMatch = /^(\d+)-(\d+)$/.exec(part);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      if (
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
+        start < 1 ||
+        end < start
+      ) {
+        usageAndExit(`Invalid page range: ${part}`);
+      }
+      for (let page = start; page <= end; page++) {
+        if (page <= TOTAL_PAGES) out.add(page);
+      }
+      continue;
+    }
+
+    const page = Number(part);
+    if (!Number.isInteger(page) || page < 1 || page > TOTAL_PAGES) {
+      usageAndExit(`Invalid page number: ${part}`);
+    }
+    out.add(page);
+  }
+
+  return Array.from(out).sort((a, b) => a - b);
+}
+
+function resolveTargetPages(): number[] {
+  const pagesArg = getArg("--pages");
+  const seedSample = hasFlag("--seed-sample");
+
+  if (pagesArg) {
+    return parsePageSpec(pagesArg);
+  }
+
+  if (seedSample) {
+    return [1, 2, 3];
+  }
+
+  const pages: number[] = [];
+  for (let page = 1; page <= TOTAL_PAGES; page++) pages.push(page);
+  return pages;
+}
+
+async function extractDbFromZip(
+  zipPath: string,
+  label: string,
+): Promise<DbHandle> {
+  if (!existsSync(zipPath)) {
+    throw new Error(`${label} ZIP not found: ${zipPath}`);
+  }
+
+  const entriesRaw = execFileSync("unzip", ["-Z1", zipPath], {
+    encoding: "utf8",
+  });
+  const entries = entriesRaw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const dbEntry = entries.find((entry) => entry.toLowerCase().endsWith(".db"));
+  if (!dbEntry) {
+    throw new Error(`No .db file found in ZIP: ${zipPath}`);
+  }
+
+  const tempDir = await mkdtemp(path.join(tmpdir(), `qpc-${label}-`));
+  execFileSync("unzip", ["-o", zipPath, dbEntry, "-d", tempDir], {
+    encoding: "utf8",
+  });
+  const outPath = path.join(tempDir, path.basename(dbEntry));
+
+  return {
+    dbPath: outPath,
+    cleanup: async () => {
+      await rm(tempDir, { recursive: true, force: true });
+    },
+  };
+}
+
+async function resolveLayoutDb(): Promise<DbHandle> {
+  const layoutDbArg = getArg("--layout-db");
+  const layoutZipArg = getArg("--layout-zip");
+
+  if (layoutDbArg) {
+    const dbPath = path.resolve(layoutDbArg);
+    if (!existsSync(dbPath)) throw new Error(`Layout DB not found: ${dbPath}`);
+    return { dbPath, cleanup: async () => {} };
+  }
+
+  const zipPath = path.resolve(layoutZipArg ?? DEFAULT_LAYOUT_ZIP);
+  return extractDbFromZip(zipPath, "layout");
+}
+
+async function resolveWordsDb(): Promise<DbHandle> {
+  const wordsDbArg = getArg("--words-db");
+  const wordsZipArg = getArg("--words-zip");
+
+  if (wordsDbArg) {
+    const dbPath = path.resolve(wordsDbArg);
+    if (!existsSync(dbPath)) throw new Error(`Words DB not found: ${dbPath}`);
+    return { dbPath, cleanup: async () => {} };
+  }
+
+  const zipPath = path.resolve(wordsZipArg ?? DEFAULT_WORDS_ZIP);
+  return extractDbFromZip(zipPath, "words");
+}
+
+function queryLayout(dbPath: string): {
+  info: LayoutInfoRow;
+  rows: LayoutPageRow[];
+} {
+  const db = new Database(dbPath, { readonly: true });
   try {
-    const raw = await readFile(filePath, "utf-8");
-    const parsed = JSON.parse(raw);
-    for (const translationId of FOOTNOTE_TRANSLATIONS) {
-      const entries = parsed?.[translationId];
-      if (entries && typeof entries === "object") {
-        Object.assign(template[translationId], entries);
+    const infoStmt = db.query(
+      "SELECT name, number_of_pages, lines_per_page, font_name FROM info LIMIT 1",
+    );
+    const info = infoStmt.get() as LayoutInfoRow | null;
+    if (!info) {
+      throw new Error("Missing info row in layout DB.");
+    }
+
+    const rowsStmt = db.query(
+      [
+        "SELECT",
+        "  page_number,",
+        "  line_number,",
+        "  line_type,",
+        "  is_centered,",
+        "  first_word_id,",
+        "  last_word_id,",
+        "  surah_number",
+        "FROM pages",
+        "ORDER BY page_number, line_number",
+      ].join("\n"),
+    );
+    const rows = rowsStmt.all() as LayoutPageRow[];
+    if (!rows.length) {
+      throw new Error("No rows found in pages table.");
+    }
+
+    return { info, rows };
+  } finally {
+    db.close();
+  }
+}
+
+function loadWords(dbPath: string): {
+  wordMap: Map<number, WordRow>;
+  verseEndIds: Set<number>;
+} {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const stmt = db.query(
+      "SELECT id, location, surah, ayah, word, text FROM words ORDER BY id",
+    );
+    const rows = stmt.all() as WordRow[];
+
+    const wordMap = new Map<number, WordRow>();
+    // Track max word ID per surah:ayah to identify verse-end markers
+    const maxWordIdPerVerse = new Map<string, number>();
+
+    for (const row of rows) {
+      wordMap.set(row.id, row);
+      const verseKey = `${row.surah}:${row.ayah}`;
+      const existing = maxWordIdPerVerse.get(verseKey);
+      if (existing === undefined || row.id > existing) {
+        maxWordIdPerVerse.set(verseKey, row.id);
       }
     }
-  } catch {
-    // Ignore parse errors; keep the empty template
+
+    const verseEndIds = new Set<number>(maxWordIdPerVerse.values());
+
+    console.log(
+      `Loaded ${wordMap.size} words, ${verseEndIds.size} verse-end markers`,
+    );
+
+    return { wordMap, verseEndIds };
+  } finally {
+    db.close();
   }
-  return template;
 }
 
-async function persistFootnotes(
-  filePath: string,
-  data: Record<FootnoteTranslationId, Record<string, string>>,
-) {
-  await Bun.write(filePath, JSON.stringify(data, null, 2));
+function generatePagePayload(options: {
+  code: SupportedCode;
+  page: number;
+  layoutRows: LayoutPageRow[];
+  wordMap: Map<number, WordRow>;
+  verseEndIds: Set<number>;
+  lineWarnings: Array<{ page: number; line: number; message: string }>;
+  stats: GenerationStats;
+}): MushafPagePayload {
+  const { code, page, layoutRows, wordMap, verseEndIds, lineWarnings, stats } =
+    options;
+
+  const outLines: MushafPagePayload["lines"] = [];
+
+  for (const row of layoutRows) {
+    if (row.line_type !== "ayah") {
+      continue;
+    }
+
+    if (row.first_word_id == null || row.last_word_id == null) {
+      lineWarnings.push({
+        page,
+        line: row.line_number,
+        message: "Ayah line has null word ID range; skipped.",
+      });
+      stats.lineWarnings++;
+      continue;
+    }
+
+    const words: MushafPagePayload["lines"][number]["words"] = [];
+    let idx = 0;
+
+    for (let wid = row.first_word_id; wid <= row.last_word_id; wid++) {
+      const wordRow = wordMap.get(wid);
+      if (!wordRow) {
+        lineWarnings.push({
+          page,
+          line: row.line_number,
+          message: `Word ID ${wid} not found in words DB.`,
+        });
+        stats.lineWarnings++;
+        continue;
+      }
+
+      words.push({
+        text: wordRow.text,
+        verseKey: `${wordRow.surah}:${wordRow.ayah}`,
+        x: idx * 20,
+        width: 20,
+        charTypeName: verseEndIds.has(wid) ? "end" : "word",
+      });
+      idx++;
+    }
+
+    outLines.push({
+      lineNumber: row.line_number,
+      words,
+    });
+  }
+
+  return {
+    page,
+    mushafCode: code,
+    lines: outLines,
+  };
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function extractFonts(fontsZipPath: string, outDir: string) {
+  if (!existsSync(fontsZipPath)) {
+    throw new Error(`Font archive not found: ${fontsZipPath}`);
+  }
+
+  await mkdir(outDir, { recursive: true });
+
+  const tempDir = await mkdtemp(path.join(tmpdir(), "qpc-fonts-"));
+
+  try {
+    // Extract all woff2 files from the zip
+    execFileSync("unzip", ["-o", fontsZipPath, "-d", tempDir], {
+      encoding: "utf8",
+    });
+
+    let copied = 0;
+    for (let page = 1; page <= TOTAL_PAGES; page++) {
+      const srcName = `p${page}.woff2`;
+      const srcPath = path.join(tempDir, srcName);
+      const dstPath = path.join(outDir, `p${pad3(page)}.woff2`);
+
+      if (!existsSync(srcPath)) {
+        console.warn(`Font file not found: ${srcName}`);
+        continue;
+      }
+
+      const data = await Bun.file(srcPath).arrayBuffer();
+      await Bun.write(dstPath, data);
+      copied++;
+    }
+
+    console.log(`Extracted ${copied} font files to ${outDir}`);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function main() {
+  if (hasFlag("--help") || hasFlag("-h")) {
+    usageAndExit();
+  }
+
+  const code = ensureSupportedCodeOrExit();
+  const force = hasFlag("--force");
+
+  // Handle font extraction
+  if (hasFlag("--extract-fonts")) {
+    const fontsZipPath = path.resolve(getArg("--fonts-zip") ?? DEFAULT_FONTS_ZIP);
+    const fontsOutDir = path.resolve(
+      getArg("--out-dir") ??
+        path.join(process.cwd(), "public", "mushaf-fonts", code),
+    );
+    await extractFonts(fontsZipPath, fontsOutDir);
+    if (!hasFlag("--all") && !getArg("--pages") && !hasFlag("--seed-sample")) {
+      // Only font extraction was requested
+      return;
+    }
+  }
+
+  const pages = resolveTargetPages();
+  const outDir = path.resolve(
+    getArg("--out-dir") ??
+      path.join(process.cwd(), "public", "mushaf-data", code),
+  );
+
+  await mkdir(outDir, { recursive: true });
+
+  const layoutHandle = await resolveLayoutDb();
+  const wordsHandle = await resolveWordsDb();
+  const stats: GenerationStats = {
+    generated: 0,
+    skipped: 0,
+    errors: 0,
+    lineWarnings: 0,
+  };
+  const lineWarnings: Array<{ page: number; line: number; message: string }> =
+    [];
+
+  try {
+    const { info, rows } = queryLayout(layoutHandle.dbPath);
+    const { wordMap, verseEndIds } = loadWords(wordsHandle.dbPath);
+
+    if (info.number_of_pages !== TOTAL_PAGES) {
+      console.warn(
+        `Layout reports ${info.number_of_pages} pages, while app expects ${TOTAL_PAGES}. Continuing with app page limits.`,
+      );
+    }
+
+    const rowsByPage = new Map<number, LayoutPageRow[]>();
+    for (const row of rows) {
+      const bucket = rowsByPage.get(row.page_number) ?? [];
+      bucket.push(row);
+      rowsByPage.set(row.page_number, bucket);
+    }
+
+    console.log(
+      [
+        `Generating mushaf assets from DB sources...`,
+        `code=${code}`,
+        `pages=${pages.length}`,
+        `force=${force}`,
+        `layout=${layoutHandle.dbPath}`,
+        `words=${wordsHandle.dbPath}`,
+        `outDir=${outDir}`,
+        `layoutName=${info.name}`,
+        `layoutFont=${info.font_name}`,
+      ].join(" "),
+    );
+
+    let completed = 0;
+    for (const page of pages) {
+      const pageRows = rowsByPage.get(page) ?? [];
+      if (!pageRows.length) {
+        stats.errors++;
+        console.error(`No layout rows found for page ${page}.`);
+        continue;
+      }
+
+      const outJson = path.join(outDir, `p${pad3(page)}.json`);
+      const outPb = path.join(outDir, `p${pad3(page)}.pb`);
+      if (!force && existsSync(outJson) && existsSync(outPb)) {
+        stats.skipped++;
+        completed++;
+        if (completed % 25 === 0 || completed === pages.length) {
+          const pct = ((completed / pages.length) * 100).toFixed(1);
+          process.stdout.write(`\rProgress: ${completed}/${pages.length} (${pct}%)`);
+        }
+        continue;
+      }
+
+      try {
+        const payload = generatePagePayload({
+          code,
+          page,
+          layoutRows: pageRows,
+          wordMap,
+          verseEndIds,
+          lineWarnings,
+          stats,
+        });
+
+        await Bun.write(outJson, JSON.stringify(payload));
+        await Bun.write(outPb, encodeMushafPagePayload(payload));
+        stats.generated++;
+      } catch (error) {
+        stats.errors++;
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Failed page ${page}: ${message}`);
+      }
+
+      completed++;
+      if (completed % 25 === 0 || completed === pages.length) {
+        const pct = ((completed / pages.length) * 100).toFixed(1);
+        process.stdout.write(
+          `\rProgress: ${completed}/${pages.length} (${pct}%)`,
+        );
+      }
+    }
+
+    process.stdout.write("\n");
+
+    console.log("--- Generation Summary ---");
+    console.table({
+      [code]: {
+        generated: stats.generated,
+        skipped: stats.skipped,
+        errors: stats.errors,
+        lineWarnings: stats.lineWarnings,
+      },
+    });
+
+    if (lineWarnings.length > 0) {
+      console.warn(`\nLine warnings (${lineWarnings.length}) - showing first 30:`);
+      for (const warning of lineWarnings.slice(0, 30)) {
+        console.warn(
+          `- p${warning.page} line ${warning.line}: ${warning.message}`,
+        );
+      }
+      if (lineWarnings.length > 30) {
+        console.warn(`- ... and ${lineWarnings.length - 30} more`);
+      }
+    }
+
+    if (stats.errors > 0) {
+      process.exitCode = 1;
+    }
+  } finally {
+    await layoutHandle.cleanup();
+    await wordsHandle.cleanup();
+  }
+}
+
+await main();
