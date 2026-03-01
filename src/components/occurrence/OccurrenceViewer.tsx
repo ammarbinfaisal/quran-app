@@ -74,6 +74,9 @@ export function OccurrenceViewer({
     const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
     const { prefs } = usePreferences();
     const { applyTheme } = useTheme();
+    // Use the live preference mushafCode so the component responds to settings changes,
+    // falling back to the server-rendered prop (usually "v2") before hydration.
+    const effectiveMushafCode = prefs.mushafCode ?? mushafCode;
 
     useEffect(() => {
         applyTheme(prefs.theme);
@@ -161,11 +164,11 @@ export function OccurrenceViewer({
     useEffect(() => {
         let active = true;
         async function loadFonts() {
-            if (!isQcfCode(mushafCode)) { setFontsReady(true); return; }
+            if (!isQcfCode(effectiveMushafCode)) { setFontsReady(true); return; }
             if (visibleVerses.length === 0) return;
 
             try {
-                const pagesMap = await fetchVersePages(mushafCode);
+                const pagesMap = await fetchVersePages(effectiveMushafCode);
                 const pagesToLoad = new Set<number>();
 
                 for (const { verseKey } of visibleVerses) {
@@ -179,7 +182,7 @@ export function OccurrenceViewer({
 
                 for (const p of Array.from(pagesToLoad)) {
                     if (!active) break;
-                    await loadQcfFont(mushafCode, p);
+                    await loadQcfFont(effectiveMushafCode, p);
                 }
                 if (active) setFontsReady(true);
             } catch {
@@ -188,9 +191,9 @@ export function OccurrenceViewer({
         }
         loadFonts();
         return () => { active = false; };
-    }, [visibleVerses, mushafCode]);
+    }, [visibleVerses, effectiveMushafCode]);
 
-    const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerses.length > 0);
+    const isWaiting = loading || (isQcfCode(effectiveMushafCode) && !fontsReady && visibleVerses.length > 0);
     const handleWordTap = useCallback((verseKey: string, wordIndex: number) => {
         setSelectedVerse(verseKey);
         setSelectedWordIndex(wordIndex >= 0 ? wordIndex : null);
@@ -243,7 +246,7 @@ export function OccurrenceViewer({
                                 key={verseKey}
                                 verseKey={verseKey}
                                 highlightedWords={highlightedWords}
-                                mushafCode={mushafCode}
+                                mushafCode={effectiveMushafCode}
                                 fontReady={fontsReady}
                                 onWordTap={handleWordTap}
                                 showVerseLink
@@ -273,7 +276,7 @@ export function OccurrenceViewer({
                 selectedVerse={selectedVerse}
                 selectedWordIndex={selectedWordIndex}
                 translationIds={prefs.translationIds}
-                mushafCode={mushafCode}
+                mushafCode={effectiveMushafCode}
                 onClose={() => {
                     setSelectedVerse(null);
                     setSelectedWordIndex(null);

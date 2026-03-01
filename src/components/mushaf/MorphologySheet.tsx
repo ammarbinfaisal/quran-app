@@ -103,12 +103,13 @@ async function fetchMorphologyData(
     surah: number,
     ayah: number,
     wordIndex: number,
+    mushafCode: MushafCode,
 ): Promise<MorphologyData[]> {
     const key = `${surah}:${ayah}:${wordIndex}`;
 
     // Try IndexedDB cached juz chunk first
     try {
-        const versePages = await fetchVersePages("v2");
+        const versePages = await fetchVersePages(mushafCode);
         const vk = `${surah}:${ayah}`;
         const pageLookup = versePages[vk];
         if (pageLookup != null) {
@@ -137,6 +138,7 @@ export function MorphologySheet({
     open,
     verseKey,
     wordIndex,
+    mushafCode,
     onClose,
 }: {
     open: boolean;
@@ -162,7 +164,7 @@ export function MorphologySheet({
             setLoading(true);
             try {
                 const [surah, ayah] = verseKey.split(":").map(Number);
-                const result = await fetchMorphologyData(surah, ayah, wordIndex + 1);
+                const result = await fetchMorphologyData(surah, ayah, wordIndex + 1, mushafCode);
                 if (mounted) setData(result);
             } catch (err) {
                 console.error("Failed to fetch morphology", err);
@@ -174,7 +176,7 @@ export function MorphologySheet({
 
         load();
         return () => { mounted = false; };
-    }, [open, verseKey, wordIndex]);
+    }, [open, verseKey, wordIndex, mushafCode]);
 
     if (!open) return null;
 

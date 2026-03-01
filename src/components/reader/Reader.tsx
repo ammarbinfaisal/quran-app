@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import { BookOpen } from "lucide-react";
-import { TOTAL_PAGES } from "@/lib/constants";
+import { TOTAL_PAGES, INDOPAK_TOTAL_PAGES } from "@/lib/constants";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
 import { useImmersiveMode } from "@/hooks/useImmersiveMode";
@@ -15,16 +15,24 @@ import { DownloadManager } from "@/components/offline/DownloadManager";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { useRouter, useSearchParams } from "next/navigation";
-import { mushafPath } from "@/lib/url";
+import { mushafPathForCode } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useTrackReading } from "@/hooks/useReadingHistory";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
+import type { MushafCode } from "@/lib/types";
+import { v2PageToIndopak, indopakPageToV2 } from "@/lib/mushaf/crossmap";
 
-function clampPage(p: number) {
-  return Math.max(1, Math.min(TOTAL_PAGES, p));
+function clampPage(p: number, totalPages: number) {
+  return Math.max(1, Math.min(totalPages, p));
 }
 
-export function Reader({ initialPage }: { initialPage: number }) {
+export function Reader({
+  initialPage,
+  forcedMushafCode,
+}: {
+  initialPage: number;
+  forcedMushafCode?: MushafCode;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verseParam = searchParams.get("verse");
@@ -43,7 +51,9 @@ export function Reader({ initialPage }: { initialPage: number }) {
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
-  const mushafCode = prefs.mushafCode;
+  // When a forcedMushafCode is provided (indopak routes), use it instead of preferences
+  const mushafCode: MushafCode = forcedMushafCode ?? prefs.mushafCode;
+  const totalPages = mushafCode === "indopak" ? INDOPAK_TOTAL_PAGES : TOTAL_PAGES;
 
   useTrackReading(page);
 
@@ -59,16 +69,42 @@ export function Reader({ initialPage }: { initialPage: number }) {
 
   const handlePageChange = useCallback(
     (next: number) => {
-      const p = clampPage(next);
+      const p = clampPage(next, totalPages);
       setPage(p);
 
       if (replaceTimer.current) clearTimeout(replaceTimer.current);
       replaceTimer.current = setTimeout(() => {
-        router.replace(mushafPath(p, null), { scroll: false });
+        router.replace(mushafPathForCode(mushafCode, p, null), { scroll: false });
       }, 150);
     },
-    [router],
+    [router, mushafCode, totalPages],
   );
+
+  // When mushafCode setting changes (and this is a non-forced route), cross-map current page
+  const prevPrefsMushafCode = useRef(prefs.mushafCode);
+  useEffect(() => {
+    if (forcedMushafCode) return; // URL-driven routes don't respond to settings
+    const newCode = prefs.mushafCode;
+    const oldCode = prevPrefsMushafCode.current;
+    prevPrefsMushafCode.current = newCode;
+    if (newCode === oldCode) return;
+
+    const currentPage = page;
+    if (newCode === "indopak") {
+      v2PageToIndopak(currentPage).then((mapped) => {
+        router.push(mushafPathForCode(newCode, mapped, null));
+      }).catch(() => {
+        router.push(mushafPathForCode(newCode, 1, null));
+      });
+    } else {
+      indopakPageToV2(currentPage).then((mapped) => {
+        router.push(mushafPathForCode(newCode, mapped, null));
+      }).catch(() => {
+        router.push(mushafPathForCode(newCode, 1, null));
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.mushafCode]);
 
   useEffect(() => {
     return () => {
@@ -186,7 +222,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
         open={surahOpen}
         onClose={() => setSurahOpen(false)}
         onNavigate={(nextPage, verseKey) => {
-          router.push(mushafPath(clampPage(nextPage), verseKey), { scroll: false });
+          router.push(mushafPathForCode(mushafCode, clampPage(nextPage, totalPages), verseKey), { scroll: false });
           setSelectedVerse(null);
           setSurahOpen(false);
         }}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
@@ -11,7 +12,7 @@ import { useTheme } from "@/hooks/useTheme";
 const RECENTS_LIMIT = 5;
 
 export function HomePageClient() {
-  const { history, refresh } = useReadingHistory();
+  const { history } = useReadingHistory();
   const { goToPage } = usePageNavigation();
   const { prefs } = usePreferences();
   const { applyTheme } = useTheme();
@@ -35,13 +36,12 @@ export function HomePageClient() {
       <div className="mx-auto flex h-full max-w-xl flex-col">
         <header className="flex items-center justify-between px-4 py-4">
           <h1 className="text-lg font-semibold tracking-tight">Quran</h1>
-          <button
-            type="button"
-            onClick={refresh}
-            className="rounded-lg px-4 py-2.5 text-sm text-[var(--color-muted)] min-h-12 active:scale-[0.97] active:opacity-80"
+          <Link
+            href="/docs"
+            className="rounded-lg px-4 py-2.5 text-sm text-[var(--color-muted)] min-h-12 inline-flex items-center active:scale-[0.97] active:opacity-80"
           >
-            Refresh
-          </button>
+            Guide
+          </Link>
         </header>
 
         <div className="px-4">

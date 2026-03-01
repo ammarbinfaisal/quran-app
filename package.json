@@ -17,7 +17,11 @@
     "perf:mushaf-scroll": "bunx --bun playwright test tests/perf/mushaf-scroll.perf.spec.ts",
     "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts",
     "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample",
+    "generate:mushaf-assets:indopak": "bun scripts/generate-mushaf-assets.ts --code indopak --layout-zip qpc-nastaleeq-15-lines.db.zip --words-zip qpc-nastaleeq.db.zip",
+    "generate:mushaf-assets:indopak-fonts": "bun scripts/generate-mushaf-assets.ts --code indopak --extract-fonts --fonts-zip nastaleeq-font.woff2.zip",
     "generate:navigation-maps": "bun scripts/generate-navigation-maps.ts",
+    "generate:navigation-maps:indopak": "bun scripts/generate-navigation-maps.ts --code indopak",
+    "generate:page-crossmap": "bun scripts/generate-page-crossmap.ts",
     "fetch:all-fonts": "bun scripts/fetch-all-fonts.ts",
     "split:morphology": "bun scripts/split-morphology.ts",
     "precompute:translations": "bun scripts/precompute-translations.ts"

@@ -15,7 +15,7 @@ const DEFAULT_WORDS_ZIP = "qpc-v2.db.zip";
 const DEFAULT_FONTS_ZIP = "QPC V2 Font.woff2.bz2";
 const DEFAULT_CODE = "v2";
 
-type SupportedCode = "v2";
+type SupportedCode = "v2" | "indopak";
 
 type LayoutInfoRow = {
   name: string;
@@ -72,7 +72,7 @@ function usageAndExit(message?: string): never {
       "  --pages <spec>        Page range (e.g. 1-20) or comma list (e.g. 1,2,50)",
       "  --seed-sample         Generate only pages 1-3",
       "  --force               Overwrite existing output files",
-      "  --code <code>         Only 'v2' is supported",
+      "  --code <code>         Mushaf code: 'v2' (default) or 'indopak'",
       "  --layout-zip <path>   Layout ZIP source (default: qpc-v2-15-lines.db.zip)",
       "  --layout-db <path>    Layout SQLite source (bypasses ZIP extraction)",
       "  --words-zip <path>    Words DB ZIP source (default: qpc-v2.db.zip)",
@@ -109,12 +109,12 @@ function pad3(n: number): string {
 function ensureSupportedCodeOrExit(): SupportedCode {
   const codeArg = getArg("--code");
   const raw = (codeArg ?? DEFAULT_CODE).trim();
-  if (raw !== DEFAULT_CODE) {
+  if (raw !== "v2" && raw !== "indopak") {
     usageAndExit(
-      `Unsupported code: ${raw}. Only '${DEFAULT_CODE}' is supported.`,
+      `Unsupported code: ${raw}. Supported codes: 'v2', 'indopak'.`,
     );
   }
-  return DEFAULT_CODE;
+  return raw as SupportedCode;
 }
 
 function parsePageSpec(spec: string): number[] {
@@ -155,7 +155,7 @@ function parsePageSpec(spec: string): number[] {
   return Array.from(out).sort((a, b) => a - b);
 }
 
-function resolveTargetPages(): number[] {
+function resolveTargetPages(totalPages: number = TOTAL_PAGES): number[] {
   const pagesArg = getArg("--pages");
   const seedSample = hasFlag("--seed-sample");
 
@@ -168,7 +168,7 @@ function resolveTargetPages(): number[] {
   }
 
   const pages: number[] = [];
-  for (let page = 1; page <= TOTAL_PAGES; page++) pages.push(page);
+  for (let page = 1; page <= totalPages; page++) pages.push(page);
   return pages;
 }
 
@@ -376,7 +376,12 @@ function generatePagePayload(options: {
   };
 }
 
-async function extractFonts(fontsZipPath: string, outDir: string) {
+async function extractFonts(
+  fontsZipPath: string,
+  outDir: string,
+  code: SupportedCode,
+  totalPages: number = TOTAL_PAGES,
+) {
   if (!existsSync(fontsZipPath)) {
     throw new Error(`Font archive not found: ${fontsZipPath}`);
   }
@@ -386,28 +391,58 @@ async function extractFonts(fontsZipPath: string, outDir: string) {
   const tempDir = await mkdtemp(path.join(tmpdir(), "qpc-fonts-"));
 
   try {
-    // Extract all woff2 files from the zip
     execFileSync("unzip", ["-o", fontsZipPath, "-d", tempDir], {
       encoding: "utf8",
     });
 
-    let copied = 0;
-    for (let page = 1; page <= TOTAL_PAGES; page++) {
-      const srcName = `p${page}.woff2`;
-      const srcPath = path.join(tempDir, srcName);
-      const dstPath = path.join(outDir, `p${pad3(page)}.woff2`);
-
-      if (!existsSync(srcPath)) {
-        console.warn(`Font file not found: ${srcName}`);
-        continue;
+    if (code === "indopak") {
+      // Indopak uses a single shared font file
+      const candidates = ["font.woff2", "nastaleeq.woff2", "qpc-nastaleeq.woff2"];
+      let copied = false;
+      for (const name of candidates) {
+        const srcPath = path.join(tempDir, name);
+        if (existsSync(srcPath)) {
+          const data = await Bun.file(srcPath).arrayBuffer();
+          await Bun.write(path.join(outDir, "font.woff2"), data);
+          console.log(`Copied ${name} → font.woff2 in ${outDir}`);
+          copied = true;
+          break;
+        }
       }
+      if (!copied) {
+        // Try any .woff2 found
+        const entries = execFileSync("unzip", ["-Z1", fontsZipPath], { encoding: "utf8" })
+          .split(/\r?\n/).filter((e) => e.endsWith(".woff2"));
+        if (entries.length > 0) {
+          const srcPath = path.join(tempDir, path.basename(entries[0]));
+          if (existsSync(srcPath)) {
+            const data = await Bun.file(srcPath).arrayBuffer();
+            await Bun.write(path.join(outDir, "font.woff2"), data);
+            console.log(`Copied ${entries[0]} → font.woff2 in ${outDir}`);
+          }
+        } else {
+          throw new Error("No .woff2 file found in font archive");
+        }
+      }
+    } else {
+      // V2 and others: per-page font files named p<N>.woff2
+      let copied = 0;
+      for (let page = 1; page <= totalPages; page++) {
+        const srcName = `p${page}.woff2`;
+        const srcPath = path.join(tempDir, srcName);
+        const dstPath = path.join(outDir, `p${pad3(page)}.woff2`);
 
-      const data = await Bun.file(srcPath).arrayBuffer();
-      await Bun.write(dstPath, data);
-      copied++;
+        if (!existsSync(srcPath)) {
+          console.warn(`Font file not found: ${srcName}`);
+          continue;
+        }
+
+        const data = await Bun.file(srcPath).arrayBuffer();
+        await Bun.write(dstPath, data);
+        copied++;
+      }
+      console.log(`Extracted ${copied} font files to ${outDir}`);
     }
-
-    console.log(`Extracted ${copied} font files to ${outDir}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -428,14 +463,13 @@ async function main() {
       getArg("--out-dir") ??
         path.join(process.cwd(), "public", "mushaf-fonts", code),
     );
-    await extractFonts(fontsZipPath, fontsOutDir);
+    await extractFonts(fontsZipPath, fontsOutDir, code);
     if (!hasFlag("--all") && !getArg("--pages") && !hasFlag("--seed-sample")) {
       // Only font extraction was requested
       return;
     }
   }
 
-  const pages = resolveTargetPages();
   const outDir = path.resolve(
     getArg("--out-dir") ??
       path.join(process.cwd(), "public", "mushaf-data", code),
@@ -458,10 +492,15 @@ async function main() {
     const { info, rows } = queryLayout(layoutHandle.dbPath);
     const { wordMap, verseEndIds } = loadWords(wordsHandle.dbPath);
 
-    if (info.number_of_pages !== TOTAL_PAGES) {
+    const dbTotalPages = info.number_of_pages;
+    const pages = resolveTargetPages(dbTotalPages);
+
+    if (code === "v2" && dbTotalPages !== TOTAL_PAGES) {
       console.warn(
-        `Layout reports ${info.number_of_pages} pages, while app expects ${TOTAL_PAGES}. Continuing with app page limits.`,
+        `Layout reports ${dbTotalPages} pages, while app expects ${TOTAL_PAGES}. Continuing with DB page count.`,
       );
+    } else {
+      console.log(`Layout reports ${dbTotalPages} pages.`);
     }
 
     const rowsByPage = new Map<number, LayoutPageRow[]>();

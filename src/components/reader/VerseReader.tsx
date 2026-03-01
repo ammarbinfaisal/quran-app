@@ -15,15 +15,17 @@ import { DownloadManager } from "@/components/offline/DownloadManager";
 import { VerseByVerseViewer } from "@/components/mushaf/VerseByVerseViewer";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
-import { vbvPath } from "@/lib/url";
+import { vbvPath, indopakVbvPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 
 export function VerseReader({
   type,
   id,
+  forcedMushafCode,
 }: {
   type: "p" | "s" | "j";
   id: number;
+  forcedMushafCode?: import("@/lib/types").MushafCode;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,7 +43,8 @@ export function VerseReader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mushafCode = prefs.mushafCode;
+  const mushafCode = forcedMushafCode ?? prefs.mushafCode;
+  const navPath = mushafCode === "indopak" ? indopakVbvPath : vbvPath;
 
   useTrackReading(type === "p" ? id : 1);
   const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
@@ -108,7 +111,7 @@ export function VerseReader({
             highlightedVerse={highlightedVerse}
             onNavigate={(newType, newId) => {
               setHighlightedVerse(null);
-              router.push(vbvPath(newType, newId), { scroll: false });
+              router.push(navPath(newType, newId), { scroll: false });
             }}
           />
         </div>
@@ -134,7 +137,7 @@ export function VerseReader({
             currentId={id}
             onNavigate={(newType, newId, verse) => {
               setHighlightedVerse(verse ?? null);
-              router.push(vbvPath(newType, newId, verse ?? undefined), { scroll: false });
+              router.push(navPath(newType, newId, verse ?? undefined), { scroll: false });
             }}
           />
         }
@@ -165,7 +168,7 @@ export function VerseReader({
         onNavigate={(page: number, verseKey: string | null) => {
           setSelectedVerse(null);
           setSurahOpen(false);
-          router.push(vbvPath("p", page, verseKey ?? undefined), { scroll: false });
+          router.push(navPath("p", page, verseKey ?? undefined), { scroll: false });
         }}
       />
 

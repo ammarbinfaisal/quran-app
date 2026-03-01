@@ -1,4 +1,5 @@
 export const TOTAL_PAGES = 604;
+export const INDOPAK_TOTAL_PAGES = 610;
 export const TOTAL_CHAPTERS = 114;
 export const LINES_PER_PAGE = 15;
 export const LINES_PER_PAGE_16 = 16;

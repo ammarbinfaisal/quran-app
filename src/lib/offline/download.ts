@@ -1,4 +1,4 @@
-import { TOTAL_PAGES } from "@/lib/constants";
+import { TOTAL_PAGES, INDOPAK_TOTAL_PAGES } from "@/lib/constants";
 import { fetchPageTranslations } from "@/lib/api";
 import {
   type MushafCode,
@@ -8,7 +8,7 @@ import {
   TRANSLATION_API_IDS,
 } from "@/lib/types";
 import { dbPut, dbPutMany, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
-import { getQcfFontUrl } from "@/lib/mushaf/fonts";
+import { getQcfFontUrl, getUnicodeFontUrl } from "@/lib/mushaf/fonts";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { compactToContent, parseTranslationSegments, segmentsToContent, type TranslationSegment, type TranslationContent, type CompactSeg } from "@/lib/footnotes";
 
@@ -60,9 +60,11 @@ export async function downloadMushaf(
   onProgress: (p: DownloadProgress) => void,
 ): Promise<void> {
   const isQcf = QCF_CODES.includes(code);
+  const mushafTotalPages = code === "indopak" ? INDOPAK_TOTAL_PAGES : TOTAL_PAGES;
+  const unicodeFontUrl = !isQcf ? getUnicodeFontUrl(code) : "";
 
-  // Each page may produce 1 fetch (JSON) or 2 fetches (JSON + font).
-  const totalSteps = isQcf ? TOTAL_PAGES * 2 : TOTAL_PAGES;
+  // Steps: pages (JSON) + per-page fonts (QCF) or 1 shared font (Unicode)
+  const totalSteps = mushafTotalPages + (isQcf ? mushafTotalPages : unicodeFontUrl ? 1 : 0);
   let done = 0;
 
   const report = () => {
@@ -74,7 +76,7 @@ export async function downloadMushaf(
   // Build tasks ----------------------------------------------------------
   const tasks: (() => Promise<void>)[] = [];
 
-  for (let page = 1; page <= TOTAL_PAGES; page++) {
+  for (let page = 1; page <= mushafTotalPages; page++) {
     const pageKey = `p${pad(page)}`;
 
     // JSON data task
@@ -88,7 +90,7 @@ export async function downloadMushaf(
       report();
     });
 
-    // Font task (QCF codes only)
+    // Per-page font task (QCF codes only)
     if (isQcf) {
       tasks.push(async () => {
         const fontUrl = getQcfFontUrl(code, page);
@@ -100,6 +102,18 @@ export async function downloadMushaf(
         report();
       });
     }
+  }
+
+  // Single shared font task (Unicode codes)
+  if (unicodeFontUrl) {
+    tasks.push(async () => {
+      const res = await fetch(unicodeFontUrl);
+      if (!res.ok) throw new Error(`Failed to fetch font ${unicodeFontUrl}: ${res.status}`);
+      const blob = await res.arrayBuffer();
+      await dbPut("mushaf-fonts", `${code}:${MUSHAF_ASSET_REV}:font`, blob);
+      done++;
+      report();
+    });
   }
 
   await runWithConcurrency(tasks, 8);

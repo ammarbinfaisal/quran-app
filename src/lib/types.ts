@@ -1,19 +1,24 @@
 // ---------------------------------------------------------------------------
 // Mushaf
 // ---------------------------------------------------------------------------
-export type MushafCode = "v2";
+export type MushafCode = "v2" | "indopak";
 
-export const MUSHAF_CODES: MushafCode[] = ["v2"];
+export const MUSHAF_CODES: MushafCode[] = ["v2", "indopak"];
 
 /** Codes that use per-page QCF glyph fonts (not Unicode text) */
 export const QCF_CODES: MushafCode[] = ["v2"];
 
+/** Codes that use a single shared Unicode font */
+export const UNICODE_FONT_CODES: MushafCode[] = ["indopak"];
+
 export const MUSHAF_DISPLAY_NAMES: Record<MushafCode, string> = {
-  v2: "V2",
+  v2: "Madina (V2)",
+  indopak: "Indopak",
 };
 
 export const MUSHAF_LINES: Record<MushafCode, number> = {
   v2: 15,
+  indopak: 15,
 };
 
 // ---------------------------------------------------------------------------

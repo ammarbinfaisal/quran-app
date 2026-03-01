@@ -29,11 +29,13 @@ export function getQcfFontUrl(code: MushafCode, pageNum: number): string {
   return `/mushaf-fonts/${code}/p${padded}.woff2?rev=${MUSHAF_ASSET_REV}`;
 }
 
-export function getUnicodeFontUrl(_code: MushafCode): string {
+export function getUnicodeFontUrl(code: MushafCode): string {
+  if (code === "indopak") return `/mushaf-fonts/indopak/font.woff2?rev=${MUSHAF_ASSET_REV}`;
   return "";
 }
 
-export function getUnicodeFontFamily(_code: MushafCode): string {
+export function getUnicodeFontFamily(code: MushafCode): string {
+  if (code === "indopak") return "QPC-Nastaleeq";
   return '"Amiri", "Traditional Arabic", serif';
 }
 
@@ -212,10 +214,31 @@ export function loadUnicodeFont(code: MushafCode): Promise<void> {
   const promise = (async () => {
     // Check if already in document
     for (const f of document.fonts) {
-      if (f.family === name) return;
+      if (f.family === name && f.status === "loaded") return;
     }
 
-    const face = new FontFace(name, `url(${url})`, { display: "swap" });
+    // Try IDB cache first for offline support
+    const idbKey = `${code}:${MUSHAF_ASSET_REV}:font`;
+    let source: string | ArrayBuffer = `url(${url})`;
+    try {
+      const cached = await dbGet("mushaf-fonts", idbKey);
+      if (cached instanceof ArrayBuffer) {
+        source = cached;
+      }
+    } catch { /* IDB unavailable */ }
+
+    if (typeof source === "string") {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          source = buf;
+          dbPut("mushaf-fonts", idbKey, buf).catch(() => { });
+        }
+      } catch { /* network unavailable */ }
+    }
+
+    const face = new FontFace(name, source, { display: "block" });
     document.fonts.add(face);
     await face.load();
   })();

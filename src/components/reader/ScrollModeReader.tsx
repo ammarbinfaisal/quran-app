@@ -14,20 +14,24 @@ import { DownloadManager } from "@/components/offline/DownloadManager";
 import ScrollReader from "@/components/mushaf/ScrollReader";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
-import { scrollPath } from "@/lib/url";
+import { scrollPath, indopakScrollPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 
 export function ScrollModeReader({
   type,
   id,
+  forcedMushafCode,
 }: {
   type: "p" | "s" | "j";
   id: number;
+  forcedMushafCode?: import("@/lib/types").MushafCode;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { prefs } = usePreferences();
+  const mushafCode = forcedMushafCode ?? prefs.mushafCode;
+  const navPath = mushafCode === "indopak" ? indopakScrollPath : scrollPath;
   const { applyTheme } = useTheme();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } = useImmersiveMode();
 
@@ -106,11 +110,11 @@ export function ScrollModeReader({
           <ScrollReader
             type={type}
             id={id}
-            mushafCode={prefs.mushafCode}
+            mushafCode={mushafCode}
             onWordTap={handleWordTap}
             highlightedVerse={highlightedVerse}
             onNavigate={(newType, newId) => {
-              router.push(scrollPath(newType, newId), { scroll: false });
+              router.push(navPath(newType, newId), { scroll: false });
             }}
           />
         </div>
@@ -135,7 +139,7 @@ export function ScrollModeReader({
             currentType={type}
             currentId={id}
             onNavigate={(newType, newId, verse) => {
-              router.push(scrollPath(newType, newId, verse ?? undefined), { scroll: false });
+              router.push(navPath(newType, newId, verse ?? undefined), { scroll: false });
             }}
           />
         )}
@@ -153,7 +157,7 @@ export function ScrollModeReader({
         selectedVerse={selectedVerse}
         selectedWordIndex={selectedWordIndex}
         translationIds={prefs.translationIds}
-        mushafCode={prefs.mushafCode}
+        mushafCode={mushafCode}
         onClose={() => {
           setSelectedVerse(null);
           setSelectedWordIndex(null);
@@ -166,7 +170,7 @@ export function ScrollModeReader({
         onNavigate={(page: number, verseKey: string | null) => {
           setSelectedVerse(null);
           setSurahOpen(false);
-          router.push(scrollPath("p", page, verseKey ?? undefined), { scroll: false });
+          router.push(navPath("p", page, verseKey ?? undefined), { scroll: false });
         }}
       />
 
