@@ -38,7 +38,7 @@ export function SurahHeader({
                     "rounded-2xl border bg-[var(--color-surface)] shadow-sm",
                     "border-[var(--color-muted)]/15",
                     variant === "mushaf"
-                        ? "px-2 py-0.5 max-h-full w-full"
+                        ? "px-2 py-0 max-h-full w-full overflow-hidden"
                         : "px-4 py-3",
                     className
                 )}
@@ -47,7 +47,7 @@ export function SurahHeader({
                     className={cn(
                         "flex items-center justify-center",
                         variant === "mushaf"
-                            ? "flex-col gap-0.5"
+                            ? "flex-col gap-0"
                             : "flex-row gap-3"
                     )}
                 >
