@@ -128,18 +128,10 @@ export function MutashabihatSheet({
                   key={id}
                   className="rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] p-4"
                 >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
-                      <ArrowLeftRight className="h-4 w-4 text-[var(--color-accent)]" />
-                      <span>{group.count} linked verses</span>
-                      <span>{group.surahs} surahs</span>
-                    </div>
-                    <span
-                      className="rounded-full px-2 py-1 text-[11px] font-semibold text-[var(--color-text)]"
-                      style={{ backgroundColor: `var(--phrase-highlight-${colorIndex})` }}
-                    >
-                      #{id}
-                    </span>
+                  <div className="mb-3 flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                    <ArrowLeftRight className="h-4 w-4 text-[var(--color-accent)]" />
+                    <span>{group.count} linked verses</span>
+                    <span>{group.surahs} surahs</span>
                   </div>
 
                   <div className="rounded-xl bg-[var(--color-surface)] px-3 py-3" dir="rtl">
@@ -173,15 +165,6 @@ export function MutashabihatSheet({
                               : "border-[var(--color-muted)]/15 bg-[var(--color-surface)]/40"
                           }`}
                         >
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <span className="text-[11px] text-[var(--color-muted)]">
-                              {isActiveVerse ? "Current verse" : "Linked verse"}
-                            </span>
-                            <span className="text-[11px] text-[var(--color-muted)]">
-                              {occurrences.length} match{occurrences.length === 1 ? "" : "es"}
-                            </span>
-                          </div>
-
                           <ArabicVerseBlock
                             verseKey={key}
                             mushafCode={prefs.mushafCode}
@@ -192,10 +175,6 @@ export function MutashabihatSheet({
                             compact
                             labelClassName="text-xs font-semibold text-[var(--color-text)]"
                           />
-
-                          <div className="mt-2 text-[11px] text-[var(--color-muted)]" dir="ltr">
-                            Matches: {occurrences.map((occurrence) => `${occurrence.from}-${occurrence.to}`).join(", ")}
-                          </div>
                         </div>
                       );
                     })}
