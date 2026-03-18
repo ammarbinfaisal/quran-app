@@ -200,6 +200,14 @@ main {
   border-radius: 4px;
 }
 
+.mushaf-word[data-phrase-color-index="1"] { background-color: var(--phrase-highlight-1); border-radius: 4px; }
+.mushaf-word[data-phrase-color-index="2"] { background-color: var(--phrase-highlight-2); border-radius: 4px; }
+.mushaf-word[data-phrase-color-index="3"] { background-color: var(--phrase-highlight-3); border-radius: 4px; }
+.mushaf-word[data-phrase-color-index="4"] { background-color: var(--phrase-highlight-4); border-radius: 4px; }
+.mushaf-word[data-phrase-color-index="5"] { background-color: var(--phrase-highlight-5); border-radius: 4px; }
+.mushaf-word[data-phrase-color-index="6"] { background-color: var(--phrase-highlight-6); border-radius: 4px; }
+.mushaf-word[data-phrase-color-index="7"] { background-color: var(--phrase-highlight-7); border-radius: 4px; }
+
 .verse-text-highlight[data-highlighted="true"] {
   background-color: var(--verse-highlight-bg);
   border-radius: 10px;

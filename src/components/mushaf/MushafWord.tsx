@@ -12,6 +12,7 @@ interface MushafWordProps {
   pageNum: number;
   onTap: OnWordTap;
   highlighted: boolean;
+  phraseColorIndex?: number | null;
   fontReady: boolean;
   showFontSkeleton: boolean;
 }
@@ -23,6 +24,7 @@ function MushafWordInner({
   pageNum,
   onTap,
   highlighted,
+  phraseColorIndex,
   fontReady,
   showFontSkeleton,
 }: MushafWordProps) {
@@ -74,6 +76,7 @@ function MushafWordInner({
       <span
         className={`mushaf-word ${textClass}`}
         data-highlighted={highlighted}
+        data-phrase-color-index={phraseColorIndex ?? undefined}
         data-verse-key={word.verseKey}
         style={style}
         onClick={handleTap}
@@ -86,6 +89,7 @@ function MushafWordInner({
     <span
       className={`mushaf-word ${textClass}`}
       data-highlighted={highlighted}
+      data-phrase-color-index={phraseColorIndex ?? undefined}
       data-verse-key={word.verseKey}
       style={style}
       onClick={handleTap}

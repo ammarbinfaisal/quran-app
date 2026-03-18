@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, X } from "lucide-react";
+import { ArabicVerseBlock, type PhraseHighlightRange } from "@/components/ayah/ArabicVerseBlock";
+import { useChapters } from "@/hooks/useChapters";
+import { usePreferences } from "@/hooks/usePreferences";
 import {
   loadMutashabihatGroupsForVerse,
-  loadMutashabihatVerseTextMap,
   type MutashabihatOccurrence,
   type MutashabihatPhraseGroup,
 } from "@/lib/mutashabihat";
@@ -14,8 +16,6 @@ interface LoadedGroup {
   group: MutashabihatPhraseGroup;
 }
 
-type VerseTextMap = Record<string, string>;
-
 const MAX_PHRASE_COLORS = 7;
 
 function compareVerseKeys(a: string, b: string) {
@@ -24,85 +24,9 @@ function compareVerseKeys(a: string, b: string) {
   return aSurah - bSurah || aAyah - bAyah;
 }
 
-function buildHighlightedSegments(
-  verseText: string,
-  occurrences: MutashabihatOccurrence[],
-  colorIndex: number,
-): Array<{ text: string; colorIndex: number | null }> {
-  const tokens = verseText.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return [];
-
-  const tokenColors = new Array<number | null>(tokens.length).fill(null);
-
-  for (const occurrence of occurrences) {
-    const start = Math.max(0, occurrence.from - 1);
-    const end = Math.min(tokens.length - 1, occurrence.to - 1);
-    for (let idx = start; idx <= end; idx++) {
-      tokenColors[idx] = colorIndex;
-    }
-  }
-
-  const segments: Array<{ text: string; colorIndex: number | null }> = [];
-  let currentColor = tokenColors[0];
-  let currentTokens = [tokens[0]];
-
-  for (let idx = 1; idx < tokens.length; idx++) {
-    if (tokenColors[idx] === currentColor) {
-      currentTokens.push(tokens[idx]);
-      continue;
-    }
-
-    segments.push({
-      text: currentTokens.join(" "),
-      colorIndex: currentColor,
-    });
-
-    currentColor = tokenColors[idx];
-    currentTokens = [tokens[idx]];
-  }
-
-  segments.push({
-    text: currentTokens.join(" "),
-    colorIndex: currentColor,
-  });
-
-  return segments;
-}
-
-function HighlightedVerseText({
-  verseText,
-  occurrences,
-  colorIndex,
-}: {
-  verseText: string;
-  occurrences: MutashabihatOccurrence[];
-  colorIndex: number;
-}) {
-  const segments = useMemo(
-    () => buildHighlightedSegments(verseText, occurrences, colorIndex),
-    [colorIndex, occurrences, verseText],
-  );
-
-  if (segments.length === 0) {
-    return verseText;
-  }
-
-  return (
-    <>
-      {segments.map((segment, index) => (
-        <span key={`${segment.text}-${index}`}>
-          {segment.colorIndex ? (
-            <span className="phrase-highlight" data-color-index={segment.colorIndex}>
-              {segment.text}
-            </span>
-          ) : (
-            segment.text
-          )}
-          {index < segments.length - 1 ? " " : null}
-        </span>
-      ))}
-    </>
-  );
+function getSurahLabel(verseKey: string, surahName: string | undefined) {
+  const [surah, ayah] = verseKey.split(":");
+  return `Surah ${surahName ?? surah} - ${ayah}`;
 }
 
 export function MutashabihatSheet({
@@ -114,8 +38,9 @@ export function MutashabihatSheet({
   verseKey: string | null;
   onClose: () => void;
 }) {
+  const chapters = useChapters();
+  const { prefs } = usePreferences();
   const [groups, setGroups] = useState<LoadedGroup[] | null>(null);
-  const [verseTexts, setVerseTexts] = useState<VerseTextMap | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -129,19 +54,14 @@ export function MutashabihatSheet({
     let active = true;
     setLoading(true);
 
-    Promise.all([
-      loadMutashabihatGroupsForVerse(verseKey),
-      loadMutashabihatVerseTextMap(),
-    ])
-      .then(([groupData, verseTextData]) => {
+    loadMutashabihatGroupsForVerse(verseKey)
+      .then((groupData) => {
         if (!active) return;
         setGroups(groupData);
-        setVerseTexts(verseTextData);
       })
       .catch(() => {
         if (!active) return;
         setGroups([]);
-        setVerseTexts({});
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -155,6 +75,9 @@ export function MutashabihatSheet({
   const sortedGroups = useMemo(() => {
     return [...(groups ?? [])].sort((a, b) => b.group.count - a.group.count || a.id - b.id);
   }, [groups]);
+  const activeSurahName = verseKey
+    ? chapters.find((chapter) => chapter.id === Number.parseInt(verseKey.split(":")[0] ?? "0", 10))?.nameSimple
+    : undefined;
 
   if (!open) return null;
 
@@ -171,7 +94,7 @@ export function MutashabihatSheet({
             </div>
             {verseKey && (
               <div className="text-xs text-[var(--color-muted)]">
-                {verseKey}
+                {getSurahLabel(verseKey, activeSurahName)}
               </div>
             )}
           </div>
@@ -233,7 +156,13 @@ export function MutashabihatSheet({
                   <div className="mt-4 space-y-2">
                     {orderedEntries.map(([key, occurrences]) => {
                       const isActiveVerse = key === verseKey;
-                      const verseText = verseTexts?.[key] ?? occurrences.map((occurrence) => occurrence.text).join(" | ");
+                      const surahId = Number.parseInt(key.split(":")[0] ?? "0", 10);
+                      const surahName = chapters.find((chapter) => chapter.id === surahId)?.nameSimple;
+                      const highlightRanges: PhraseHighlightRange[] = occurrences.map((occurrence) => ({
+                        from: occurrence.from,
+                        to: occurrence.to,
+                        colorIndex,
+                      }));
 
                       return (
                         <div
@@ -245,25 +174,24 @@ export function MutashabihatSheet({
                           }`}
                         >
                           <div className="mb-2 flex items-center justify-between gap-3">
-                            <span className="text-xs font-semibold text-[var(--color-text)]">
-                              {key}
+                            <span className="text-[11px] text-[var(--color-muted)]">
+                              {isActiveVerse ? "Current verse" : "Linked verse"}
                             </span>
                             <span className="text-[11px] text-[var(--color-muted)]">
                               {occurrences.length} match{occurrences.length === 1 ? "" : "es"}
                             </span>
                           </div>
 
-                          <div
-                            className="verse-text-highlight rounded-lg bg-[var(--color-bg)] px-3 py-3 font-arabic text-lg leading-8 text-[var(--color-text)]"
-                            data-highlighted={isActiveVerse}
-                            dir="rtl"
-                          >
-                            <HighlightedVerseText
-                              verseText={verseText}
-                              occurrences={occurrences}
-                              colorIndex={colorIndex}
-                            />
-                          </div>
+                          <ArabicVerseBlock
+                            verseKey={key}
+                            mushafCode={prefs.mushafCode}
+                            label={getSurahLabel(key, surahName)}
+                            isHighlighted={isActiveVerse}
+                            phraseHighlightRanges={highlightRanges}
+                            fontScale={prefs.fontScale}
+                            compact
+                            labelClassName="text-xs font-semibold text-[var(--color-text)]"
+                          />
 
                           <div className="mt-2 text-[11px] text-[var(--color-muted)]" dir="ltr">
                             Matches: {occurrences.map((occurrence) => `${occurrence.from}-${occurrence.to}`).join(", ")}

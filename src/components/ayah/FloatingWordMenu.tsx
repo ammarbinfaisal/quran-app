@@ -56,7 +56,7 @@ export function FloatingWordMenu({
       <div className="fixed inset-0 z-40" onClick={onDismiss} />
       <div
         ref={menuRef}
-        className="fixed z-50 flex items-center gap-1 rounded-full border border-[var(--color-muted)]/20 bg-[var(--color-surface)]/95 p-1 shadow-lg backdrop-blur"
+        className="fixed z-50 flex items-center gap-0.5 rounded-full border border-[var(--color-muted)]/20 bg-[var(--color-surface)]/95 p-0.5 shadow-lg backdrop-blur sm:gap-1 sm:p-1"
         style={{ ...style, transition: "none" }}
         onClick={(event) => event.stopPropagation()}
         role="menu"
@@ -67,12 +67,12 @@ export function FloatingWordMenu({
             key={button.id}
             type="button"
             onClick={button.onClick}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text)] active:scale-[0.96] active:opacity-80 hover:bg-[var(--color-muted)]/10"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-text)] active:scale-[0.96] active:opacity-80 hover:bg-[var(--color-muted)]/10 sm:h-11 sm:w-11"
             style={{ transition: "none" }}
             aria-label={button.label}
             title={button.label}
           >
-            {button.icon}
+            <span className="scale-90 sm:scale-100">{button.icon}</span>
           </button>
         ))}
       </div>

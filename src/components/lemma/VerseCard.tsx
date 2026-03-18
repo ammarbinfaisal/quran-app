@@ -7,6 +7,7 @@ import { fetchVersePages } from "@/lib/navigation/maps";
 import { loadMushafPage } from "@/lib/mushaf/loader";
 import { useTranslations } from "@/hooks/useTranslations";
 import { usePreferences } from "@/hooks/usePreferences";
+import { ArabicVerseBlock } from "@/components/ayah/ArabicVerseBlock";
 import { MushafWord } from "@/components/mushaf/MushafWord";
 import { TranslationBlock } from "@/components/ayah/TranslationBlock";
 import { SurahHeader } from "@/components/mushaf/SurahHeader";
@@ -225,38 +226,17 @@ export function VerseCard({
                 </div>
             )}
 
-            <div className="flex flex-col items-start gap-3 mb-8" dir="rtl">
-                <div className="text-xs font-bold text-muted tabular-nums border border-muted/20 px-2 py-0.5 rounded shadow-sm">
-                    {verseKey}
-                </div>
-                <div
-                    className="verse-text-highlight flex w-full flex-wrap gap-x-2.5 gap-y-5 leading-[2.5]"
-                    style={{ fontSize: `clamp(1.25rem, ${fontScale * 0.35 + 1}rem, 3.5rem)` }}
-                    data-highlighted={isHighlighted}
-                    onClick={handleVerseTap}
-                >
-                    {words === null ? (
-                        <div className="h-10 w-full animate-pulse bg-[var(--color-muted)]/10 rounded" />
-                    ) : (
-                        words.map((w, i) => {
-                            const morphIndex = morphIndices[i] ?? -1;
-                            return (
-                                <MushafWord
-                                    key={`${w.verseKey}-${i}`}
-                                    word={w}
-                                    wordIndex={morphIndex}
-                                    mushafCode={mushafCode}
-                                    pageNum={w.pageNum}
-                                    onTap={handleWordTap}
-                                    highlighted={false}
-                                    fontReady={fontReady}
-                                    showFontSkeleton={showFontSkeleton}
-                                />
-                            );
-                        })
-                    )}
-                </div>
-            </div>
+            <ArabicVerseBlock
+                verseKey={verseKey}
+                mushafCode={mushafCode}
+                words={wordsProp}
+                pageNum={pageNum}
+                onWordTap={handleWordTap}
+                isHighlighted={isHighlighted}
+                fontReady={fontReady}
+                showFontSkeleton={showFontSkeleton}
+                fontScale={fontScale}
+            />
 
             <div
                 className="w-full space-y-5"
