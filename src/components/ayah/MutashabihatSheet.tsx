@@ -136,15 +136,16 @@ export function MutashabihatSheet({
                     <span>{group.surahs} surahs</span>
                   </div>
 
-                  <div className="rounded-xl bg-[var(--color-surface)] px-3 py-3" dir="rtl">
-                    <div className="font-arabic text-xl leading-9 text-[var(--color-text)]">
-                      <span className="phrase-highlight" data-color-index={colorIndex}>
-                        {group.source.text}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xs text-[var(--color-muted)]" dir="ltr">
-                      Source: {group.source.key} ({group.source.from}-{group.source.to})
-                    </div>
+                  <div className="rounded-xl bg-[var(--color-surface)] px-2 py-2">
+                    <ArabicVerseBlock
+                      verseKey={group.source.key}
+                      mushafCode={prefs.mushafCode}
+                      phraseHighlightRanges={[{ from: group.source.from, to: group.source.to, colorIndex }]}
+                      fontScale={prefs.fontScale}
+                      compact
+                      label={getSurahLabel(group.source.key, chapters.find((c) => c.id === Number.parseInt(group.source.key.split(":")[0] ?? "0", 10))?.nameSimple)}
+                      labelClassName="text-xs font-semibold text-[var(--color-muted)]"
+                    />
                   </div>
 
                   <div className="mt-4 space-y-2">
