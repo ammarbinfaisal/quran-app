@@ -15,6 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { usePreferences } from "@/hooks/usePreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
+import type { WordTapTarget } from "@/lib/wordTap";
 
 interface Occurrence {
     surah: number;
@@ -70,8 +71,7 @@ export function OccurrenceViewer({
     const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [downloadsOpen, setDownloadsOpen] = useState(false);
-    const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
-    const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
+    const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
     const { prefs } = usePreferences();
     const { applyTheme } = useTheme();
 
@@ -85,8 +85,7 @@ export function OccurrenceViewer({
         let active = true;
         setLoading(true);
         setVisibleCount(INITIAL_VISIBLE);
-        setSelectedVerse(null);
-        setSelectedWordIndex(null);
+        setSelectedTap(null);
 
         async function fetchData() {
             const { readKeys, writeKeys } = getOccurrenceCacheKeys(dataUrl);
@@ -191,9 +190,8 @@ export function OccurrenceViewer({
     }, [visibleVerses, mushafCode]);
 
     const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerses.length > 0);
-    const handleWordTap = useCallback((verseKey: string, wordIndex: number) => {
-        setSelectedVerse(verseKey);
-        setSelectedWordIndex(wordIndex >= 0 ? wordIndex : null);
+    const handleWordTap = useCallback((target: WordTapTarget) => {
+        setSelectedTap(target);
     }, []);
 
     return (
@@ -270,13 +268,11 @@ export function OccurrenceViewer({
             />
 
             <WordTapSheets
-                selectedVerse={selectedVerse}
-                selectedWordIndex={selectedWordIndex}
+                selectedTap={selectedTap}
                 translationIds={prefs.translationIds}
                 mushafCode={mushafCode}
                 onClose={() => {
-                    setSelectedVerse(null);
-                    setSelectedWordIndex(null);
+                    setSelectedTap(null);
                 }}
             />
 

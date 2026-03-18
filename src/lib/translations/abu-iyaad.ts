@@ -9,11 +9,23 @@
 
 import type { CompactSeg } from "@/lib/footnotes";
 
+export interface AbuIyaadNote {
+  number: string;
+  noteId: string | null;
+  text: string;
+  author: string | null;
+  reference: string | null;
+  addedBy: string | null;
+  addedOn: string | null;
+}
+
 let cache: Record<string, CompactSeg[]> | null = null;
 let fetchPromise: Promise<Record<string, CompactSeg[]>> | null = null;
 
 let surahsCache: Record<string, string> | null = null;
 let surahsFetchPromise: Promise<Record<string, string>> | null = null;
+let notesCache: Record<string, AbuIyaadNote[]> | null = null;
+let notesFetchPromise: Promise<Record<string, AbuIyaadNote[]>> | null = null;
 
 /**
  * Load the full Abu Iyaad precomputed segment dictionary.
@@ -87,4 +99,31 @@ export async function loadAbuIyaadSegments(verseKey: string): Promise<CompactSeg
 export async function loadAbuIyaadSurahName(surahId: number): Promise<string> {
   const data = await loadAbuIyaadSurahs();
   return data[surahId.toString()] ?? "";
+}
+
+export async function loadAbuIyaadNotesData(): Promise<Record<string, AbuIyaadNote[]>> {
+  if (notesCache) return notesCache;
+
+  if (!notesFetchPromise) {
+    notesFetchPromise = fetch("/data/abu-iyaad-notes.json")
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load abu-iyaad-notes.json: ${res.status}`);
+        return res.json() as Promise<Record<string, AbuIyaadNote[]>>;
+      })
+      .then((data) => {
+        notesCache = data;
+        return data;
+      })
+      .catch((err) => {
+        notesFetchPromise = null;
+        throw err;
+      });
+  }
+
+  return notesFetchPromise;
+}
+
+export async function loadAbuIyaadNotes(verseKey: string): Promise<AbuIyaadNote[]> {
+  const data = await loadAbuIyaadNotesData();
+  return data[verseKey] ?? [];
 }

@@ -6,11 +6,12 @@ import { MUSHAF_LINES } from "@/lib/types";
 import { MushafLine } from "@/components/mushaf/MushafLine";
 import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import { Bismillah } from "@/components/mushaf/Bismillah";
+import type { OnWordTap } from "@/lib/wordTap";
 
 interface MushafPageProps {
   pageData: MushafPagePayload;
   mushafCode: MushafCode;
-  onWordTap: (verseKey: string, wordIndex: number) => void;
+  onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   chapters?: Chapter[];
   fontReady: boolean;

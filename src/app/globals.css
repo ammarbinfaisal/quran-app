@@ -33,6 +33,14 @@
   --pos-adj: #0f766e;
   --pos-conj: #c2410c;
   --pos-propn: #be123c;
+  --verse-highlight-bg: rgba(139, 105, 20, 0.16);
+  --phrase-highlight-1: rgba(139, 105, 20, 0.22);
+  --phrase-highlight-2: rgba(45, 106, 79, 0.2);
+  --phrase-highlight-3: rgba(30, 64, 175, 0.18);
+  --phrase-highlight-4: rgba(146, 64, 14, 0.18);
+  --phrase-highlight-5: rgba(107, 33, 168, 0.18);
+  --phrase-highlight-6: rgba(15, 118, 110, 0.18);
+  --phrase-highlight-7: rgba(190, 18, 60, 0.16);
 }
 
 :root[data-theme="dark-warm"] {
@@ -50,6 +58,14 @@
   --pos-adj: #2dd4bf;
   --pos-conj: #fb923c;
   --pos-propn: #fb7185;
+  --verse-highlight-bg: rgba(196, 163, 90, 0.22);
+  --phrase-highlight-1: rgba(196, 163, 90, 0.28);
+  --phrase-highlight-2: rgba(74, 222, 128, 0.22);
+  --phrase-highlight-3: rgba(96, 165, 250, 0.22);
+  --phrase-highlight-4: rgba(251, 191, 36, 0.22);
+  --phrase-highlight-5: rgba(192, 132, 252, 0.22);
+  --phrase-highlight-6: rgba(45, 212, 191, 0.22);
+  --phrase-highlight-7: rgba(251, 113, 133, 0.2);
 }
 
 :root[data-theme="white-green"] {
@@ -67,6 +83,14 @@
   --pos-adj: #0f766e;
   --pos-conj: #c2410c;
   --pos-propn: #be123c;
+  --verse-highlight-bg: rgba(45, 106, 79, 0.14);
+  --phrase-highlight-1: rgba(45, 106, 79, 0.18);
+  --phrase-highlight-2: rgba(30, 64, 175, 0.16);
+  --phrase-highlight-3: rgba(139, 105, 20, 0.18);
+  --phrase-highlight-4: rgba(146, 64, 14, 0.16);
+  --phrase-highlight-5: rgba(107, 33, 168, 0.15);
+  --phrase-highlight-6: rgba(15, 118, 110, 0.15);
+  --phrase-highlight-7: rgba(190, 18, 60, 0.14);
 }
 
 /* ------------------------------------------------------------------ */
@@ -140,6 +164,24 @@ main {
   justify-content: center;
 }
 
+.mushaf-verse-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.mushaf-line:not(.mushaf-line-centered) > .mushaf-verse-group {
+  flex: var(--verse-word-count, 1) 1 0%;
+}
+
+.mushaf-verse-group[data-highlighted="true"] {
+  background-color: var(--verse-highlight-bg);
+  border-radius: 6px;
+  padding-inline: 3px;
+  padding-block: 1px;
+}
+
 .mushaf-word {
   cursor: pointer;
   flex-shrink: 0;
@@ -147,7 +189,8 @@ main {
 }
 
 /* QCF words stretch to fill the line like a printed mushaf */
-.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-word {
+.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-word,
+.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-verse-group > .mushaf-word {
   flex-grow: 1;
   text-align: center;
 }
@@ -156,6 +199,25 @@ main {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
   border-radius: 4px;
 }
+
+.verse-text-highlight[data-highlighted="true"] {
+  background-color: var(--verse-highlight-bg);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.phrase-highlight {
+  border-radius: 6px;
+  padding-inline: 3px;
+}
+
+.phrase-highlight[data-color-index="1"] { background-color: var(--phrase-highlight-1); }
+.phrase-highlight[data-color-index="2"] { background-color: var(--phrase-highlight-2); }
+.phrase-highlight[data-color-index="3"] { background-color: var(--phrase-highlight-3); }
+.phrase-highlight[data-color-index="4"] { background-color: var(--phrase-highlight-4); }
+.phrase-highlight[data-color-index="5"] { background-color: var(--phrase-highlight-5); }
+.phrase-highlight[data-color-index="6"] { background-color: var(--phrase-highlight-6); }
+.phrase-highlight[data-color-index="7"] { background-color: var(--phrase-highlight-7); }
 
 /* ------------------------------------------------------------------ */
 /* Safe area utilities                                                 */

@@ -7,12 +7,13 @@ import { useMushafPage } from "@/hooks/useMushafPage";
 import { useChapters } from "@/hooks/useChapters";
 import MushafPage from "@/components/mushaf/MushafPage";
 import { PageSkeleton } from "@/components/mushaf/PageSkeleton";
+import type { OnWordTap } from "@/lib/wordTap";
 
 interface SwipeReaderProps {
   currentPage: number;
   mushafCode: MushafCode;
   onPageChange: (page: number) => void;
-  onWordTap: (verseKey: string, wordIndex: number) => void;
+  onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   onInteractionStart?: () => void;
 }
@@ -35,7 +36,7 @@ function PageSlot({
 }: {
   pageNumber: number;
   mushafCode: MushafCode;
-  onWordTap: (verseKey: string, wordIndex: number) => void;
+  onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   chapters?: Chapter[];
 }) {

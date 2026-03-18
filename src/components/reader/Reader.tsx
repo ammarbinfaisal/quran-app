@@ -19,6 +19,7 @@ import { mushafPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useTrackReading } from "@/hooks/useReadingHistory";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
+import type { WordTapTarget } from "@/lib/wordTap";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -35,10 +36,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
 
   const [page, setPage] = useState(initialPage);
   const [highlightedVerse, setHighlightedVerse] = useState<string | null>(verseParam);
-  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
-  const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(
-    null,
-  );
+  const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
@@ -99,19 +97,16 @@ export function Reader({ initialPage }: { initialPage: number }) {
   }, []);
 
   const handleWordTap = useCallback(
-    (verseKey: string, wordIndex: number) => {
-      // wordIndex === -1 means end marker / non-word → open translation sheet
-      // wordIndex >= 0 means real word → open morphology sheet
-      const resolvedIndex = wordIndex >= 0 ? wordIndex : null;
+    (target: WordTapTarget) => {
+      const resolvedIndex = target.wordIndex;
       devLog(
         "Reader",
         "word tap",
-        verseKey,
+        target.verseKey,
         "morphIndex:",
         resolvedIndex ?? "→ translation",
       );
-      setSelectedVerse(verseKey);
-      setSelectedWordIndex(resolvedIndex);
+      setSelectedTap(target);
       showChrome();
     },
     [showChrome],
@@ -172,13 +167,11 @@ export function Reader({ initialPage }: { initialPage: number }) {
       </div>
 
       <WordTapSheets
-        selectedVerse={selectedVerse}
-        selectedWordIndex={selectedWordIndex}
+        selectedTap={selectedTap}
         translationIds={prefs.translationIds}
         mushafCode={mushafCode}
         onClose={() => {
-          setSelectedVerse(null);
-          setSelectedWordIndex(null);
+          setSelectedTap(null);
         }}
       />
 
@@ -187,7 +180,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
         onClose={() => setSurahOpen(false)}
         onNavigate={(nextPage, verseKey) => {
           router.push(mushafPath(clampPage(nextPage), verseKey), { scroll: false });
-          setSelectedVerse(null);
+          setSelectedTap(null);
           setSurahOpen(false);
         }}
       />

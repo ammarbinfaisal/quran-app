@@ -3,13 +3,14 @@
 import React from "react";
 import type { MushafWord as MushafWordType, MushafCode } from "@/lib/types";
 import { getFontFamily, isQcfCode } from "@/lib/mushaf/fonts";
+import { getTapAnchorFromEvent, type OnWordTap } from "@/lib/wordTap";
 
 interface MushafWordProps {
   word: MushafWordType;
   wordIndex: number;
   mushafCode: MushafCode;
   pageNum: number;
-  onTap: (verseKey: string, wordIndex: number) => void;
+  onTap: OnWordTap;
   highlighted: boolean;
   fontReady: boolean;
   showFontSkeleton: boolean;
@@ -57,6 +58,16 @@ function MushafWordInner({
 
   const textClass = isQcf ? "mushaf-text" : "mushaf-text-unicode";
 
+  function handleTap(event: React.MouseEvent<HTMLSpanElement>) {
+    event.stopPropagation();
+    onTap({
+      verseKey: word.verseKey,
+      wordIndex: wordIndex >= 0 ? wordIndex : null,
+      charTypeName: word.charTypeName,
+      anchor: getTapAnchorFromEvent(event),
+    });
+  }
+
   // QCF fonts use glyph codepoints that need innerHTML rendering
   if (isQcf) {
     return (
@@ -65,7 +76,7 @@ function MushafWordInner({
         data-highlighted={highlighted}
         data-verse-key={word.verseKey}
         style={style}
-        onClick={() => onTap(word.verseKey, wordIndex)}
+        onClick={handleTap}
         dangerouslySetInnerHTML={{ __html: word.text }}
       />
     );
@@ -77,7 +88,7 @@ function MushafWordInner({
       data-highlighted={highlighted}
       data-verse-key={word.verseKey}
       style={style}
-      onClick={() => onTap(word.verseKey, wordIndex)}
+      onClick={handleTap}
     >
       {word.text}
     </span>

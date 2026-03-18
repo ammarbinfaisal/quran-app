@@ -17,6 +17,7 @@ import { devLog } from "@/lib/devLog";
 import { scrollPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
+import type { WordTapTarget } from "@/lib/wordTap";
 
 export function ScrollModeReader({
   type,
@@ -31,8 +32,7 @@ export function ScrollModeReader({
   const { applyTheme } = useTheme();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } = useImmersiveMode();
 
-  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
-  const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
+  const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
@@ -65,17 +65,16 @@ export function ScrollModeReader({
     );
   }, [applyTheme, prefs.fontScale, prefs.theme]);
 
-  const handleWordTap = useCallback((verseKey: string, wordIndex: number) => {
-    const resolvedIndex = wordIndex >= 0 ? wordIndex : null;
+  const handleWordTap = useCallback((target: WordTapTarget) => {
+    const resolvedIndex = target.wordIndex;
     devLog(
       "ScrollModeReader",
       "word tap",
-      verseKey,
+      target.verseKey,
       "morphIndex:",
       resolvedIndex ?? "→ translation",
     );
-    setSelectedVerse(verseKey);
-    setSelectedWordIndex(resolvedIndex);
+    setSelectedTap(target);
   }, []);
 
   const label = useMemo(() => {
@@ -150,13 +149,11 @@ export function ScrollModeReader({
       />
 
       <WordTapSheets
-        selectedVerse={selectedVerse}
-        selectedWordIndex={selectedWordIndex}
+        selectedTap={selectedTap}
         translationIds={prefs.translationIds}
         mushafCode={prefs.mushafCode}
         onClose={() => {
-          setSelectedVerse(null);
-          setSelectedWordIndex(null);
+          setSelectedTap(null);
         }}
       />
 
@@ -164,7 +161,7 @@ export function ScrollModeReader({
         open={surahOpen}
         onClose={() => setSurahOpen(false)}
         onNavigate={(page: number, verseKey: string | null) => {
-          setSelectedVerse(null);
+          setSelectedTap(null);
           setSurahOpen(false);
           router.push(scrollPath("p", page, verseKey ?? undefined), { scroll: false });
         }}

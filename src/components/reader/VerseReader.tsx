@@ -17,6 +17,7 @@ import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { vbvPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import type { WordTapTarget } from "@/lib/wordTap";
 
 export function VerseReader({
   type,
@@ -44,10 +45,7 @@ export function VerseReader({
   const mushafCode = prefs.mushafCode;
 
   useTrackReading(type === "p" ? id : 1);
-  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
-  const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(
-    null,
-  );
+  const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
@@ -69,17 +67,16 @@ export function VerseReader({
     );
   }, [applyTheme, prefs.fontScale, prefs.theme]);
 
-  const handleWordTap = useCallback((verseKey: string, wordIndex: number) => {
-    const resolvedIndex = wordIndex >= 0 ? wordIndex : null;
+  const handleWordTap = useCallback((target: WordTapTarget) => {
+    const resolvedIndex = target.wordIndex;
     devLog(
       "VerseReader",
       "word tap",
-      verseKey,
+      target.verseKey,
       "morphIndex:",
       resolvedIndex ?? "→ translation",
     );
-    setSelectedVerse(verseKey);
-    setSelectedWordIndex(resolvedIndex);
+    setSelectedTap(target);
     setHighlightedVerse(null);
   }, []);
 
@@ -149,13 +146,11 @@ export function VerseReader({
       />
 
       <WordTapSheets
-        selectedVerse={selectedVerse}
-        selectedWordIndex={selectedWordIndex}
+        selectedTap={selectedTap}
         translationIds={prefs.translationIds}
         mushafCode={mushafCode}
         onClose={() => {
-          setSelectedVerse(null);
-          setSelectedWordIndex(null);
+          setSelectedTap(null);
         }}
       />
 
@@ -163,7 +158,7 @@ export function VerseReader({
         open={surahOpen}
         onClose={() => setSurahOpen(false)}
         onNavigate={(page: number, verseKey: string | null) => {
-          setSelectedVerse(null);
+          setSelectedTap(null);
           setSurahOpen(false);
           router.push(vbvPath("p", page, verseKey ?? undefined), { scroll: false });
         }}

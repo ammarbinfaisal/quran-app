@@ -10,12 +10,13 @@ import type { JuzPageRange } from "@/lib/juz";
 import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
 import MushafPage from "@/components/mushaf/MushafPage";
 import { PageSkeleton } from "@/components/mushaf/PageSkeleton";
+import type { OnWordTap } from "@/lib/wordTap";
 
 interface ScrollReaderProps {
   type: "p" | "s" | "j";
   id: number;
   mushafCode: MushafCode;
-  onWordTap: (verseKey: string, wordIndex: number) => void;
+  onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   onNavigate?: (type: "p" | "s" | "j", id: number) => void;
 }
@@ -205,7 +206,7 @@ function ScrollPageSlot({
 }: {
   pageNumber: number;
   mushafCode: MushafCode;
-  onWordTap: (verseKey: string, wordIndex: number) => void;
+  onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   chapters?: Chapter[];
 }) {

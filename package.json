@@ -18,6 +18,8 @@
     "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts",
     "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample",
     "generate:navigation-maps": "bun scripts/generate-navigation-maps.ts",
+    "generate:mutashabihat": "bun scripts/generate-mutashabihat-data.ts",
+    "scrape:abu-iyaad": "bun scripts/scrape-abu-iyaad.ts",
     "fetch:all-fonts": "bun scripts/fetch-all-fonts.ts",
     "split:morphology": "bun scripts/split-morphology.ts",
     "precompute:translations": "bun scripts/precompute-translations.ts"

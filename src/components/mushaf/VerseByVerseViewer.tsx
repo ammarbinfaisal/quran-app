@@ -13,12 +13,13 @@ import { isQcfCode } from "@/lib/mushaf/fonts";
 import { loadMushafPage } from "@/lib/mushaf/loader";
 import { loadTranslation } from "@/lib/translations/loader";
 import { VerseCard } from "@/components/lemma/VerseCard";
+import type { OnWordTap } from "@/lib/wordTap";
 
 interface VerseByVerseViewerProps {
     type: "p" | "s" | "j";
     id: number;
     mushafCode: MushafCode;
-    onWordTap: (verseKey: string, wordIndex: number) => void;
+    onWordTap: OnWordTap;
     highlightedVerse?: string | null;
     onNavigate?: (type: "p" | "s" | "j", id: number) => void;
 }
@@ -255,7 +256,7 @@ function VersePageBatch({
 }: {
     pageNum: number;
     mushafCode: MushafCode;
-    onWordTap: (verseKey: string, wordIndex: number) => void;
+    onWordTap: OnWordTap;
     highlightedVerse?: string | null;
     filterType: "p" | "s" | "j";
     filterId: number;
@@ -313,5 +314,4 @@ function VersePageBatch({
         </>
     );
 }
-
 

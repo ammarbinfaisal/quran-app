@@ -13,6 +13,7 @@ import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
+import type { WordTapTarget } from "@/lib/wordTap";
 
 const URL_SYNC_DEBOUNCE_MS = 300;
 const SEARCH_RESULTS_LIMIT = 50;
@@ -34,8 +35,7 @@ export function SearchViewer() {
   const [fontsReady, setFontsReady] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
-  const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
+  const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
 
   const trimmedInput = input.trim();
   const hasInput = trimmedInput.length > 0;
@@ -65,8 +65,7 @@ export function SearchViewer() {
   // Fetch results whenever the URL query changes (already debounced).
   useEffect(() => {
     const q = urlQ.trim();
-    setSelectedVerse(null);
-    setSelectedWordIndex(null);
+    setSelectedTap(null);
     if (!q) {
       setResponse(null);
       setLoading(false);
@@ -122,9 +121,8 @@ export function SearchViewer() {
     };
   }, [urlQ]);
 
-  const handleWordTap = useCallback((verseKey: string, wordIndex: number) => {
-    setSelectedVerse(verseKey);
-    setSelectedWordIndex(wordIndex >= 0 ? wordIndex : null);
+  const handleWordTap = useCallback((target: WordTapTarget) => {
+    setSelectedTap(target);
   }, []);
 
   const allVerseKeys = useMemo(() => {
@@ -305,13 +303,11 @@ export function SearchViewer() {
       />
 
       <WordTapSheets
-        selectedVerse={selectedVerse}
-        selectedWordIndex={selectedWordIndex}
+        selectedTap={selectedTap}
         translationIds={prefs.translationIds}
         mushafCode={mushafCode}
         onClose={() => {
-          setSelectedVerse(null);
-          setSelectedWordIndex(null);
+          setSelectedTap(null);
         }}
       />
 

@@ -4,18 +4,29 @@ import React from "react";
 import type { MushafLine as MushafLineType, MushafCode } from "@/lib/types";
 import { QCF_CODES } from "@/lib/types";
 import { MushafWord } from "@/components/mushaf/MushafWord";
+import { getTapAnchorFromEvent, type OnWordTap } from "@/lib/wordTap";
 
 interface MushafLineProps {
   line: MushafLineType;
   mushafCode: MushafCode;
   pageNum: number;
-  onWordTap: (verseKey: string, wordIndex: number) => void;
+  onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   fontReady: boolean;
   showFontSkeleton: boolean;
   centered?: boolean;
   /** Per-verse word count from previous lines on this page, keyed by verseKey */
   verseWordOffsets?: Record<string, number>;
+}
+
+interface VerseLineGroup {
+  verseKey: string;
+  tokenCount: number;
+  items: Array<{
+    idx: number;
+    word: MushafLineType["words"][number];
+    morphIndex: number;
+  }>;
 }
 
 function MushafLineInner({
@@ -52,6 +63,35 @@ function MushafLineInner({
     }
   }
 
+  const verseGroups: VerseLineGroup[] = [];
+  for (const [idx, word] of line.words.entries()) {
+    const lastGroup = verseGroups[verseGroups.length - 1];
+    if (lastGroup?.verseKey === word.verseKey) {
+      lastGroup.items.push({ idx, word, morphIndex: morphIndices[idx] ?? -1 });
+      lastGroup.tokenCount++;
+      continue;
+    }
+
+    verseGroups.push({
+      verseKey: word.verseKey,
+      tokenCount: 1,
+      items: [{ idx, word, morphIndex: morphIndices[idx] ?? -1 }],
+    });
+  }
+
+  function handleVerseTap(
+    event: React.MouseEvent<HTMLDivElement>,
+    verseKey: string,
+  ) {
+    event.stopPropagation();
+    onWordTap({
+      verseKey,
+      wordIndex: null,
+      charTypeName: "verse",
+      anchor: getTapAnchorFromEvent(event),
+    });
+  }
+
   // Unicode lines use text-align justify (browser handles inter-word spacing better
   // than flexbox space-between for real Arabic text).
   if (isUnicode) {
@@ -61,18 +101,29 @@ function MushafLineInner({
 
     return (
       <div className={className}>
-        {line.words.map((word, idx) => (
-          <MushafWord
-            key={`${word.verseKey}-${idx}`}
-            word={word}
-            wordIndex={morphIndices[idx]}
-            mushafCode={mushafCode}
-            pageNum={pageNum}
-            onTap={onWordTap}
-            highlighted={highlightedVerse === word.verseKey}
-            fontReady={fontReady}
-            showFontSkeleton={showFontSkeleton}
-          />
+        {verseGroups.map((group) => (
+          <div
+            key={`${group.verseKey}-${group.items[0]?.idx ?? 0}`}
+            className="mushaf-verse-group"
+            data-highlighted={highlightedVerse === group.verseKey}
+            data-verse-key={group.verseKey}
+            style={{ "--verse-word-count": String(group.tokenCount) } as React.CSSProperties}
+            onClick={(event) => handleVerseTap(event, group.verseKey)}
+          >
+            {group.items.map(({ idx, word, morphIndex }) => (
+              <MushafWord
+                key={`${word.verseKey}-${idx}`}
+                word={word}
+                wordIndex={morphIndex}
+                mushafCode={mushafCode}
+                pageNum={pageNum}
+                onTap={onWordTap}
+                highlighted={false}
+                fontReady={fontReady}
+                showFontSkeleton={showFontSkeleton}
+              />
+            ))}
+          </div>
         ))}
       </div>
     );
@@ -85,18 +136,29 @@ function MushafLineInner({
 
   return (
     <div className={className}>
-      {line.words.map((word, idx) => (
-        <MushafWord
-          key={`${word.verseKey}-${idx}`}
-          word={word}
-          wordIndex={morphIndices[idx]}
-          mushafCode={mushafCode}
-          pageNum={pageNum}
-          onTap={onWordTap}
-          highlighted={highlightedVerse === word.verseKey}
-          fontReady={fontReady}
-          showFontSkeleton={showFontSkeleton}
-        />
+      {verseGroups.map((group) => (
+        <div
+          key={`${group.verseKey}-${group.items[0]?.idx ?? 0}`}
+          className="mushaf-verse-group"
+          data-highlighted={highlightedVerse === group.verseKey}
+          data-verse-key={group.verseKey}
+          style={{ "--verse-word-count": String(group.tokenCount) } as React.CSSProperties}
+          onClick={(event) => handleVerseTap(event, group.verseKey)}
+        >
+          {group.items.map(({ idx, word, morphIndex }) => (
+            <MushafWord
+              key={`${word.verseKey}-${idx}`}
+              word={word}
+              wordIndex={morphIndex}
+              mushafCode={mushafCode}
+              pageNum={pageNum}
+              onTap={onWordTap}
+              highlighted={false}
+              fontReady={fontReady}
+              showFontSkeleton={showFontSkeleton}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );

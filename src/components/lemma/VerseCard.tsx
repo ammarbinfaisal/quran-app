@@ -13,6 +13,7 @@ import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { vbvPath } from "@/lib/url";
+import { getTapAnchorFromEvent, type OnWordTap } from "@/lib/wordTap";
 
 const NOOP = () => {};
 
@@ -46,7 +47,7 @@ export function VerseCard({
     verseKey: string;
     mushafCode: MushafCode;
     fontReady: boolean;
-    onWordTap?: (verseKey: string, wordIndex: number) => void;
+    onWordTap?: OnWordTap;
     /** Pre-supplied words (VBV). When absent, words are fetched internally. */
     words?: MushafWordType[];
     /** Single page number for all supplied words (VBV). */
@@ -109,6 +110,15 @@ export function VerseCard({
     const isUnicode = !(QCF_CODES as readonly string[]).includes(mushafCode);
     const handleWordTap = onWordTap ?? NOOP;
     const fontScale = prefs.fontScale ?? (showVerseLink ? 1 : 3);
+    const handleVerseTap = (event: React.MouseEvent<HTMLDivElement>) => {
+        event.stopPropagation();
+        handleWordTap({
+            verseKey,
+            wordIndex: null,
+            charTypeName: "verse",
+            anchor: getTapAnchorFromEvent(event),
+        });
+    };
 
     const morphIndices = useMemo(() => {
         if (!words) return [];
@@ -144,6 +154,7 @@ export function VerseCard({
                             <div
                                 className={`flex flex-wrap ${isUnicode ? "mushaf-line-unicode" : ""}`}
                                 style={{ fontSize: `clamp(1.25rem, ${fontScale * 0.35 + 1}rem, 3.5rem)`, lineHeight: "2.5" }}
+                                onClick={handleVerseTap}
                             >
                                 {words.map((w, i) => {
                                     const morphIndex = morphIndices[i] ?? -1;
@@ -154,7 +165,7 @@ export function VerseCard({
                                             wordIndex={morphIndex}
                                             mushafCode={mushafCode}
                                             pageNum={w.pageNum}
-                                            onTap={() => handleWordTap(verseKey, morphIndex)}
+                                            onTap={handleWordTap}
                                             highlighted={morphIndex >= 0 && highlightedWords.includes(morphIndex + 1)}
                                             fontReady={fontReady}
                                             showFontSkeleton={fontReady}
@@ -219,8 +230,10 @@ export function VerseCard({
                     {verseKey}
                 </div>
                 <div
-                    className="flex flex-wrap w-full gap-x-2.5 gap-y-5 leading-[2.5]"
+                    className="verse-text-highlight flex w-full flex-wrap gap-x-2.5 gap-y-5 leading-[2.5]"
                     style={{ fontSize: `clamp(1.25rem, ${fontScale * 0.35 + 1}rem, 3.5rem)` }}
+                    data-highlighted={isHighlighted}
+                    onClick={handleVerseTap}
                 >
                     {words === null ? (
                         <div className="h-10 w-full animate-pulse bg-[var(--color-muted)]/10 rounded" />
@@ -234,8 +247,8 @@ export function VerseCard({
                                     wordIndex={morphIndex}
                                     mushafCode={mushafCode}
                                     pageNum={w.pageNum}
-                                    onTap={() => handleWordTap(verseKey, morphIndex)}
-                                    highlighted={isHighlighted}
+                                    onTap={handleWordTap}
+                                    highlighted={false}
                                     fontReady={fontReady}
                                     showFontSkeleton={showFontSkeleton}
                                 />
