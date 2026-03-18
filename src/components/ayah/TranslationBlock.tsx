@@ -11,11 +11,13 @@ export function TranslationBlock({
     content,
     verseKey,
     textClassName = "text-sm leading-relaxed",
+    labelClassName = "text-xs font-bold text-[var(--color-muted)] uppercase tracking-widest opacity-60",
 }: {
     id: TranslationId;
     content: { segments: TranslationSegment[]; plain: string };
     verseKey: string;
     textClassName?: string;
+    labelClassName?: string;
 }) {
     const [copied, setCopied] = useState(false);
     const [footnoteSheetOpen, setFootnoteSheetOpen] = useState(false);
@@ -41,7 +43,7 @@ export function TranslationBlock({
 
     return (
         <>
-            <div className="text-xs font-bold text-[var(--color-muted)] uppercase tracking-widest mb-2 opacity-60 flex items-center gap-2">
+            <div className={`${labelClassName} mb-2 flex items-center gap-2`}>
                 <button
                     type="button"
                     onClick={handleCopy}

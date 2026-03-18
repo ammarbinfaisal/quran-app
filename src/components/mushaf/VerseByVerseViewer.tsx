@@ -10,10 +10,10 @@ import type { JuzPageRange } from "@/lib/juz";
 import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isQcfCode } from "@/lib/mushaf/fonts";
-import { loadMushafPage } from "@/lib/mushaf/loader";
-import { loadTranslation } from "@/lib/translations/loader";
+import { prefetchTranslationPage } from "@/lib/translations/loader";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import type { OnWordTap } from "@/lib/wordTap";
+import { loadAbuIyaadData } from "@/lib/translations/abu-iyaad";
 
 interface VerseByVerseViewerProps {
     type: "p" | "s" | "j";
@@ -114,46 +114,45 @@ export function VerseByVerseViewer({
         observerInstanceRef.current = observer;
     }, [fullPageRange.length]);
 
-    // Translation Prefetch: warm IDB for upcoming pages so VerseCard resolves instantly
+    // Translation prefetch: warm adjacent page assets so the next page of verses
+    // resolves from cache instead of triggering per-verse fetches on first view.
     const { prefs } = usePreferences();
     useEffect(() => {
         if (prefs.translationIds.length === 0) return;
+        const firstVisibleIndex = visiblePages.length > 0
+            ? fullPageRange.indexOf(visiblePages[0]!)
+            : -1;
+        const lastVisibleIndex = visiblePages.length > 0
+            ? fullPageRange.indexOf(visiblePages[visiblePages.length - 1]!)
+            : -1;
 
-        // Pages just beyond the current visible window (next batch before sentinel fires)
-        const prefetchPages = fullPageRange.slice(visiblePages.length, visiblePages.length + 5);
-        if (prefetchPages.length === 0) return;
+        const candidatePages = new Set<number>();
 
-        let cancelled = false;
-
-        async function prefetch() {
-            for (const pageNum of prefetchPages) {
-                if (cancelled) break;
-                let pageData;
-                try {
-                    pageData = await loadMushafPage(mushafCode, pageNum);
-                } catch {
-                    continue;
-                }
-                if (cancelled) break;
-
-                const verseKeys = new Set<string>();
-                for (const line of pageData.lines) {
-                    for (const word of line.words) {
-                        if (word.verseKey) verseKeys.add(word.verseKey);
-                    }
-                }
-
-                for (const verseKey of verseKeys) {
-                    for (const tid of prefs.translationIds) {
-                        loadTranslation(verseKey, tid).catch(() => {});
-                    }
-                }
-            }
+        if (firstVisibleIndex > 0) {
+            candidatePages.add(fullPageRange[firstVisibleIndex - 1]!);
+        }
+        if (lastVisibleIndex >= 0 && lastVisibleIndex < fullPageRange.length - 1) {
+            candidatePages.add(fullPageRange[lastVisibleIndex + 1]!);
         }
 
-        prefetch();
-        return () => { cancelled = true; };
-    }, [visiblePages, fullPageRange, mushafCode, prefs.translationIds]);
+        // Keep the next batch warm too, so progressive expansion doesn't show a wall of skeletons.
+        for (const pageNum of fullPageRange.slice(visiblePages.length, visiblePages.length + 2)) {
+            candidatePages.add(pageNum);
+        }
+
+        if (candidatePages.size === 0) return;
+
+        if (prefs.translationIds.includes("abu-iyaad")) {
+            void loadAbuIyaadData().catch(() => {});
+        }
+
+        for (const tid of prefs.translationIds) {
+            if (tid === "abu-iyaad") continue;
+            for (const pageNum of candidatePages) {
+                prefetchTranslationPage(pageNum, tid);
+            }
+        }
+    }, [visiblePages, fullPageRange, prefs.translationIds]);
 
     // Navigation button labels
     const navButtons = useMemo(() => {
@@ -314,4 +313,3 @@ function VersePageBatch({
         </>
     );
 }
-

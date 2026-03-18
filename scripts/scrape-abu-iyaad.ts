@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 
 type CompactSeg = string | { a: string };
 
@@ -110,7 +111,7 @@ function parseNotesHtml(html: string): AbuIyaadNote[] {
   const $ = cheerio.load(html);
 
   return $("li.list-group-item")
-    .map((_: number, element: cheerio.Element) => {
+    .map((_: number, element: Element) => {
       const item = $(element);
       const content = item.find(".col-11").first();
       if (content.length === 0) return null;
@@ -127,7 +128,7 @@ function parseNotesHtml(html: string): AbuIyaadNote[] {
       const author = normalizeWhitespace(content.find("span.blue-text.font-weight-bold").first().text()) || null;
       const greySpans = content
         .find("span.grey-text")
-        .map((__: number, span: cheerio.Element) => normalizeWhitespace($(span).text()))
+        .map((__: number, span: Element) => normalizeWhitespace($(span).text()))
         .get()
         .filter(Boolean);
       const reference = greySpans[0] ?? null;
@@ -251,7 +252,7 @@ async function run() {
           const prevCum = QURAN_CUMULATIVE[surah - 1];
           let foundAny = false;
 
-          $("[id^='rafiam']").each((_: number, element: cheerio.Element) => {
+          $("[id^='rafiam']").each((_: number, element: Element) => {
             const id = $(element).attr("id");
             const match = id?.match(/^rafiam(\d+)$/);
             if (!match) return;

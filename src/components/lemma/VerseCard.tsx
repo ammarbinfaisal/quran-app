@@ -259,7 +259,7 @@ export function VerseCard({
             </div>
 
             <div
-                className="space-y-5 max-w-2xl mx-auto"
+                className="w-full space-y-5"
                 style={{ fontSize: `clamp(0.85rem, ${fontScale * 0.04 + 0.75}rem, 1.2rem)` }}
             >
                 {translationIds.map((id) => {
@@ -281,6 +281,7 @@ export function VerseCard({
                                 content={t.content}
                                 verseKey={verseKey}
                                 textClassName="text-[1.05em] font-medium leading-relaxed"
+                                labelClassName="text-xs font-semibold text-[var(--color-muted)] tracking-[0.14em] opacity-60 [font-variant-caps:small-caps]"
                             />
                         </div>
                     );

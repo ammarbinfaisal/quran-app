@@ -64,17 +64,19 @@ export function WordTapSheets({
         id: "copy",
         icon: <Copy className="h-4 w-4" />,
         label: "Copy Uthmani verse text",
-        onClick: async () => {
-          try {
-            const text = await fetchUthmaniText(selectedTap.verseKey);
-            if (text) {
-              await navigator.clipboard.writeText(text);
+        onClick: () => {
+          void (async () => {
+            try {
+              const text = await fetchUthmaniText(selectedTap.verseKey);
+              if (text) {
+                await navigator.clipboard.writeText(text);
+              }
+            } catch {
+              // Ignore clipboard failures.
+            } finally {
+              onClose();
             }
-          } catch {
-            // Ignore clipboard failures.
-          } finally {
-            onClose();
-          }
+          })();
         },
       },
     ];
