@@ -1,20 +1,25 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
 import { HomeSearchBar } from "@/components/home/HomeSearchBar";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
+import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
+import { DownloadManager } from "@/components/offline/DownloadManager";
 
 const RECENTS_LIMIT = 5;
 
 export function HomePageClient() {
-  const { history, refresh } = useReadingHistory();
+  const { history } = useReadingHistory();
   const { goToPage } = usePageNavigation();
   const { prefs } = usePreferences();
   const { applyTheme } = useTheme();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(prefs.theme);
@@ -35,13 +40,6 @@ export function HomePageClient() {
       <div className="mx-auto flex h-full max-w-xl flex-col">
         <header className="flex items-center justify-between px-4 py-4">
           <h1 className="text-lg font-semibold tracking-tight">Quran</h1>
-          <button
-            type="button"
-            onClick={refresh}
-            className="rounded-lg px-4 py-2.5 text-sm text-[var(--color-muted)] min-h-12 active:scale-[0.97] active:opacity-80"
-          >
-            Refresh
-          </button>
         </header>
 
         <div className="px-4">
@@ -65,7 +63,7 @@ export function HomePageClient() {
           </button>
         </div>
 
-        <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-20">
           <div className="mb-5">
             <HomeSearchBar />
           </div>
@@ -108,6 +106,13 @@ export function HomePageClient() {
             )}
           </section>
         </div>
+        <ReaderBottomNav
+          showModeToggle={false}
+          onDownloadsClick={() => setDownloadsOpen(true)}
+          onSettingsClick={() => setSettingsOpen(true)}
+        />
+        <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
       </div>
     </main>
   );

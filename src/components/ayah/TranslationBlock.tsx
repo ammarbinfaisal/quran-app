@@ -11,7 +11,7 @@ export function TranslationBlock({
     content,
     verseKey,
     textClassName = "text-sm leading-relaxed",
-    labelClassName = "text-xs font-bold text-[var(--color-muted)] uppercase tracking-widest opacity-60",
+    labelClassName = "text-xs font-bold text-[var(--color-muted)] uppercase tracking-[0.09em] opacity-60",
 }: {
     id: TranslationId;
     content: { segments: TranslationSegment[]; plain: string };

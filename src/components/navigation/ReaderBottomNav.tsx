@@ -48,12 +48,13 @@ export function ReaderBottomNav({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-[var(--color-muted)]/15 bg-[var(--color-bg)]/95 backdrop-blur-sm px-2 transition-transform duration-300 ease-in-out"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--color-muted)]/15 bg-[var(--color-bg)]/95 backdrop-blur-sm transition-transform duration-300 ease-in-out"
       style={{
         transform: visible ? "translateY(0)" : "translateY(100%)",
         paddingBottom: "max(8px, env(safe-area-inset-bottom))",
       }}
     >
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-2">
       <Link
         href={homeHref}
         className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
@@ -111,6 +112,7 @@ export function ReaderBottomNav({
             <Settings className="h-5 w-5" />
           </button>
         )}
+      </div>
       </div>
     </nav>
   );

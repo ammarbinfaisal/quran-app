@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useState } from "react";
 import { getChapters } from "@/lib/chapters";
 import type { Chapter } from "@/lib/types";
 import { JUZ_PAGE_RANGES } from "@/lib/juz";
@@ -170,21 +169,7 @@ function PageTab({ onGoToPage }: { onGoToPage: (page: number) => void }) {
 export function QuickNavigation() {
   const { goToSurah, goToJuz, goToPage } = usePageNavigation();
   const [tab, setTab] = useState<TabId>("surah");
-  const [filter, setFilter] = useState("");
   const surahNames = useAbuIyaadSurahs();
-
-  const filteredChapters = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return chapters;
-    return chapters.filter((c) => {
-      if (String(c.id).startsWith(q)) return true;
-      if (c.nameSimple.toLowerCase().includes(q)) return true;
-      if (c.nameArabic.includes(filter.trim())) return true;
-      const translation = surahNames?.[String(c.id)];
-      if (translation && translation.toLowerCase().includes(q)) return true;
-      return false;
-    });
-  }, [filter, surahNames]);
 
   return (
     <section className="flex flex-col">
@@ -213,40 +198,19 @@ export function QuickNavigation() {
       {tab === "page" ? (
         <PageTab onGoToPage={goToPage} />
       ) : tab === "surah" ? (
-        <>
-          <div className="px-4 pt-3">
-            <label className="relative block">
-              <span className="sr-only">Search surah</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search by number or name…"
-                className="w-full rounded-lg bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none ring-1 ring-[var(--color-muted)]/20 focus:ring-[var(--color-accent)]/40"
-              />
-            </label>
-          </div>
-
-          <div className="px-4 pb-4 pt-3">
-            {filteredChapters.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[var(--color-muted)]">
-                No matches.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {filteredChapters.map((ch) => (
-                  <li key={ch.id}>
-                    <SurahRow
-                      ch={ch}
-                      translation={surahNames?.[String(ch.id)]}
-                      onClick={() => goToSurah(ch.id, ch.pages[0])}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
+        <div className="px-4 pb-4 pt-3">
+          <ul className="space-y-2">
+            {chapters.map((ch) => (
+              <li key={ch.id}>
+                <SurahRow
+                  ch={ch}
+                  translation={surahNames?.[String(ch.id)]}
+                  onClick={() => goToSurah(ch.id, ch.pages[0])}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : (
         <div className="px-4 pb-4 pt-3">
           <ul className="space-y-2">
