@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, X } from "lucide-react";
+import Link from "next/link";
 import { ArabicVerseBlock, type PhraseHighlightRange } from "@/components/ayah/ArabicVerseBlock";
 import { useChapters } from "@/hooks/useChapters";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -10,6 +11,7 @@ import {
   type MutashabihatOccurrence,
   type MutashabihatPhraseGroup,
 } from "@/lib/mutashabihat";
+import { vbvPath } from "@/lib/url";
 
 interface LoadedGroup {
   id: number;
@@ -157,13 +159,16 @@ export function MutashabihatSheet({
                       }));
 
                       return (
-                        <div
+                        <Link
                           key={key}
+                          href={vbvPath("s", surahId, key)}
+                          onClick={onClose}
                           className={`rounded-xl border px-3 py-3 ${
                             isActiveVerse
                               ? "border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5"
                               : "border-[var(--color-muted)]/15 bg-[var(--color-surface)]/40"
-                          }`}
+                          } block`}
+                          aria-label={`Open ${getSurahLabel(key, surahName)}`}
                         >
                           <ArabicVerseBlock
                             verseKey={key}
@@ -175,7 +180,7 @@ export function MutashabihatSheet({
                             compact
                             labelClassName="text-xs font-semibold text-[var(--color-text)]"
                           />
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
