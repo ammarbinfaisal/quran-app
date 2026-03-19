@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, FileText, X } from "lucide-react";
+import { useChapters } from "@/hooks/useChapters";
 import {
   getAbuIyaadNoteUrl,
   loadAbuIyaadNotes,
-  loadAbuIyaadSurahName,
   type AbuIyaadNote,
 } from "@/lib/translations/abu-iyaad";
 
@@ -18,36 +18,9 @@ export function NotesSheet({
   verseKey: string | null;
   onClose: () => void;
 }) {
+  const chapters = useChapters();
   const [notes, setNotes] = useState<AbuIyaadNote[] | null | undefined>(undefined);
   const [notesVerseKey, setNotesVerseKey] = useState<string | null>(null);
-  const [resolvedSurahName, setResolvedSurahName] = useState<string | null>(null);
-  const [resolvedSubtitleVerseKey, setResolvedSubtitleVerseKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open || !verseKey) return;
-
-    const [surahPart, ayahPart] = verseKey.split(":");
-    const surahNum = Number(surahPart);
-    const ayahNum = Number(ayahPart);
-
-    if (Number.isFinite(surahNum) && Number.isFinite(ayahNum)) {
-      let active = true;
-      loadAbuIyaadSurahName(surahNum)
-        .then((name) => {
-          if (!active) return;
-          setResolvedSurahName(name || null);
-          setResolvedSubtitleVerseKey(verseKey);
-        })
-        .catch(() => {
-          if (!active) return;
-          setResolvedSurahName(null);
-          setResolvedSubtitleVerseKey(verseKey);
-        });
-      return () => {
-        active = false;
-      };
-    }
-  }, [open, verseKey]);
 
   useEffect(() => {
     if (!open || !verseKey) return;
@@ -81,13 +54,11 @@ export function NotesSheet({
       return verseKey;
     }
 
-    const surahLabel =
-      resolvedSubtitleVerseKey === verseKey && resolvedSurahName
-        ? resolvedSurahName
-        : `Surah ${surahNum}`;
+    const surahName = chapters.find((chapter) => chapter.id === surahNum)?.nameSimple;
+    const surahLabel = surahName ? `Surah ${surahName}` : `Surah ${surahNum}`;
 
     return `${surahLabel} - ${ayahNum}`;
-  }, [open, resolvedSubtitleVerseKey, resolvedSurahName, verseKey]);
+  }, [chapters, open, verseKey]);
 
   const loading = open && !!verseKey && notesVerseKey !== verseKey;
 
