@@ -101,6 +101,14 @@ export async function loadAbuIyaadSurahName(surahId: number): Promise<string> {
   return data[surahId.toString()] ?? "";
 }
 
+/**
+ * Build a canonical link to the original note source on The Noble Quran.
+ */
+export function getAbuIyaadNoteUrl(noteId: string | null | undefined): string | null {
+  if (!noteId) return null;
+  return `https://www.thenoblequran.com/q/#/note/${encodeURIComponent(noteId)}`;
+}
+
 export async function loadAbuIyaadNotesData(): Promise<Record<string, AbuIyaadNote[]>> {
   if (notesCache) return notesCache;
 
