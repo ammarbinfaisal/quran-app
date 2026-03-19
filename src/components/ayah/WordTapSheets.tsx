@@ -7,10 +7,11 @@ import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
 import { NotesSheet } from "@/components/ayah/NotesSheet";
 import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
-import { fetchUthmaniText } from "@/lib/api";
 import { loadMutashabihatVerseMap } from "@/lib/mutashabihat";
 import { loadAbuIyaadNotes } from "@/lib/translations/abu-iyaad";
-import type { MushafCode, TranslationId } from "@/lib/types";
+import type { MushafCode, TranslationId, UserPreferences } from "@/lib/types";
+import { usePreferences } from "@/hooks/usePreferences";
+import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "@/lib/verseCopy";
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
 
 type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
@@ -29,6 +30,11 @@ export function WordTapSheets({
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
+  const { prefs } = usePreferences();
+
+  const copyPrefs = prefs as UserPreferences & VerseCopySettings;
+  const copyMode: VerseCopyMode = copyPrefs.copyVerseContentMode ?? "arabic";
+  const copyTranslationIds = copyPrefs.copyTranslationIds ?? translationIds;
 
   useEffect(() => {
     setActiveSheet(null);
@@ -63,11 +69,15 @@ export function WordTapSheets({
       {
         id: "copy",
         icon: <Copy className="h-4 w-4" />,
-        label: "Copy Uthmani verse text",
+        label: "Copy verse content",
         onClick: () => {
           void (async () => {
             try {
-              const text = await fetchUthmaniText(selectedTap.verseKey);
+              const text = await buildVerseCopyText({
+                verseKey: selectedTap.verseKey,
+                mode: copyMode,
+                translationIds: copyTranslationIds,
+              });
               if (text) {
                 await navigator.clipboard.writeText(text);
               }
@@ -116,7 +126,7 @@ export function WordTapSheets({
     }
 
     return items;
-  }, [hasMutashabihat, hasNotes, onClose, selectedTap]);
+  }, [copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, selectedTap]);
 
   if (!selectedTap) return null;
 

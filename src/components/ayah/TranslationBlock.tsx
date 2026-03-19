@@ -94,7 +94,7 @@ export function TranslationBlock({
                                 setActiveFootnotes({ refs: ref ? [ref] : footnoteRefs, label });
                                 setFootnoteSheetOpen(true);
                             }}
-                            className="inline-flex items-center justify-center px-1 text-[10px] font-bold text-[var(--color-accent)] hover:underline active:opacity-60"
+                            className="inline-flex select-none items-center justify-center px-1 text-[10px] font-bold text-[var(--color-accent)] hover:underline active:opacity-60"
                             aria-label={`Footnote ${part.label}`}
                         >
                             [{part.label}]
