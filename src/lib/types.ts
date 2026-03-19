@@ -55,6 +55,9 @@ export interface Chapter {
 // Translations
 // ---------------------------------------------------------------------------
 export type TranslationId = "saheeh" | "hilali-khan" | "abu-iyaad";
+export const SUPPORTED_TRANSLATION_IDS = ["saheeh", "hilali-khan", "abu-iyaad"] as const satisfies readonly TranslationId[];
+
+export type CopyVerseContentMode = "arabic" | "arabic-and-translations" | "translations";
 
 export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
   saheeh: "Saheeh International",
@@ -114,6 +117,9 @@ export type VbvSubmode = "s" | "j" | "p";
 export interface UserPreferences {
   mushafCode: MushafCode;
   translationIds: TranslationId[];
+  copyVerseContentMode: CopyVerseContentMode;
+  copyTranslationIds: TranslationId[];
+  inlineVerseNotes: boolean;
   theme: ThemeId;
   fontScale: number; // 1-10
   viewMode: ViewMode;
@@ -124,6 +130,9 @@ export interface UserPreferences {
 export const DEFAULT_PREFERENCES: UserPreferences = {
   mushafCode: "v2",
   translationIds: ["saheeh", "abu-iyaad"],
+  copyVerseContentMode: "arabic-and-translations",
+  copyTranslationIds: ["saheeh", "abu-iyaad"],
+  inlineVerseNotes: false,
   theme: "light-warm",
   fontScale: 1,
   viewMode: "mushaf",

@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { X, MonitorDown } from "lucide-react";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { TranslationPicker } from "@/components/settings/TranslationPicker";
+import { VerseCopySettings } from "@/components/settings/VerseCopySettings";
+import { InlineVerseNotesToggle } from "@/components/settings/InlineVerseNotesToggle";
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 
@@ -46,6 +48,8 @@ export function SettingsDrawer({
         <div className="max-h-[75vh] overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
           <ThemePicker />
           <TranslationPicker />
+          <VerseCopySettings />
+          <InlineVerseNotesToggle />
           <FontSizeControl />
         </div>
 
