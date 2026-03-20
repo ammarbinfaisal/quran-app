@@ -370,6 +370,21 @@ function generatePagePayload(options: {
     });
   }
 
+  for (let surahId = 2; surahId <= 114; surahId++) {
+    if (surahId === 9) continue;
+
+    const openingVerseKey = `${surahId}:1`;
+    const openingVerseLines = outLines.filter((line) =>
+      line.words.some((word) => word.verseKey === openingVerseKey),
+    );
+
+    if (openingVerseLines.length <= 1) continue;
+
+    for (const line of openingVerseLines.slice(0, -1)) {
+      line.centered = true;
+    }
+  }
+
   return {
     page,
     mushafCode: code,
