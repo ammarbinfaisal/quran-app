@@ -29,6 +29,7 @@ export interface MushafWord {
 
 export interface MushafLine {
   lineNumber: number;
+  centered?: boolean;
   words: MushafWord[];
 }
 

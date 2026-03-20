@@ -21,6 +21,7 @@ const root = protobuf.Root.fromJSON({
       fields: {
         lineNumber: { type: "int32", id: 1 },
         words: { rule: "repeated", type: "MushafWord", id: 2 },
+        centered: { type: "bool", id: 3 },
       },
     },
     MushafPagePayload: {

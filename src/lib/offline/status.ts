@@ -6,6 +6,7 @@ import {
 } from "@/lib/types";
 import { dbGet } from "@/lib/offline/storage";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
+import { ensureCurrentMushafAssetRevision } from "@/lib/offline/mushafRevision";
 
 const ALL_TRANSLATION_IDS: TranslationId[] = ["saheeh", "hilali-khan", "abu-iyaad"];
 
@@ -14,6 +15,8 @@ const ALL_TRANSLATION_IDS: TranslationId[] = ["saheeh", "hilali-khan", "abu-iyaa
 // ---------------------------------------------------------------------------
 
 export async function getDownloadedMushafs(): Promise<MushafCode[]> {
+  await ensureCurrentMushafAssetRevision();
+
   const downloaded: MushafCode[] = [];
   for (const code of MUSHAF_CODES) {
     const value = await dbGet("mushaf-pages", `${code}:${MUSHAF_ASSET_REV}:complete`);

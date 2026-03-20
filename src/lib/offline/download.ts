@@ -10,6 +10,7 @@ import {
 import { dbPut, dbPutMany, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
 import { getQcfFontUrl } from "@/lib/mushaf/fonts";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
+import { ensureCurrentMushafAssetRevision } from "@/lib/offline/mushafRevision";
 import { compactToContent, parseTranslationSegments, segmentsToContent, type TranslationSegment, type TranslationContent, type CompactSeg } from "@/lib/footnotes";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,8 @@ export async function downloadMushaf(
   code: MushafCode,
   onProgress: (p: DownloadProgress) => void,
 ): Promise<void> {
+  await ensureCurrentMushafAssetRevision();
+
   const isQcf = QCF_CODES.includes(code);
 
   // Each page may produce 1 fetch (JSON) or 2 fetches (JSON + font).

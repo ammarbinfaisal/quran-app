@@ -33,6 +33,26 @@ function MushafPageInner({
   const isSpecialPage = pageData.page === 1 || pageData.page === 2;
   const renderedChildren = [];
   const linesByNumber = new Map(pageData.lines.map((l) => [l.lineNumber, l]));
+  const hasExplicitCenteredMetadata = pageData.lines.some((line) => typeof line.centered === "boolean");
+
+  function getLegacyOpeningVerseLineTargets(surahId: number, startLineNumber: number, needsBismillah: boolean) {
+    if (!needsBismillah) return [];
+
+    const openingVerseKey = `${surahId}:1`;
+    const openingVerseLines = pageData.lines
+      .filter(
+        (line) =>
+          line.lineNumber >= startLineNumber &&
+          line.words.some((word) => word.verseKey === openingVerseKey),
+      )
+      .map((line) => line.lineNumber)
+      .sort((a, b) => a - b);
+
+    // Legacy r2 assets do not carry centered line metadata.
+    // Approximate the printed layout by centering the opening verse lines
+    // except for the final line where verse 1 ends.
+    return openingVerseLines.slice(0, -1);
+  }
 
   // Detect which surahs start on this page, and which lines need
   // headers, bismillah, and centered alignment.
@@ -40,6 +60,7 @@ function MushafPageInner({
     chapter: Chapter;
     headerLineTarget: number;
     bismillahLineTarget: number | null;
+    openingVerseLineTargets: number[];
   }[] = [];
 
   if (chapters?.length && pageData.lines.length) {
@@ -67,10 +88,17 @@ function MushafPageInner({
             headerLineTarget = start.lineNumber - 1;
           }
 
+          const openingVerseLineTargets = getLegacyOpeningVerseLineTargets(
+            start.surahId,
+            start.lineNumber,
+            needsBismillah,
+          );
+
           surahsStartingOnPage.push({
             chapter,
             headerLineTarget,
             bismillahLineTarget,
+            openingVerseLineTargets,
           });
         }
       }
@@ -108,12 +136,19 @@ function MushafPageInner({
             headerLineTarget = firstVerseAbsolute - 1;
           }
 
+          const openingVerseLineTargets: number[] = [];
+
           // Only add if any of these targets land within this page's line range
-          if (headerLineTarget <= maxLines || (bismillahLineTarget !== null && bismillahLineTarget <= maxLines)) {
+          if (
+            headerLineTarget <= maxLines ||
+            (bismillahLineTarget !== null && bismillahLineTarget <= maxLines) ||
+            openingVerseLineTargets.length > 0
+          ) {
             surahsStartingOnPage.push({
               chapter,
               headerLineTarget,
               bismillahLineTarget,
+              openingVerseLineTargets,
             });
           }
         }
@@ -121,16 +156,25 @@ function MushafPageInner({
     }
   }
 
-  // Build a set of line numbers that should be centered
-  // (header line and bismillah line only)
-  // Pages 1-2 (Al-Fatiha / start of Al-Baqarah) have all lines centered
+  // Build a set of line numbers that should be centered.
+  // Pages 1-2 (Al-Fatiha / start of Al-Baqarah) have all lines centered.
+  // Newer generated assets carry explicit per-line `centered` metadata, but the
+  // printed mushaf's short opening ayah lines after the bismillah are a separate
+  // presentation rule and still need to be applied on top.
   const centeredLines = new Set<number>();
   if (pageData.page === 1 || pageData.page === 2) {
     for (let ln = 1; ln <= maxLines; ln++) centeredLines.add(ln);
   } else {
+    if (hasExplicitCenteredMetadata) {
+      for (const line of pageData.lines) {
+        if (line.centered) centeredLines.add(line.lineNumber);
+      }
+    }
+
     for (const s of surahsStartingOnPage) {
       if (s.headerLineTarget > 0) centeredLines.add(s.headerLineTarget);
       if (s.bismillahLineTarget != null) centeredLines.add(s.bismillahLineTarget);
+      for (const lineNumber of s.openingVerseLineTargets) centeredLines.add(lineNumber);
     }
   }
 

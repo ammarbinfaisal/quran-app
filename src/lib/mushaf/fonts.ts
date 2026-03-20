@@ -7,6 +7,7 @@ import {
 } from "@/lib/constants";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { dbGet, dbPut } from "@/lib/offline/storage";
+import { ensureCurrentMushafAssetRevision } from "@/lib/offline/mushafRevision";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -139,6 +140,8 @@ async function loadQcfFontInner(
   code: MushafCode,
   pageNum: number,
 ): Promise<void> {
+  await ensureCurrentMushafAssetRevision();
+
   // Check if already being loaded (exists in the font set but not yet loaded)
   for (const f of document.fonts) {
     if (f.family === name) {

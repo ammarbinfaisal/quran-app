@@ -365,6 +365,7 @@ function generatePagePayload(options: {
 
     outLines.push({
       lineNumber: row.line_number,
+      centered: row.is_centered === 1,
       words,
     });
   }

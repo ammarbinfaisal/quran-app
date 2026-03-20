@@ -2,6 +2,7 @@ import type { MushafCode, MushafPagePayload } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { dbGet, dbPut } from "@/lib/offline/storage";
+import { ensureCurrentMushafAssetRevision } from "@/lib/offline/mushafRevision";
 
 // ---------------------------------------------------------------------------
 // Page number padding
@@ -69,6 +70,8 @@ export async function loadMushafPage(
   if (existing) return existing;
 
   const p = (async () => {
+    await ensureCurrentMushafAssetRevision();
+
     // 2) IndexedDB
     try {
       const cached = await dbGet<MushafPagePayload>("mushaf-pages", key);
