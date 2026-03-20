@@ -295,7 +295,7 @@ function TranslationRow({
             }
             if (part.type === "annotation") {
               return (
-                <span key={idx} className="text-[var(--color-muted)] opacity-70">
+                <span key={idx} className="text-[var(--color-annotation)]">
                   {part.text}
                 </span>
               );

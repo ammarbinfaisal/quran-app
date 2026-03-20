@@ -21,6 +21,7 @@
   --color-accent: #8b6914;
   --color-surface: #efe8d6;
   --color-muted: #a09070;
+  --color-annotation: #8f7f60;
 
   --mushaf-font-scale: 3;
 
@@ -49,6 +50,7 @@
   --color-accent: #c4a35a;
   --color-surface: #2a2218;
   --color-muted: #7a6a50;
+  --color-annotation: #b7a484;
 
   --pos-verb: #4ade80;
   --pos-noun: #60a5fa;
@@ -74,6 +76,7 @@
   --color-accent: #2d6a4f;
   --color-surface: #f0f5f0;
   --color-muted: #6b8f7b;
+  --color-annotation: #5f7e6d;
 
   --pos-verb: #2d6a4f;
   --pos-noun: #1e40af;
