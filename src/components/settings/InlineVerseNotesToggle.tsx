@@ -22,10 +22,10 @@ export function InlineVerseNotesToggle() {
       >
         <div className="min-w-0">
           <div className="text-sm font-medium text-[var(--color-text)]">
-            Show notes inline by default
+            Show notes inline
           </div>
           <div className="mt-1 text-xs leading-5 text-[var(--color-muted)]">
-            Applies to VBV, lemma, and root verse views. When on, verse notes appear in place instead of opening a sheet.
+            Show notes under the verse instead of in a sheet.
           </div>
         </div>
         <div
