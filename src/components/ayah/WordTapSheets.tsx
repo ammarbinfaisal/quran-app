@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, BookOpen, Copy, FileText, Search } from "lucide-react";
+import { ArrowLeftRight, BookOpen, Copy, FileText, Loader2, Pause, Play, Search } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
@@ -13,8 +13,11 @@ import type { MushafCode, TranslationId, UserPreferences } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "@/lib/verseCopy";
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
+import { getAudioElement, pauseAudio } from "@/lib/audio";
+import { playVerseAudio } from "@/lib/verseAudio";
 
 type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
+type AudioState = "idle" | "loading" | "playing";
 
 export function WordTapSheets({
   selectedTap,
@@ -30,11 +33,27 @@ export function WordTapSheets({
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
+  const [audioState, setAudioState] = useState<AudioState>("idle");
   const { prefs } = usePreferences();
 
   const copyPrefs = prefs as UserPreferences & VerseCopySettings;
   const copyMode: VerseCopyMode = copyPrefs.copyVerseContentMode ?? "arabic";
   const copyTranslationIds = copyPrefs.copyTranslationIds ?? translationIds;
+
+  // Reset audio state when tapped verse changes, stop any playing audio.
+  useEffect(() => {
+    setAudioState("idle");
+    pauseAudio();
+  }, [selectedTap]);
+
+  // Listen for the audio element's ended event to reset state.
+  useEffect(() => {
+    const el = getAudioElement();
+    if (!el) return;
+    const handleEnded = () => setAudioState("idle");
+    el.addEventListener("ended", handleEnded);
+    return () => el.removeEventListener("ended", handleEnded);
+  }, []);
 
   useEffect(() => {
     setActiveSheet(null);
@@ -65,7 +84,33 @@ export function WordTapSheets({
   const buttons = useMemo(() => {
     if (!selectedTap) return [];
 
+    const playIcon =
+      audioState === "loading" ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : audioState === "playing" ? (
+        <Pause className="h-4 w-4" />
+      ) : (
+        <Play className="h-4 w-4" />
+      );
+
     const items = [
+      {
+        id: "play",
+        icon: playIcon,
+        label: "Play verse recitation",
+        onClick: () => {
+          void (async () => {
+            if (audioState === "playing") {
+              pauseAudio();
+              setAudioState("idle");
+              return;
+            }
+            setAudioState("loading");
+            const success = await playVerseAudio(selectedTap.verseKey);
+            setAudioState(success ? "playing" : "idle");
+          })();
+        },
+      },
       {
         id: "copy",
         icon: <Copy className="h-4 w-4" />,
@@ -126,7 +171,7 @@ export function WordTapSheets({
     }
 
     return items;
-  }, [copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, selectedTap]);
+  }, [audioState, copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, selectedTap]);
 
   if (!selectedTap) return null;
 
