@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { BookOpen } from "lucide-react";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
@@ -8,8 +9,10 @@ import { HomeSearchBar } from "@/components/home/HomeSearchBar";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { ModeSettingToggle } from "@/components/navigation/ModeSettingToggle";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
+import NavigationPicker from "@/components/nav/NavigationPicker";
 
 const RECENTS_LIMIT = 5;
 
@@ -20,6 +23,7 @@ export function HomePageClient() {
   const { applyTheme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [navPickerOpen, setNavPickerOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(prefs.theme);
@@ -108,8 +112,23 @@ export function HomePageClient() {
         </div>
         <ReaderBottomNav
           showModeToggle={false}
+          centerLabel={{
+            icon: <BookOpen className="h-4 w-4 text-[var(--color-muted)]" />,
+            text: "Go to…",
+            ariaLabel: "Open navigation",
+            onClick: () => setNavPickerOpen(true),
+          }}
+          centerExtra={<ModeSettingToggle />}
           onDownloadsClick={() => setDownloadsOpen(true)}
           onSettingsClick={() => setSettingsOpen(true)}
+        />
+        <NavigationPicker
+          open={navPickerOpen}
+          onClose={() => setNavPickerOpen(false)}
+          onNavigate={(nextPage, verseKey) => {
+            goToPage(nextPage, undefined, verseKey ?? undefined);
+            setNavPickerOpen(false);
+          }}
         />
         <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
