@@ -62,6 +62,7 @@ function MushafWordInner({
 
   function handleTap(event: React.MouseEvent<HTMLSpanElement>) {
     event.stopPropagation();
+    if (!word.text) return;
     onTap({
       verseKey: word.verseKey,
       wordIndex: wordIndex >= 0 ? wordIndex : null,

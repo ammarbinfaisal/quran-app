@@ -223,7 +223,7 @@ function MushafPageInner({
       if (targetSurah) {
         if (targetSurah.headerLineTarget === i) {
           renderedChildren.push(
-            <div key={`empty-${i}`} className={slotClass}>
+            <div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()}>
               <SurahHeader
                 nameSimple={targetSurah.chapter.nameSimple}
                 surahNumber={targetSurah.chapter.id}
@@ -234,13 +234,13 @@ function MushafPageInner({
           );
         } else if (targetSurah.bismillahLineTarget === i) {
           renderedChildren.push(
-            <div key={`empty-${i}`} className={slotClass}>
+            <div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()}>
               <Bismillah className="h-4/6 w-auto max-w-[70vw] text-[var(--color-text)] opacity-90 mx-auto" />
             </div>
           );
         }
       } else if (!isSpecialPage) {
-        renderedChildren.push(<div key={`empty-${i}`} className="flex-1" />);
+        renderedChildren.push(<div key={`empty-${i}`} className="flex-1" onClick={(e) => e.stopPropagation()} />);
       }
     }
   }

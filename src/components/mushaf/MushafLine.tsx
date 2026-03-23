@@ -53,6 +53,15 @@ function MushafLineInner({
     }
   }
 
+  // Stop propagation when the click lands on the line container itself (i.e. the
+  // flex gaps between words), but allow clicks on mushaf-word spans to bubble
+  // normally — those already call stopPropagation themselves.
+  function handleLineClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!(e.target as HTMLElement).classList.contains("mushaf-word")) {
+      e.stopPropagation();
+    }
+  }
+
   // Unicode lines use text-align justify (browser handles inter-word spacing better
   // than flexbox space-between for real Arabic text).
   if (isUnicode) {
@@ -61,7 +70,7 @@ function MushafLineInner({
       : "mushaf-line mushaf-line-unicode";
 
     return (
-      <div className={className}>
+      <div className={className} onClick={handleLineClick}>
         {line.words.map((word, idx) => (
           <MushafWord
             key={`${word.verseKey}-${idx}`}
@@ -85,7 +94,7 @@ function MushafLineInner({
     : "mushaf-line";
 
   return (
-    <div className={className}>
+    <div className={className} onClick={handleLineClick}>
       {line.words.map((word, idx) => (
         <MushafWord
           key={`${word.verseKey}-${idx}`}
