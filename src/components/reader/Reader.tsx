@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { BookOpen } from "lucide-react";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -20,6 +20,8 @@ import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useTrackReading } from "@/hooks/useReadingHistory";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
+import { useChapters } from "@/hooks/useChapters";
+import { pageToSurah } from "@/lib/navigation/maps";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -42,6 +44,13 @@ export function Reader({ initialPage }: { initialPage: number }) {
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const mushafCode = prefs.mushafCode;
+
+  const chapters = useChapters();
+  const surahName = useMemo(() => {
+    if (!chapters.length) return String(page);
+    const surahId = pageToSurah(page, chapters);
+    return chapters.find(c => c.id === surahId)?.nameSimple ?? String(page);
+  }, [page, chapters]);
 
   useTrackReading(page);
 
@@ -148,7 +157,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
           onHomeClick={resetTimer}
           centerLabel={{
             icon: <BookOpen className="h-4 w-4 text-[var(--color-muted)] transition-colors" />,
-            text: page,
+            text: surahName,
             ariaLabel: "Open navigation",
             onClick: () => {
               setSurahOpen(true);
