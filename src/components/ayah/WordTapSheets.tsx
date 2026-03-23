@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, BookOpen, Copy, FileText, Loader2, Pause, Play, Search } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
+import { InPlaceNotes } from "@/components/ayah/InPlaceNotes";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
 import { NotesSheet } from "@/components/ayah/NotesSheet";
 import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
@@ -31,6 +32,7 @@ export function WordTapSheets({
   onClose: () => void;
 }) {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
+  const [showInPlaceNotes, setShowInPlaceNotes] = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
   const [audioState, setAudioState] = useState<AudioState>("idle");
@@ -57,6 +59,7 @@ export function WordTapSheets({
 
   useEffect(() => {
     setActiveSheet(null);
+    setShowInPlaceNotes(false);
     setHasNotes(false);
     setHasMutashabihat(false);
 
@@ -152,12 +155,12 @@ export function WordTapSheets({
       onClick: () => setActiveSheet("translation"),
     });
 
-    if (hasNotes) {
+    if (hasNotes && !prefs.inlineVerseNotes) {
       items.push({
         id: "notes",
         icon: <FileText className="h-4 w-4" />,
-        label: "Open Abu Iyaad notes",
-        onClick: () => setActiveSheet("notes"),
+        label: "Toggle Abu Iyaad notes",
+        onClick: () => setShowInPlaceNotes((prev) => !prev),
       });
     }
 
@@ -171,7 +174,7 @@ export function WordTapSheets({
     }
 
     return items;
-  }, [audioState, copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, selectedTap]);
+  }, [audioState, copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, prefs.inlineVerseNotes, selectedTap]);
 
   if (!selectedTap) return null;
 
@@ -182,6 +185,14 @@ export function WordTapSheets({
           anchor={selectedTap.anchor}
           buttons={buttons}
           onDismiss={onClose}
+        />
+      )}
+
+      {activeSheet === null && showInPlaceNotes && (
+        <InPlaceNotes
+          verseKey={selectedTap.verseKey}
+          anchor={selectedTap.anchor}
+          onDismiss={() => setShowInPlaceNotes(false)}
         />
       )}
 
