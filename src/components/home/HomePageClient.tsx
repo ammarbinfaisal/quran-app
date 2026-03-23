@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
@@ -17,7 +18,8 @@ import NavigationPicker from "@/components/nav/NavigationPicker";
 const RECENTS_LIMIT = 5;
 
 export function HomePageClient() {
-  const { history } = useReadingHistory();
+  const pathname = usePathname();
+  const { history, refresh } = useReadingHistory();
   const { goToPage } = usePageNavigation();
   const { prefs } = usePreferences();
   const { applyTheme } = useTheme();
@@ -29,6 +31,14 @@ export function HomePageClient() {
     applyTheme(prefs.theme);
     document.documentElement.style.setProperty("--mushaf-font-scale", String(prefs.fontScale));
   }, [applyTheme, prefs.theme, prefs.fontScale]);
+
+  // Refresh reading history when navigating back to the homepage. In Next.js
+  // App Router the component may remain mounted in the router cache, so neither
+  // a remount nor a pageshow event fires. Watching pathname ensures we re-read
+  // from localStorage whenever this route becomes active again.
+  useEffect(() => {
+    if (pathname === "/") refresh();
+  }, [pathname, refresh]);
 
   const continueEntry = useMemo(() => {
     if (history.length === 0) return null;

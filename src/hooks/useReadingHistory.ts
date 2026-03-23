@@ -21,15 +21,21 @@ export function useReadingHistory() {
     };
     // Handles bfcache restores where the component instance may not remount.
     const onPageShow = () => setHistory(getReadingHistory());
+    // Handles tab switching (visibilitychange) which can reveal stale state.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") setHistory(getReadingHistory());
+    };
 
     window.addEventListener("reading-history-changed", onHistoryChanged);
     window.addEventListener("storage", onStorage);
     window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       window.removeEventListener("reading-history-changed", onHistoryChanged);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
