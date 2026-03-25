@@ -9,6 +9,7 @@ import { VerseCopySettings } from "@/components/settings/VerseCopySettings";
 import { AyahReciterPicker } from "@/components/settings/AyahReciterPicker";
 import { InlineVerseNotesToggle } from "@/components/settings/InlineVerseNotesToggle";
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
+import { DataUsageModePicker } from "@/components/settings/DataUsageModePicker";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useMountEffect } from "@/hooks/useMountEffect";
 
@@ -64,6 +65,7 @@ export function SettingsDrawer({
           <VerseCopySettings />
           <InlineVerseNotesToggle />
           <FontSizeControl />
+          <DataUsageModePicker />
 
           <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">

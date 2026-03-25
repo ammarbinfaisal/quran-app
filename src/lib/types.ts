@@ -60,6 +60,7 @@ export const SUPPORTED_TRANSLATION_IDS = ["saheeh", "hilali-khan", "abu-iyaad"] 
 
 export type CopyVerseContentMode = "arabic" | "arabic-and-translations" | "translations";
 export type AyahReciterId = "abdul-basit" | "husary" | "minshawi";
+export type DataUsageMode = "low" | "balanced" | "high";
 
 export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
   saheeh: "Saheeh International",
@@ -137,6 +138,7 @@ export type VbvSubmode = "s" | "j" | "p";
 export interface UserPreferences {
   mushafCode: MushafCode;
   translationIds: TranslationId[];
+  dataUsageMode: DataUsageMode;
   copyVerseContentMode: CopyVerseContentMode;
   copyTranslationIds: TranslationId[];
   ayahReciterId: AyahReciterId;
@@ -151,6 +153,7 @@ export interface UserPreferences {
 export const DEFAULT_PREFERENCES: UserPreferences = {
   mushafCode: "v2",
   translationIds: ["saheeh", "abu-iyaad"],
+  dataUsageMode: "balanced",
   copyVerseContentMode: "arabic-and-translations",
   copyTranslationIds: ["saheeh", "abu-iyaad"],
   ayahReciterId: "abdul-basit",

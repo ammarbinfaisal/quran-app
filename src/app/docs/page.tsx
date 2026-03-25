@@ -17,6 +17,7 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { createWebPageJsonLd } from "@/lib/seo";
 import { AYAH_RECITER_DISPLAY_NAMES, SUPPORTED_AYAH_RECITERS } from "@/lib/types";
+import { DATA_USAGE_MODES, DATA_USAGE_MODE_DETAILS } from "@/lib/dataUsage";
 
 const READ_MODES = [
   {
@@ -216,6 +217,31 @@ export default function DocsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="mt-8">
+            <h2 className="text-balance text-xl font-semibold">Data usage modes</h2>
+            <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
+              Settings includes a data usage control so background warming can match your connection,
+              device budget, and reading style instead of assuming every session should fetch as much
+              as possible.
+            </p>
+            <div className="mt-4 grid gap-3">
+              {DATA_USAGE_MODES.map((mode) => {
+                const detail = DATA_USAGE_MODE_DETAILS[mode];
+                return (
+                  <article
+                    key={mode}
+                    className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm"
+                  >
+                    <h3 className="text-sm font-semibold">{detail.label}</h3>
+                    <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
+                      {detail.docsDescription}
+                    </p>
+                  </article>
+                );
+              })}
             </div>
           </section>
 
