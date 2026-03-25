@@ -65,7 +65,7 @@ export type DataUsageMode = "low" | "balanced" | "high";
 export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
   saheeh: "Saheeh International",
   "hilali-khan": "Mohsin Khan and Taqi-ud-Din Hilali",
-  "abu-iyaad": "Abu Iyaad",
+  "abu-iyaad": "Shaykh Abu Iyaad",
 };
 
 export const AYAH_RECITER_DISPLAY_NAMES: Record<AyahReciterId, string> = {
@@ -74,10 +74,10 @@ export const AYAH_RECITER_DISPLAY_NAMES: Record<AyahReciterId, string> = {
   minshawi: "Muhammad Siddiq al-Minshawi",
 };
 
-export const AYAH_RECITER_DATA_FILES: Record<AyahReciterId, string> = {
-  "abdul-basit": "ayah-recitation-abdul-basit-abdul-samad-murattal-hafs-950.json",
-  husary: "ayah-recitation-mahmoud-khalil-al-husary-murattal-hafs-957.json",
-  minshawi: "ayah-recitation-muhammad-siddiq-al-minshawi-murattal-hafs-959.json",
+export const AYAH_RECITER_AUDIO_PATHS: Record<AyahReciterId, string> = {
+  "abdul-basit": "abdulBasitMurattal",
+  husary: "husary",
+  minshawi: "minshawyMurattal",
 };
 
 export const SUPPORTED_AYAH_RECITERS = [

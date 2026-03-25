@@ -65,7 +65,7 @@ export function TranslationBlock({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1 hover:text-[var(--color-accent)] transition-colors"
-                            aria-label="Open Abu Iyaad translation source"
+                            aria-label="Open Shaykh Abu Iyaad's translation source"
                         >
                             <ExternalLink className="h-3 w-3" />
                         </a>

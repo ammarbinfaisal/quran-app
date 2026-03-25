@@ -86,7 +86,7 @@ export function InPlaceNotes({
         aria-label={`Notes for ${verseKey}`}
       >
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <span className="text-xs font-semibold text-[var(--color-muted)]">Abu Iyaad Notes</span>
+          <span className="text-xs font-semibold text-[var(--color-muted)]">Shaykh Abu Iyaad&apos;s Notes</span>
           <button
             type="button"
             onClick={onDismiss}
@@ -110,7 +110,7 @@ export function InPlaceNotes({
             ))
           ) : (
             <div className="rounded-xl border border-dashed border-[var(--color-muted)]/25 p-4 text-center text-xs text-[var(--color-muted)]">
-              No Abu Iyaad notes found for this verse.
+              No Shaykh Abu Iyaad notes were found for this verse.
             </div>
           )}
         </div>

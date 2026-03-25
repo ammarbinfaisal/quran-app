@@ -153,7 +153,7 @@ export function WordTapSheets({
       items.push({
         id: "notes",
         icon: <FileText className="h-4 w-4" />,
-        label: "Open Abu Iyaad notes",
+        label: "Open Shaykh Abu Iyaad's notes",
         onClick: () => setActiveSheet("notes"),
       });
     }

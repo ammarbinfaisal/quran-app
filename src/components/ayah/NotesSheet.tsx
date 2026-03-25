@@ -110,7 +110,7 @@ function NotesSheetContent({
             ))
           ) : (
             <div className="rounded-xl border border-dashed border-[var(--color-muted)]/25 p-6 text-center text-sm text-[var(--color-muted)]">
-              No Abu Iyaad notes were found for this verse.
+              No Shaykh Abu Iyaad notes were found for this verse.
             </div>
           )}
         </div>

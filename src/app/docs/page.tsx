@@ -9,6 +9,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  Github,
   Library,
   ScrollText,
   Search,
@@ -19,6 +20,9 @@ import { createWebPageJsonLd } from "@/lib/seo";
 import { AYAH_RECITER_DISPLAY_NAMES, SUPPORTED_AYAH_RECITERS } from "@/lib/types";
 import { DATA_USAGE_MODES, DATA_USAGE_MODE_DETAILS } from "@/lib/dataUsage";
 import { DocsMobileNavigation, DocsSidebarNavigation } from "@/components/docs/DocsNavigation";
+
+const SECTION_CARD_CLASS =
+  "rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] px-4 py-4 shadow-sm sm:p-5";
 
 const READ_MODES = [
   {
@@ -69,7 +73,7 @@ const AYAH_ACTIONS = [
   },
   {
     label: "Notes",
-    description: "Open Abu Iyaad notes in a sheet when notes exist for that verse.",
+    description: "Open Shaykh Abu Iyaad's notes in a sheet when notes exist for that verse.",
     Icon: FileText,
   },
   {
@@ -145,8 +149,8 @@ export default function DocsPage() {
         className="h-dvh overflow-y-auto overscroll-contain bg-[var(--color-bg)] text-[var(--color-text)]"
         dir="ltr"
       >
-        <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:px-6">
-          <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="mx-auto w-full max-w-6xl px-3 pb-28 pt-4 sm:px-5 sm:pb-16 sm:pt-6 lg:px-6">
+          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
             <Link
               href="/"
               className="inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-4 text-sm font-medium text-[var(--color-text)] transition active:scale-[0.98] active:opacity-80"
@@ -154,14 +158,14 @@ export default function DocsPage() {
               <ChevronLeft className="h-4 w-4" />
               Back home
             </Link>
-            <DocsMobileNavigation sections={[...DOCS_SECTIONS]} />
           </div>
+          <DocsMobileNavigation sections={[...DOCS_SECTIONS]} />
 
           <div className="lg:grid lg:grid-cols-[17rem,minmax(0,1fr)] lg:gap-8">
             <DocsSidebarNavigation sections={[...DOCS_SECTIONS]} />
 
             <div className="min-w-0">
-              <section className="rounded-3xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+              <section className="rounded-3xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] px-4 py-5 shadow-sm sm:px-8 sm:py-8">
                 <p className="text-sm font-medium text-[var(--color-accent)]">Documentation</p>
                 <h1 className="mt-3 text-balance text-3xl font-semibold sm:text-4xl">
                   How the app works
@@ -181,7 +185,7 @@ export default function DocsPage() {
                   {READ_MODES.map(({ label, description, Icon }) => (
                     <div
                       key={label}
-                      className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-4 shadow-sm"
+                      className={SECTION_CARD_CLASS}
                     >
                       <div className="flex size-10 items-center justify-center rounded-full bg-[var(--color-bg)]">
                         <Icon className="h-5 w-5 text-[var(--color-accent)]" />
@@ -205,7 +209,7 @@ export default function DocsPage() {
                   {NAVIGATION_SCOPES.map(({ label, description, Icon }) => (
                     <div
                       key={label}
-                      className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-4 shadow-sm"
+                      className={SECTION_CARD_CLASS}
                     >
                       <div className="flex size-10 items-center justify-center rounded-full bg-[var(--color-bg)]">
                         <Icon className="h-5 w-5 text-[var(--color-accent)]" />
@@ -229,7 +233,7 @@ export default function DocsPage() {
                   {AYAH_ACTIONS.map(({ label, description, Icon }) => (
                     <div
                       key={label}
-                      className="flex gap-4 rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-4 shadow-sm"
+                      className={`${SECTION_CARD_CLASS} flex gap-4`}
                     >
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-bg)]">
                         <Icon className="h-5 w-5 text-[var(--color-accent)]" />
@@ -262,7 +266,7 @@ export default function DocsPage() {
                       return (
                         <article
                           key={mode}
-                          className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm"
+                          className={SECTION_CARD_CLASS}
                         >
                           <h4 className="text-sm font-semibold">{detail.label}</h4>
                           <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
@@ -277,14 +281,14 @@ export default function DocsPage() {
                 <div id="data-manager-actions" className="mt-6 scroll-mt-6">
                   <h3 className="text-balance text-lg font-semibold">Data manager actions</h3>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+                    <article className={SECTION_CARD_CLASS}>
                       <h4 className="text-sm font-semibold">Purge cache</h4>
                       <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                         Removes temporary warmed data that can be rebuilt as you keep reading. It does not
                         remove things you explicitly downloaded for offline use.
                       </p>
                     </article>
-                    <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+                    <article className={SECTION_CARD_CLASS}>
                       <h4 className="text-sm font-semibold">Remove downloads</h4>
                       <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                         Deletes assets you intentionally downloaded for offline use, including mushaf data,
@@ -296,11 +300,11 @@ export default function DocsPage() {
               </section>
 
               <section id="sources-and-attribution" className="mt-8 scroll-mt-6">
-                <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+                <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Sources and attribution</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     Quran text, page structure, and search are based on Tarteel and related Quran data
-                    feeds. Shaykh Abu Iyaad&apos;s translation and notes are attributed back to
+                    feeds. Shaykh Abu Iyaad&apos;s translation and notes are linked back to
                     thenoblequran.com.
                   </p>
                   <div className="mt-4 space-y-2">
@@ -339,7 +343,7 @@ export default function DocsPage() {
               </section>
 
               <section id="design-choices" className="mt-8 scroll-mt-6">
-                <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+                <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Design choices</h2>
                   <div className="mt-3 space-y-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     <p>
@@ -358,7 +362,7 @@ export default function DocsPage() {
               </section>
 
               <section id="ayah-playback" className="mt-8 scroll-mt-6">
-                <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+                <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Why these qurra for ayah playback</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     Qari selection here is a design choice, not a content dump. For ayah playback we
@@ -390,14 +394,34 @@ export default function DocsPage() {
               </section>
 
               <section id="ergonomics" className="mt-8 scroll-mt-6">
-                <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+                <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Ergonomics</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Frequent controls stay within thumb reach, especially on phones. Icons are used where
-                    they stay clear, labels appear where needed, and secondary controls live in sheets
-                    instead of occupying the reading area full time.
+                    Frequent controls stay within thumb reach, especially on phones, so the app feels more
+                    natural to use with one hand. Icons are used where they stay clear, labels appear where
+                    needed, and secondary controls live in sheets instead of occupying the reading area
+                    full time.
                   </p>
                 </article>
+              </section>
+
+              <section className="mt-8">
+                <a
+                  href="https://github.com/ammarbinfaisal/quran-app"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${SECTION_CARD_CLASS} flex items-center justify-between gap-3 transition active:scale-[0.98] active:opacity-80`}
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">GitHub repository</span>
+                    <span className="mt-1 block text-pretty text-sm leading-6 text-[var(--color-muted)]">
+                      Browse the source, follow changes, or inspect implementation details.
+                    </span>
+                  </span>
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-bg)]">
+                    <Github className="h-5 w-5 text-[var(--color-accent)]" />
+                  </span>
+                </a>
               </section>
             </div>
           </div>
