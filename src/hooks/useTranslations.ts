@@ -76,67 +76,80 @@ export function useTranslations(
   const [state, setState] = useState(() => ({
     signature,
     results: getInitialResults(verseKey, translationIds),
+    startedSignature: null as string | null,
   }));
 
+  let currentSignature = state.signature;
+  let currentResults = state.results;
+  let startedSignature = state.startedSignature;
+
   if (state.signature !== signature) {
-    const nextResults = getInitialResults(verseKey, translationIds);
-    setState({ signature, results: nextResults });
+    currentSignature = signature;
+    currentResults = getInitialResults(verseKey, translationIds);
+    startedSignature = null;
+    setState({ signature, results: currentResults, startedSignature: null });
+  }
 
-    if (signature && verseKey) {
-      const toFetch = translationIds.filter((id) => nextResults[id]?.loading);
+  if (currentSignature && verseKey) {
+    const toFetch = translationIds.filter((id) => currentResults[id]?.loading);
 
-      if (toFetch.length > 0) {
-        queueMicrotask(() => {
-          const skeletonTimer = setTimeout(() => {
-            setState((prev) => {
-              if (prev.signature !== signature) return prev;
-              const next = { ...prev.results };
-              for (const id of toFetch) {
-                const row = next[id];
-                if (row?.loading) {
-                  next[id] = { ...row, showSkeleton: true };
+    if (toFetch.length > 0 && startedSignature !== currentSignature) {
+      startedSignature = currentSignature;
+      setState({
+        signature: currentSignature,
+        results: currentResults,
+        startedSignature: currentSignature,
+      });
+      queueMicrotask(() => {
+        const skeletonTimer = setTimeout(() => {
+          setState((prev) => {
+            if (prev.signature !== currentSignature) return prev;
+            const next = { ...prev.results };
+            for (const id of toFetch) {
+              const row = next[id];
+              if (row?.loading) {
+                next[id] = { ...row, showSkeleton: true };
                 }
               }
-              return { ...prev, results: next };
-            });
-          }, 140);
+            return { ...prev, results: next };
+          });
+        }, 140);
 
-          void Promise.allSettled(
-            toFetch.map((id) =>
-              loadTranslationCached(`${id}:${verseKey}`, verseKey, id).then(
-                (content) => ({ id, content }),
-              ),
+        void Promise.allSettled(
+          toFetch.map((id) =>
+            loadTranslationCached(`${id}:${verseKey}`, verseKey, id).then(
+              (content) => ({ id, content }),
             ),
-          ).then((entries) => {
-            clearTimeout(skeletonTimer);
-            setState((prev) => {
-              if (prev.signature !== signature) return prev;
-              const next = { ...prev.results };
+          ),
+        ).then((entries) => {
+          clearTimeout(skeletonTimer);
+          setState((prev) => {
+            if (prev.signature !== currentSignature) return prev;
+            const next = { ...prev.results };
 
-              for (const entry of entries) {
-                if (entry.status === "fulfilled") {
-                  next[entry.value.id] = {
-                    content: entry.value.content,
-                    loading: false,
-                    showSkeleton: false,
-                  };
-                } else {
-                  const failedId = toFetch[entries.indexOf(entry)];
-                  next[failedId] = {
-                    content: EMPTY,
-                    loading: false,
-                    showSkeleton: false,
-                  };
-                }
+            for (const [index, entry] of entries.entries()) {
+              const id = toFetch[index];
+              if (entry.status === "fulfilled") {
+                next[id] = {
+                  content: entry.value.content,
+                  loading: false,
+                  showSkeleton: false,
+                };
+              } else {
+                next[id] = {
+                  content: EMPTY,
+                  loading: false,
+                  showSkeleton: false,
+                };
               }
+            }
 
-              return { ...prev, results: next };
-            });
+            return { ...prev, results: next };
           });
         });
-      }
+      });
     }
   }
 
-  return state.results;
+  return currentResults;
 }

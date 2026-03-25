@@ -21,10 +21,16 @@ export async function loadChapterAudio(chapterId: number): Promise<AudioFile> {
 
 export function playAudio(url: string): void {
   const el = getAudio();
-  if (el.src !== url) {
-    el.src = url;
+  const resolvedUrl =
+    typeof window === "undefined" ? url : new URL(url, window.location.href).toString();
+
+  if (el.src !== resolvedUrl) {
+    el.src = resolvedUrl;
+  } else if (el.ended || (Number.isFinite(el.duration) && el.currentTime >= el.duration - 0.05)) {
+    el.currentTime = 0;
   }
-  el.play();
+
+  void el.play().catch(() => {});
 }
 
 export function pauseAudio(): void {
@@ -39,8 +45,8 @@ export function seekAudio(time: number): void {
   getAudio().currentTime = time;
 }
 
-export function getAudioElement(): HTMLAudioElement | null {
-  return audioElement;
+export function getAudioElement(): HTMLAudioElement {
+  return getAudio();
 }
 
 export function getCurrentAudio(): AudioFile | null {

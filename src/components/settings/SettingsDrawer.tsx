@@ -1,7 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import { X, MonitorDown } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, FileText, MonitorDown, X } from "lucide-react";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { TranslationPicker } from "@/components/settings/TranslationPicker";
 import { VerseCopySettings } from "@/components/settings/VerseCopySettings";
@@ -61,6 +62,39 @@ export function SettingsDrawer({
           <VerseCopySettings />
           <InlineVerseNotesToggle />
           <FontSizeControl />
+
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+              Help
+            </h3>
+            <Link
+              href="/docs"
+              onClick={onClose}
+              className="flex min-h-12 w-full items-center justify-between rounded-lg border px-3 py-3 text-left transition-colors"
+              style={{
+                borderColor: "rgba(0,0,0,0.08)",
+                backgroundColor: "var(--color-bg)",
+              }}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span
+                  className="flex size-9 items-center justify-center rounded-full"
+                  style={{ backgroundColor: "var(--color-surface)" }}
+                >
+                  <FileText className="h-4 w-4 text-[var(--color-accent)]" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-[var(--color-text)]">
+                    Docs
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                    Features, icons, data sources, and design decisions.
+                  </span>
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--color-muted)]" />
+            </Link>
+          </section>
         </div>
 
         {canInstall && (

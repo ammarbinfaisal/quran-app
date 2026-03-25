@@ -9,17 +9,24 @@ const EMPTY: TranslationContent = { segments: [], plain: "" };
 const translationCache = new Map<string, TranslationContent>();
 const translationRequests = new Map<string, Promise<TranslationContent>>();
 
-function getInitialState(requestKey: string | null) {
+type TranslationState = {
+  requestKey: string | null;
+  content: TranslationContent;
+  loading: boolean;
+  startedRequestKey: string | null;
+};
+
+function getInitialState(requestKey: string | null): TranslationState {
   if (!requestKey) {
-    return { requestKey, content: EMPTY, loading: false };
+    return { requestKey, content: EMPTY, loading: false, startedRequestKey: null };
   }
 
   const cached = translationCache.get(requestKey);
   if (cached !== undefined) {
-    return { requestKey, content: cached, loading: false };
+    return { requestKey, content: cached, loading: false, startedRequestKey: requestKey };
   }
 
-  return { requestKey, content: EMPTY, loading: true };
+  return { requestKey, content: EMPTY, loading: true, startedRequestKey: null };
 }
 
 function loadTranslationCached(
@@ -57,30 +64,49 @@ export function useTranslation(
   const requestKey = verseKey ? `${translationId}:${verseKey}` : null;
   const [state, setState] = useState(() => getInitialState(requestKey));
 
-  if (state.requestKey !== requestKey) {
-    const nextState = getInitialState(requestKey);
-    setState(nextState);
+  let currentState = state;
 
-    if (requestKey && verseKey && nextState.loading) {
-      queueMicrotask(() => {
-        void loadTranslationCached(requestKey, verseKey, translationId)
-          .then((result) => {
-            setState((prev) =>
-              prev.requestKey === requestKey
-                ? { requestKey, content: result, loading: false }
-                : prev,
-            );
-          })
-          .catch(() => {
-            setState((prev) =>
-              prev.requestKey === requestKey
-                ? { requestKey, content: EMPTY, loading: false }
-                : prev,
-            );
-          });
-      });
-    }
+  if (state.requestKey !== requestKey) {
+    currentState = getInitialState(requestKey);
+    setState(currentState);
   }
 
-  return { content: state.content, loading: state.loading };
+  if (
+    requestKey &&
+    verseKey &&
+    currentState.loading &&
+    currentState.startedRequestKey !== requestKey
+  ) {
+    currentState = { ...currentState, startedRequestKey: requestKey };
+    setState(currentState);
+    queueMicrotask(() => {
+      void loadTranslationCached(requestKey, verseKey, translationId)
+        .then((result) => {
+          setState((prev) =>
+            prev.requestKey === requestKey
+              ? {
+                  requestKey,
+                  content: result,
+                  loading: false,
+                  startedRequestKey: requestKey,
+                }
+              : prev,
+          );
+        })
+        .catch(() => {
+          setState((prev) =>
+            prev.requestKey === requestKey
+              ? {
+                  requestKey,
+                  content: EMPTY,
+                  loading: false,
+                  startedRequestKey: requestKey,
+                }
+              : prev,
+          );
+        });
+    });
+  }
+
+  return { content: currentState.content, loading: currentState.loading };
 }
