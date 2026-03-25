@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -39,6 +39,7 @@ export function ScrollModeReader({
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const verseParam = searchParams.get("verse");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [navSelection, setNavSelection] = useState<{
     page: number | null;
     verseKey: string | null;
@@ -46,6 +47,7 @@ export function ScrollModeReader({
     page: type === "p" ? id : null,
     verseKey: verseParam,
   });
+  const [focusPage, setFocusPage] = useState<number | null>(type === "p" ? id : null);
   const [dismissedVerse, setDismissedVerse] = useState<string | null>(null);
   const highlightedVerse =
     verseParam && dismissedVerse === verseParam ? null : verseParam;
@@ -80,9 +82,14 @@ export function ScrollModeReader({
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
       <div
+        ref={scrollContainerRef}
         className="scroll-container flex-1 min-h-0 bg-[var(--color-bg)]"
         data-scroll-reader
         onScroll={() => {
+          const container = scrollContainerRef.current;
+          if (container) {
+            setFocusPage(getFirstFullyVisiblePage(container) ?? (type === "p" ? id : null));
+          }
           if (!verseParam) return;
           if (dismissedVerse === verseParam) return;
           setDismissedVerse(verseParam);
@@ -102,6 +109,7 @@ export function ScrollModeReader({
             mushafCode={prefs.mushafCode}
             onWordTap={handleWordTap}
             highlightedVerse={highlightedVerse}
+            focusPage={focusPage}
             onNavigate={(newType, newId) => {
               router.push(scrollPath(newType, newId), { scroll: false });
             }}

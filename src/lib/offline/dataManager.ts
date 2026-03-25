@@ -14,6 +14,7 @@ import {
   isMorphologyDownloaded,
 } from "@/lib/offline/status";
 import { dbClear, dbDelete, dbGetAllKeys } from "@/lib/offline/storage";
+import { resetReaderPrefetchState } from "@/lib/prefetch/readerPrefetch";
 import { clearTranslationRuntimeCache } from "@/lib/translations/runtimeCache";
 
 export interface DataManagerStatus {
@@ -45,6 +46,7 @@ async function clearCacheStorage(): Promise<void> {
 function resetRuntimeCaches() {
   clearMushafPageMemoryCache();
   clearTranslationRuntimeCache();
+  resetReaderPrefetchState();
 }
 
 export async function getDataManagerStatus(): Promise<DataManagerStatus> {

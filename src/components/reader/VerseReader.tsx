@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -19,7 +19,7 @@ import { devLog } from "@/lib/devLog";
 import { vbvPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import type { WordTapTarget } from "@/lib/wordTap";
-import { getFirstFullyVisibleVerse } from "@/lib/viewport";
+import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
 
 export function VerseReader({
   type,
@@ -40,6 +40,7 @@ export function VerseReader({
     verseParam && dismissedVerse === verseParam ? null : verseParam;
 
   const mushafCode = prefs.mushafCode;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Track reading on mount
   useMountEffect(() => {
@@ -57,6 +58,7 @@ export function VerseReader({
     page: type === "p" ? id : null,
     verseKey: verseParam,
   });
+  const [focusPage, setFocusPage] = useState<number | null>(type === "p" ? id : null);
 
   // Save reading mode + submode preferences on mount
   useMountEffect(() => {
@@ -91,8 +93,15 @@ export function VerseReader({
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
       <div
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto min-h-0 bg-[var(--color-bg)]"
         data-vbv-scroll
+        onScroll={() => {
+          const container = scrollContainerRef.current;
+          if (container) {
+            setFocusPage(getFirstFullyVisiblePage(container) ?? (type === "p" ? id : null));
+          }
+        }}
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest("button, a")) {
             toggleChrome();
@@ -106,6 +115,7 @@ export function VerseReader({
             mushafCode={mushafCode}
             onWordTap={handleWordTap}
             highlightedVerse={highlightedVerse}
+            focusPage={focusPage}
             onNavigate={(newType, newId) => {
               if (verseParam) {
                 setDismissedVerse(verseParam);

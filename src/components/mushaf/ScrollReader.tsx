@@ -12,6 +12,8 @@ import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
 import MushafPage from "@/components/mushaf/MushafPage";
 import { PageSkeleton } from "@/components/mushaf/PageSkeleton";
 import type { OnWordTap } from "@/lib/wordTap";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
 
 interface ScrollReaderProps {
   type: "p" | "s" | "j";
@@ -20,6 +22,7 @@ interface ScrollReaderProps {
   onWordTap: OnWordTap;
   highlightedVerse?: string | null;
   onNavigate?: (type: "p" | "s" | "j", id: number) => void;
+  focusPage?: number | null;
 }
 
 export default function ScrollReader({
@@ -29,8 +32,10 @@ export default function ScrollReader({
   onWordTap,
   highlightedVerse,
   onNavigate,
+  focusPage,
 }: ScrollReaderProps) {
   const chapters = useChapters();
+  const { prefs } = usePreferences();
   const [juzRanges, setJuzRanges] = useState<readonly JuzPageRange[]>([]);
   const [pagesToShow, setPagesToShow] = useState(5);
   const didAutoScrollToHighlightRef = useRef(false);
@@ -61,6 +66,15 @@ export default function ScrollReader({
   }, [type, id, chapters, juzRanges]);
 
   const visiblePages = useMemo(() => fullPageRange.slice(0, pagesToShow), [fullPageRange, pagesToShow]);
+
+  useReaderDataPrefetch({
+    mushafCode,
+    dataUsageMode: prefs.dataUsageMode,
+    translationIds: prefs.translationIds,
+    scopeType: type,
+    focusPage: focusPage ?? fullPageRange[0] ?? null,
+    scopePages: fullPageRange,
+  });
 
   // Combined mount effect: look up highlighted verse page, ensure it's loaded, then scroll to it
   useMountEffect(() => {

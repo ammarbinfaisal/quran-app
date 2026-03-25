@@ -5,34 +5,21 @@ import { useRouter } from "next/navigation";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { getPreferences } from "@/lib/preferences";
 import { vbvPath, mushafPath, scrollPath } from "@/lib/url";
-import { loadMushafPage, preloadAdjacentPages } from "@/lib/mushaf/loader";
-import { loadQcfFont, preloadAdjacentFonts } from "@/lib/mushaf/fonts";
-import { prefetchTranslationPage } from "@/lib/translations/loader";
-import { loadAbuIyaadData } from "@/lib/translations/abu-iyaad";
 import { getChapters } from "@/lib/chapters";
 import { JUZ_PAGE_RANGES } from "@/lib/juz";
+import { prefetchNavigationTarget } from "@/lib/prefetch/readerPrefetch";
 
 export function usePageNavigation() {
   const router = useRouter();
 
   const warmPage = useCallback((page: number) => {
     const prefs = getPreferences();
-    const code = prefs.mushafCode;
-
-    void loadMushafPage(code, page).catch(() => { });
-    void loadQcfFont(code, page).catch(() => { });
-
-    preloadAdjacentPages(code, page, 2);
-    preloadAdjacentFonts(code, page, 2);
-
-    if (prefs.translationIds.includes("abu-iyaad")) {
-      void loadAbuIyaadData().catch(() => { });
-    }
-
-    for (const tid of prefs.translationIds) {
-      if (tid === "abu-iyaad") continue;
-      prefetchTranslationPage(page, tid);
-    }
+    prefetchNavigationTarget(
+      prefs.mushafCode,
+      prefs.dataUsageMode,
+      prefs.translationIds,
+      page,
+    );
   }, []);
 
   const goToPage = useCallback(

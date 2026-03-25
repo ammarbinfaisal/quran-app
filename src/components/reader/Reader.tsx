@@ -23,6 +23,7 @@ import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { useChapters } from "@/hooks/useChapters";
 import { pageToSurah } from "@/lib/navigation/maps";
+import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -104,6 +105,15 @@ export function Reader({ initialPage }: { initialPage: number }) {
   // Save reading mode preference when entering mushaf view
   useMountEffect(() => {
     setPreference("viewMode", "mushaf");
+  });
+
+  useReaderDataPrefetch({
+    mushafCode,
+    dataUsageMode: prefs.dataUsageMode,
+    translationIds: prefs.translationIds,
+    scopeType: "p",
+    focusPage: page,
+    scopePages: [page],
   });
 
   const handleWordTap = useCallback(

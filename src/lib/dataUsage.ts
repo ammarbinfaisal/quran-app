@@ -6,6 +6,16 @@ export interface DataUsageModeDetail {
   docsDescription: string;
 }
 
+export interface DataUsagePolicy {
+  adjacentPageRadius: number;
+  pageModeLookaheadRadius: number;
+  completeScopeAssets: boolean;
+  prefetchTranslations: "none" | "adjacent" | "scope";
+  prefetchMorphology: boolean;
+  lemmaPageRadius: number;
+  maxLemmaFilesPerPage: number;
+}
+
 export const DATA_USAGE_MODES: DataUsageMode[] = ["low", "balanced", "high"];
 
 export const DATA_USAGE_MODE_DETAILS: Record<DataUsageMode, DataUsageModeDetail> = {
@@ -29,5 +39,35 @@ export const DATA_USAGE_MODE_DETAILS: Record<DataUsageMode, DataUsageModeDetail>
       "Keep filling the current reading scope in batches, including nearby verse, morphology, and lemma data.",
     docsDescription:
       "Proactive mode uses the widest background window. While you stay in a surah, juz, or page flow, the app keeps batching ahead toward that active scope, including page assets, verse translations, morphology chunks, and nearby lemma files, while still stopping short of a full offline download unless you explicitly ask for one.",
+  },
+};
+
+export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
+  low: {
+    adjacentPageRadius: 0,
+    pageModeLookaheadRadius: 0,
+    completeScopeAssets: false,
+    prefetchTranslations: "none",
+    prefetchMorphology: false,
+    lemmaPageRadius: 0,
+    maxLemmaFilesPerPage: 0,
+  },
+  balanced: {
+    adjacentPageRadius: 2,
+    pageModeLookaheadRadius: 2,
+    completeScopeAssets: false,
+    prefetchTranslations: "adjacent",
+    prefetchMorphology: false,
+    lemmaPageRadius: 0,
+    maxLemmaFilesPerPage: 0,
+  },
+  high: {
+    adjacentPageRadius: 4,
+    pageModeLookaheadRadius: 6,
+    completeScopeAssets: true,
+    prefetchTranslations: "scope",
+    prefetchMorphology: true,
+    lemmaPageRadius: 1,
+    maxLemmaFilesPerPage: 8,
   },
 };

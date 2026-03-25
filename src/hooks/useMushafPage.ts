@@ -18,6 +18,8 @@ import {
 import type { MushafCode, MushafPagePayload } from "@/lib/types";
 import { useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
+import { getPreferences } from "@/lib/preferences";
 
 /**
  * Hook that loads mushaf page data and the corresponding QCF font (if needed).
@@ -98,8 +100,14 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
     }
 
     load();
-    preloadAdjacentPages(code, pageNum, 6);
-    if (shouldTrackQcfPage) preloadAdjacentFonts(code, pageNum);
+    const { dataUsageMode } = getPreferences();
+    const policy = DATA_USAGE_POLICIES[dataUsageMode];
+    if (policy.adjacentPageRadius > 0) {
+      preloadAdjacentPages(code, pageNum, policy.adjacentPageRadius);
+      if (shouldTrackQcfPage) {
+        preloadAdjacentFonts(code, pageNum, policy.adjacentPageRadius);
+      }
+    }
 
     return () => {
       cancelled = true;

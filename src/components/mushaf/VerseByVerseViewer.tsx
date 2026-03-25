@@ -11,10 +11,9 @@ import type { JuzPageRange } from "@/lib/juz";
 import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isQcfCode } from "@/lib/mushaf/fonts";
-import { prefetchTranslationPage } from "@/lib/translations/loader";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import type { OnWordTap } from "@/lib/wordTap";
-import { loadAbuIyaadData } from "@/lib/translations/abu-iyaad";
+import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
 
 interface VerseByVerseViewerProps {
     type: "p" | "s" | "j";
@@ -23,6 +22,7 @@ interface VerseByVerseViewerProps {
     onWordTap: OnWordTap;
     highlightedVerse?: string | null;
     onNavigate?: (type: "p" | "s" | "j", id: number) => void;
+    focusPage?: number | null;
 }
 
 export function VerseByVerseViewer({
@@ -32,6 +32,7 @@ export function VerseByVerseViewer({
     onWordTap,
     highlightedVerse,
     onNavigate,
+    focusPage,
 }: VerseByVerseViewerProps) {
     const chapters = useChapters();
 
@@ -115,32 +116,14 @@ export function VerseByVerseViewer({
         observerInstanceRef.current = observer;
     }, [fullPageRange.length]);
 
-    // Translation prefetch: warm adjacent page assets so the next page of verses
-    // resolves from cache instead of triggering per-verse fetches on first view.
     const { prefs } = usePreferences();
-    useMountEffect(() => {
-        if (prefs.translationIds.length === 0) return;
-
-        // Prefetch the first batch of adjacent pages on mount
-        const candidatePages = new Set<number>();
-
-        // Pages just beyond the initial visible window
-        for (const pageNum of fullPageRange.slice(visiblePages.length, visiblePages.length + 2)) {
-            candidatePages.add(pageNum);
-        }
-
-        if (candidatePages.size === 0) return;
-
-        if (prefs.translationIds.includes("abu-iyaad")) {
-            void loadAbuIyaadData().catch(() => {});
-        }
-
-        for (const tid of prefs.translationIds) {
-            if (tid === "abu-iyaad") continue;
-            for (const pageNum of candidatePages) {
-                prefetchTranslationPage(pageNum, tid);
-            }
-        }
+    useReaderDataPrefetch({
+        mushafCode,
+        dataUsageMode: prefs.dataUsageMode,
+        translationIds: prefs.translationIds,
+        scopeType: type,
+        focusPage: focusPage ?? visiblePages[0] ?? null,
+        scopePages: fullPageRange,
     });
 
     // Navigation button labels
@@ -187,16 +170,17 @@ export function VerseByVerseViewer({
     return (
         <div className="flex flex-col w-full max-w-3xl mx-auto pb-32">
             {visiblePages.map((p) => (
-                <VersePageBatch
-                    key={p}
-                    pageNum={p}
-                    mushafCode={mushafCode}
-                    onWordTap={onWordTap}
-                    highlightedVerse={highlightedVerse}
-                    filterType={type}
-                    filterId={id}
-                    chapters={chapters}
-                />
+                <div key={p} data-scroll-page={p}>
+                    <VersePageBatch
+                        pageNum={p}
+                        mushafCode={mushafCode}
+                        onWordTap={onWordTap}
+                        highlightedVerse={highlightedVerse}
+                        filterType={type}
+                        filterId={id}
+                        chapters={chapters}
+                    />
+                </div>
             ))}
 
             {/* Intersection sentinel — callback ref ensures observer is always registered */}
