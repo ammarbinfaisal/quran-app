@@ -100,7 +100,12 @@ export interface TranslationEntry {
 // ---------------------------------------------------------------------------
 // Themes
 // ---------------------------------------------------------------------------
-export type ThemeId = "light-warm" | "dark-warm" | "white-green";
+export type ThemeId =
+  | "light-warm"
+  | "dark-warm"
+  | "white-green"
+  | "blue-slate-dark"
+  | "blue-slate-light";
 
 export interface ThemeColors {
   bg: string;
@@ -122,6 +127,14 @@ export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors }> = {
   "white-green": {
     label: "Classic",
     colors: { bg: "#ffffff", text: "#1a1a1a", accent: "#2d6a4f", surface: "#f0f5f0", muted: "#6b8f7b" },
+  },
+  "blue-slate-dark": {
+    label: "Slate Dark",
+    colors: { bg: "#0f1724", text: "#e6edf7", accent: "#7aa2f7", surface: "#1b2535", muted: "#93a2ba" },
+  },
+  "blue-slate-light": {
+    label: "Slate Light",
+    colors: { bg: "#f4f7fb", text: "#1f2937", accent: "#345caa", surface: "#e7edf6", muted: "#62748f" },
   },
 };
 

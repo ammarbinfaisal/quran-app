@@ -3,6 +3,8 @@
 import { THEMES, type ThemeId } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/hooks/useTheme";
+import { cn } from "@/lib/utils";
+import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 export function ThemePicker() {
   const { prefs, setPref } = usePreferences();
@@ -18,7 +20,7 @@ export function ThemePicker() {
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
         Theme
       </h3>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {Object.entries(THEMES).map(([id, theme]) => {
           const active = prefs.theme === id;
           return (
@@ -26,27 +28,34 @@ export function ThemePicker() {
               key={id}
               type="button"
               onClick={() => setTheme(id as ThemeId)}
-              className="rounded-lg border px-3 py-2 text-left transition-colors"
+              aria-pressed={active}
+              className={cn(
+                "rounded-xl border px-3 py-3 text-left transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40",
+              )}
               style={{
                 borderColor: active ? "var(--color-accent)" : "rgba(0,0,0,0.08)",
-                backgroundColor: "var(--color-bg)",
+                backgroundColor: active ? "var(--color-surface)" : "var(--color-bg)",
               }}
             >
-              <div className="text-sm font-medium text-[var(--color-text)]">
-                {theme.label}
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-[var(--color-text)]">
+                  {theme.label}
+                </div>
+                <SettingsSelectionIndicator active={active} />
               </div>
-              <div className="mt-2 flex items-center gap-1">
+              <div className="mt-3 grid grid-cols-3 overflow-hidden rounded-md border border-[var(--color-muted)]/15">
                 <span
-                  className="h-3 w-3 rounded-full"
+                  className="h-3"
                   style={{ backgroundColor: theme.colors.bg }}
                 />
                 <span
-                  className="h-3 w-3 rounded-full"
+                  className="h-3"
                   style={{ backgroundColor: theme.colors.accent }}
                 />
                 <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: theme.colors.text }}
+                  className="h-3"
+                  style={{ backgroundColor: theme.colors.surface }}
                 />
               </div>
             </button>
