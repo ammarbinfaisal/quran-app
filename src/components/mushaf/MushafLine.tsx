@@ -31,6 +31,24 @@ function MushafLineInner({
   verseWordOffsets,
 }: MushafLineProps) {
   const isUnicode = !(QCF_CODES as readonly string[]).includes(mushafCode);
+  const className = centered
+    ? "mushaf-line mushaf-line-centered"
+    : "mushaf-line";
+
+  if (!fontReady) {
+    const lineSkeletonWidth = centered
+      ? "58%"
+      : `${Math.max(52, Math.min(100, line.words.length * 7))}%`;
+
+    return (
+      <div className={className} aria-hidden="true">
+        <span
+          className={`block h-[0.72em] rounded-sm bg-[color-mix(in_srgb,var(--color-muted)_20%,transparent)] ${showFontSkeleton ? "animate-pulse" : ""}`}
+          style={{ width: lineSkeletonWidth }}
+        />
+      </div>
+    );
+  }
 
   // Pre-compute the morphology-corpus word index for each token.
   // The corpus uses a 1-based index counting ONLY charTypeName === "word" tokens.
@@ -65,12 +83,12 @@ function MushafLineInner({
   // Unicode lines use text-align justify (browser handles inter-word spacing better
   // than flexbox space-between for real Arabic text).
   if (isUnicode) {
-    const className = centered
+    const unicodeClassName = centered
       ? "mushaf-line mushaf-line-unicode mushaf-line-centered"
       : "mushaf-line mushaf-line-unicode";
 
     return (
-      <div className={className} onClick={handleLineClick}>
+      <div className={unicodeClassName} onClick={handleLineClick}>
         {line.words.map((word, idx) => (
           <MushafWord
             key={`${word.verseKey}-${idx}`}
@@ -89,10 +107,6 @@ function MushafLineInner({
   }
 
   // QCF lines: flexbox with space-between; each word is flex-shrink: 0
-  const className = centered
-    ? "mushaf-line mushaf-line-centered"
-    : "mushaf-line";
-
   return (
     <div className={className} onClick={handleLineClick}>
       {line.words.map((word, idx) => (

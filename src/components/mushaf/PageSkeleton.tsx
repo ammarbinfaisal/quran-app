@@ -8,9 +8,10 @@ export function PageSkeleton() {
       {Array.from({ length: SKELETON_LINE_COUNT }, (_, i) => (
         <div
           key={i}
-          className="animate-pulse bg-muted/30 rounded h-6 w-full"
+          className="h-[0.72em] w-full animate-pulse rounded-sm bg-[color-mix(in_srgb,var(--color-muted)_20%,transparent)]"
         />
       ))}
+      <div className="page-number flex-shrink-0 h-4 opacity-0">0</div>
     </div>
   );
 }
