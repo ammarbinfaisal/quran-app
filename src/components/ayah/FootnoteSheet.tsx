@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import type { FootnoteReference } from "@/lib/footnotes";
 import { loadTranslationFootnotes } from "@/lib/footnotes";
 import { fetchFootnote } from "@/lib/api";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 interface FootnoteSheetProps {
     open: boolean;
@@ -20,16 +21,35 @@ export function FootnoteSheet({
     footnoteRefs,
     translationLabel,
 }: FootnoteSheetProps) {
+    if (!open || footnoteRefs.length === 0) return null;
+    if (typeof document === "undefined") return null;
+
+    return (
+        <FootnoteSheetContent
+            key={footnoteRefs.map((r) => r.id).join(",")}
+            onClose={onClose}
+            footnoteRefs={footnoteRefs}
+            translationLabel={translationLabel}
+        />
+    );
+}
+
+function FootnoteSheetContent({
+    onClose,
+    footnoteRefs,
+    translationLabel,
+}: {
+    onClose: () => void;
+    footnoteRefs: FootnoteReference[];
+    translationLabel: string;
+}) {
     const [footnoteTexts, setFootnoteTexts] = useState<Record<string, string>>(
         {},
     );
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (!open || footnoteRefs.length === 0) return;
-
+    useMountEffect(() => {
         let cancelled = false;
-        setTimeout(() => setLoading(true), 0);
 
         async function loadFootnotes() {
             const results: Record<string, string> = {};
@@ -64,10 +84,7 @@ export function FootnoteSheet({
         return () => {
             cancelled = true;
         };
-    }, [open, footnoteRefs]);
-
-    if (!open) return null;
-    if (typeof document === "undefined") return null;
+    });
 
     const node = (
         <>

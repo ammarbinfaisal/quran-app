@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { Play, Pause, Loader2 } from "lucide-react";
 import {
   loadChapterAudio,
@@ -22,12 +23,14 @@ export default function AudioPlayer({ chapterId, chapterName }: AudioPlayerProps
   const [progress, setProgress] = useState(0);
   const rafRef = useRef<number>(0);
 
-  useEffect(() => {
-    // Reset when chapter changes
+  // Reset when chapter changes (adjust-state-during-render)
+  const prevChapterRef = useRef(chapterId);
+  if (prevChapterRef.current !== chapterId) {
+    prevChapterRef.current = chapterId;
     setAudioUrl(null);
     setPlaying(false);
     setProgress(0);
-  }, [chapterId]);
+  }
 
   const updateProgress = useCallback(function updateProgressCallback() {
     const el = getAudioElement();
@@ -75,9 +78,9 @@ export default function AudioPlayer({ chapterId, chapterName }: AudioPlayerProps
     }
   }, [playing, audioUrl, chapterId, updateProgress]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => cancelAnimationFrame(rafRef.current);
-  }, []);
+  });
 
   return (
     <div className="flex items-center gap-3 py-2">

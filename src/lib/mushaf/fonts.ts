@@ -30,11 +30,13 @@ export function getQcfFontUrl(code: MushafCode, pageNum: number): string {
   return `/mushaf-fonts/${code}/p${padded}.woff2?rev=${MUSHAF_ASSET_REV}`;
 }
 
-export function getUnicodeFontUrl(_code: MushafCode): string {
+export function getUnicodeFontUrl(code: MushafCode): string {
+  void code;
   return "";
 }
 
-export function getUnicodeFontFamily(_code: MushafCode): string {
+export function getUnicodeFontFamily(code: MushafCode): string {
+  void code;
   return '"Amiri", "Traditional Arabic", serif';
 }
 

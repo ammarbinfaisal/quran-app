@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { getPreferences, setPreference } from "@/lib/preferences";
 import type { UserPreferences } from "@/lib/types";
 import { DEFAULT_PREFERENCES } from "@/lib/types";
@@ -27,7 +28,7 @@ export function usePreferences(): {
   });
 
   // Listen for cross-component preference changes
-  useEffect(() => {
+  useMountEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<UserPreferences>).detail;
       setPrefs(detail);
@@ -37,7 +38,7 @@ export function usePreferences(): {
     return () => {
       window.removeEventListener("preferences-changed", handler);
     };
-  }, []);
+  });
 
   const setPref = useCallback(
     <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {

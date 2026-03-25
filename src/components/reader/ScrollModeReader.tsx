@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme } from "@/hooks/useTheme";
+import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useImmersiveMode } from "@/hooks/useImmersiveMode";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
@@ -16,6 +16,7 @@ import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { scrollPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
 
@@ -29,7 +30,6 @@ export function ScrollModeReader({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { prefs } = usePreferences();
-  const { applyTheme } = useTheme();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } = useImmersiveMode();
 
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
@@ -38,32 +38,18 @@ export function ScrollModeReader({
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const verseParam = searchParams.get("verse");
-  const [highlightedVerse, setHighlightedVerse] = useState<string | null>(verseParam);
-  const clearedVerseRef = useRef(false);
+  const [dismissedVerse, setDismissedVerse] = useState<string | null>(null);
+  const highlightedVerse =
+    verseParam && dismissedVerse === verseParam ? null : verseParam;
 
-  useEffect(() => {
-    setHighlightedVerse(verseParam);
-  }, [verseParam]);
-
-  useEffect(() => {
-    clearedVerseRef.current = false;
-  }, [highlightedVerse, type, id]);
-
-  useEffect(() => {
+  // Save reading mode + submode preferences on mount
+  useMountEffect(() => {
     setPreference("viewMode", "scroll");
-  }, []);
-
-  useEffect(() => {
     setPreference("scrollSubmode", type);
-  }, [type]);
+  });
 
-  useEffect(() => {
-    applyTheme(prefs.theme);
-    document.documentElement.style.setProperty(
-      "--mushaf-font-scale",
-      String(prefs.fontScale),
-    );
-  }, [applyTheme, prefs.fontScale, prefs.theme]);
+  // Apply theme and font scale via preferences listener
+  useApplyPreferences();
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     const resolvedIndex = target.wordIndex;
@@ -89,11 +75,11 @@ export function ScrollModeReader({
         className="scroll-container flex-1 min-h-0 bg-[var(--color-bg)]"
         data-scroll-reader
         onScroll={() => {
-          if (!highlightedVerse) return;
-          if (clearedVerseRef.current) return;
-          clearedVerseRef.current = true;
-          setHighlightedVerse(null);
+          if (!verseParam) return;
+          if (dismissedVerse === verseParam) return;
+          setDismissedVerse(verseParam);
           removeQueryParamFromCurrentUrl("verse");
+          queueMicrotask(() => setDismissedVerse(null));
         }}
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest("button, a")) {
@@ -134,7 +120,9 @@ export function ScrollModeReader({
             currentType={type}
             currentId={id}
             onNavigate={(newType, newId, verse) => {
+              setDismissedVerse(verse ?? null);
               router.push(scrollPath(newType, newId, verse ?? undefined), { scroll: false });
+              queueMicrotask(() => setDismissedVerse(null));
             }}
           />
         )}

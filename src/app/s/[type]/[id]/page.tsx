@@ -52,7 +52,7 @@ export default async function ScrollModeRoute({
         })}
       />
       <Suspense>
-        <ScrollModeReader type={validType} id={num} />
+        <ScrollModeReader key={`s:${validType}:${num}`} type={validType} id={num} />
       </Suspense>
     </>
   );

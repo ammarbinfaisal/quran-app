@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlignLeft, BookOpen, ScrollText } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
@@ -55,15 +55,10 @@ export function ModeToggle() {
   const [pendingMode, setPendingMode] = useState<MainMode | null>(null);
   const [isRoutePending, startRouteTransition] = useTransition();
 
-  useEffect(() => {
-    if (!pendingMode) return;
-    if (mode === pendingMode && !isRoutePending) {
-      const timer = window.setTimeout(() => {
-        setPendingMode(null);
-      }, 0);
-      return () => window.clearTimeout(timer);
-    }
-  }, [mode, pendingMode, isRoutePending]);
+  // Clear pending state when the route transition completes (adjust-state-during-render)
+  if (pendingMode && mode === pendingMode && !isRoutePending) {
+    setPendingMode(null);
+  }
 
   async function resolveAnchor(): Promise<AnchorPosition> {
     if (mode === "v") {

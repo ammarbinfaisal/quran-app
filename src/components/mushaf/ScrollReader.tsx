@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { MushafCode, Chapter } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
@@ -32,14 +33,13 @@ export default function ScrollReader({
   const chapters = useChapters();
   const [juzRanges, setJuzRanges] = useState<readonly JuzPageRange[]>([]);
   const [pagesToShow, setPagesToShow] = useState(5);
-  const [targetHighlightedPage, setTargetHighlightedPage] = useState<number | null>(null);
   const didAutoScrollToHighlightRef = useRef(false);
   const lastHighlightedVerseRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (type !== "j") return;
     fetchJuzPagesForMushaf().then(setJuzRanges).catch(() => {});
-  }, [type, mushafCode]);
+  });
 
   const fullPageRange = useMemo(() => {
     if (type === "p") return [id];
@@ -62,10 +62,10 @@ export default function ScrollReader({
 
   const visiblePages = useMemo(() => fullPageRange.slice(0, pagesToShow), [fullPageRange, pagesToShow]);
 
-  useEffect(() => {
+  // Combined mount effect: look up highlighted verse page, ensure it's loaded, then scroll to it
+  useMountEffect(() => {
     if (!highlightedVerse) return;
 
-    if (lastHighlightedVerseRef.current === highlightedVerse) return;
     lastHighlightedVerseRef.current = highlightedVerse;
     didAutoScrollToHighlightRef.current = false;
 
@@ -75,37 +75,30 @@ export default function ScrollReader({
       if (!active) return;
       const lookup = versePages[highlightedVerse];
       if (!lookup) return;
-      const page = typeof lookup === "number" ? lookup : lookup[0];
-      setTargetHighlightedPage(page);
-      const indexInRange = fullPageRange.indexOf(page);
+      const targetPage = typeof lookup === "number" ? lookup : lookup[0];
+      const indexInRange = fullPageRange.indexOf(targetPage);
       if (indexInRange !== -1) {
         setPagesToShow((prev) => (prev >= indexInRange + 1 ? prev : indexInRange + 1));
       }
+
+      // Wait for the target page DOM node to appear, then scroll to it
+      function tryScroll() {
+        if (!active || didAutoScrollToHighlightRef.current) return;
+        const pageNode = document.querySelector(`[data-scroll-page="${targetPage}"]`);
+        if (pageNode) {
+          didAutoScrollToHighlightRef.current = true;
+          pageNode.scrollIntoView({ behavior: "instant", block: "start" });
+          return;
+        }
+        requestAnimationFrame(tryScroll);
+      }
+      setTimeout(tryScroll, 80);
     }).catch(() => {});
 
     return () => {
       active = false;
     };
-  }, [highlightedVerse, fullPageRange, mushafCode]);
-
-  useEffect(() => {
-    if (!highlightedVerse) return;
-    if (!targetHighlightedPage) return;
-    if (didAutoScrollToHighlightRef.current) return;
-    if (!visiblePages.includes(targetHighlightedPage)) return;
-
-    didAutoScrollToHighlightRef.current = true;
-    const timer = setTimeout(() => {
-      const pageNode = document.querySelector(
-        `[data-scroll-page="${targetHighlightedPage}"]`,
-      );
-      if (pageNode) {
-        pageNode.scrollIntoView({ behavior: "instant", block: "start" });
-      }
-    }, 80);
-
-    return () => clearTimeout(timer);
-  }, [highlightedVerse, targetHighlightedPage, visiblePages]);
+  });
 
   const observerInstanceRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {

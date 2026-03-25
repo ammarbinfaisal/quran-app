@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { NoteCard } from "@/components/ayah/NoteCard";
 import { loadAbuIyaadNotes, type AbuIyaadNote } from "@/lib/translations/abu-iyaad";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import type { TapAnchor } from "@/lib/wordTap";
 
 export function InPlaceNotes({
@@ -24,10 +25,8 @@ export function InPlaceNotes({
     visibility: "hidden",
   });
 
-  useEffect(() => {
+  useMountEffect(() => {
     let active = true;
-    setLoading(true);
-    setNotes(null);
 
     loadAbuIyaadNotes(verseKey)
       .then((data) => {
@@ -44,7 +43,7 @@ export function InPlaceNotes({
     return () => {
       active = false;
     };
-  }, [verseKey]);
+  });
 
   useLayoutEffect(() => {
     const node = containerRef.current;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Download, Trash2, Check, Loader2, X } from "lucide-react";
 import {
   type MushafCode,
@@ -65,11 +65,12 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
     }
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      refreshStatus();
-    }
-  }, [open, refreshStatus]);
+  // Refresh download status when the sheet opens (adjust-state-during-render)
+  const prevOpenRef = useRef(open);
+  if (open && !prevOpenRef.current) {
+    refreshStatus();
+  }
+  prevOpenRef.current = open;
 
   // -----------------------------------------------------------------------
   // Mushaf handlers
@@ -283,7 +284,6 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
               {MUSHAF_CODES.map((code) => (
                 <DownloadRow
                   key={code}
-                  id={code}
                   label={MUSHAF_DISPLAY_NAMES[code]}
                   isDownloaded={downloadedMushafs.includes(code)}
                   progress={activeDownloads[code]}
@@ -304,7 +304,6 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
               {USER_TRANSLATION_IDS.map((id) => (
                 <DownloadRow
                   key={id}
-                  id={id}
                   label={TRANSLATION_DISPLAY_NAMES[id]}
                   isDownloaded={downloadedTranslations.includes(id)}
                   progress={activeDownloads[id]}
@@ -323,7 +322,6 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
             </h3>
             <ul className="space-y-2">
               <DownloadRow
-                id={morphLexiconKey}
                 label="Morphology + Lemma Data"
                 isDownloaded={morphLexiconDownloaded}
                 progress={activeDownloads[morphLexiconKey]}
@@ -344,7 +342,6 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
 // ---------------------------------------------------------------------------
 
 function DownloadRow({
-  id,
   label,
   isDownloaded,
   progress,
@@ -352,7 +349,6 @@ function DownloadRow({
   onDownload,
   onRemove,
 }: {
-  id: string;
   label: string;
   isDownloaded: boolean;
   progress?: DownloadProgress;

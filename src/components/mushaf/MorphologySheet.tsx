@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { buckwalterToArabic } from "@/lib/transliteration";
 import { lemmaPath, rootPath } from "@/lib/url";
 import type { MushafCode } from "@/lib/types";
 import { useChapters } from "@/hooks/useChapters";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { dbGet } from "@/lib/offline/storage";
 import { decodeRouteParam } from "@/lib/routeParams";
 
@@ -145,21 +146,34 @@ export function MorphologySheet({
     mushafCode: MushafCode;
     onClose: () => void;
 }) {
+    if (!open || !verseKey || wordIndex === null) return null;
+
+    return (
+        <MorphologySheetContent
+            key={`${verseKey}:${wordIndex}`}
+            verseKey={verseKey}
+            wordIndex={wordIndex}
+            onClose={onClose}
+        />
+    );
+}
+
+function MorphologySheetContent({
+    verseKey,
+    wordIndex,
+    onClose,
+}: {
+    verseKey: string;
+    wordIndex: number;
+    onClose: () => void;
+}) {
     const [data, setData] = useState<MorphologyData[] | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const chapters = useChapters();
 
-    useEffect(() => {
-        if (!open || !verseKey || wordIndex === null) {
-            if (!open) {
-                setTimeout(() => setData(null), 300);
-            }
-            return;
-        }
-
+    useMountEffect(() => {
         let mounted = true;
         const load = async () => {
-            setLoading(true);
             try {
                 const [surah, ayah] = verseKey.split(":").map(Number);
                 const result = await fetchMorphologyData(surah, ayah, wordIndex + 1);
@@ -174,17 +188,13 @@ export function MorphologySheet({
 
         load();
         return () => { mounted = false; };
-    }, [open, verseKey, wordIndex]);
-
-    if (!open) return null;
+    });
 
     // Build title with surah name
-    const [surahId, ayahId] = (verseKey ?? "").split(":").map(Number);
+    const [surahId, ayahId] = verseKey.split(":").map(Number);
     const chapter = chapters.find((c) => c.id === surahId);
     const surahName = chapter?.nameSimple ?? `Surah ${surahId || ""}`;
-    const title = verseKey
-        ? `${surahName} ${surahId}:${ayahId}:${wordIndex !== null ? wordIndex + 1 : ""}`
-        : "Morphology";
+    const title = `${surahName} ${surahId}:${ayahId}:${wordIndex + 1}`;
 
     // Collect unique POS types for legend
     const uniquePos = data

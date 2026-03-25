@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme } from "@/hooks/useTheme";
+import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useImmersiveMode } from "@/hooks/useImmersiveMode";
-import { useTrackReading } from "@/hooks/useReadingHistory";
+import { trackPageDebounced } from "@/hooks/useReadingHistory";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { VbvSubmodeToggle } from "@/components/navigation/VbvSubmodeToggle";
@@ -28,44 +29,35 @@ export function VerseReader({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialHighlightedVerse = searchParams.get("verse");
+  const verseParam = searchParams.get("verse");
   const { prefs } = usePreferences();
-  const { applyTheme } = useTheme();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } =
     useImmersiveMode();
 
-  const [highlightedVerse, setHighlightedVerse] = useState<string | null>();
-
-  useEffect(() => {
-    // run once on mount
-    setHighlightedVerse(initialHighlightedVerse);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [dismissedVerse, setDismissedVerse] = useState<string | null>(null);
+  const highlightedVerse =
+    verseParam && dismissedVerse === verseParam ? null : verseParam;
 
   const mushafCode = prefs.mushafCode;
 
-  useTrackReading(type === "p" ? id : 1);
+  // Track reading on mount
+  useMountEffect(() => {
+    trackPageDebounced(type === "p" ? id : 1);
+  });
+
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
-  // Save reading mode + submode preferences
-  useEffect(() => {
+  // Save reading mode + submode preferences on mount
+  useMountEffect(() => {
     setPreference("viewMode", "vbv");
-  }, []);
-
-  useEffect(() => {
     setPreference("vbvSubmode", type);
-  }, [type]);
+  });
 
-  useEffect(() => {
-    applyTheme(prefs.theme);
-    document.documentElement.style.setProperty(
-      "--mushaf-font-scale",
-      String(prefs.fontScale),
-    );
-  }, [applyTheme, prefs.fontScale, prefs.theme]);
+  // Apply theme and font scale via preferences listener
+  useApplyPreferences();
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     const resolvedIndex = target.wordIndex;
@@ -77,8 +69,11 @@ export function VerseReader({
       resolvedIndex ?? "→ translation",
     );
     setSelectedTap(target);
-    setHighlightedVerse(null);
-  }, []);
+    if (verseParam) {
+      setDismissedVerse(verseParam);
+      queueMicrotask(() => setDismissedVerse(null));
+    }
+  }, [verseParam]);
 
   let label = String(id);
   if (type === "s") label = `Surah ${id}`;
@@ -104,7 +99,10 @@ export function VerseReader({
             onWordTap={handleWordTap}
             highlightedVerse={highlightedVerse}
             onNavigate={(newType, newId) => {
-              setHighlightedVerse(null);
+              if (verseParam) {
+                setDismissedVerse(verseParam);
+                queueMicrotask(() => setDismissedVerse(null));
+              }
               router.push(vbvPath(newType, newId), { scroll: false });
             }}
           />
@@ -130,8 +128,9 @@ export function VerseReader({
             currentType={type}
             currentId={id}
             onNavigate={(newType, newId, verse) => {
-              setHighlightedVerse(verse ?? null);
+              setDismissedVerse(verse ?? null);
               router.push(vbvPath(newType, newId, verse ?? undefined), { scroll: false });
+              queueMicrotask(() => setDismissedVerse(null));
             }}
           />
         }

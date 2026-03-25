@@ -41,7 +41,7 @@ export default async function MushafPageRoute({
         })}
       />
       <Suspense>
-        <Reader initialPage={page} />
+        <Reader key={`p:${page}`} initialPage={page} />
       </Suspense>
     </>
   );

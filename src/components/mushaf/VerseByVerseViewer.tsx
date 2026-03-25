@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import type { MushafCode, MushafWord as MushafWordType } from "@/lib/types";
 import type { Chapter } from "@/lib/types";
 import { useChapters } from "@/hooks/useChapters";
@@ -36,12 +37,12 @@ export function VerseByVerseViewer({
 
     // Load mushaf-specific juz page ranges (async, mushaf-aware)
     const [juzRanges, setJuzRanges] = React.useState<readonly JuzPageRange[]>([]);
-    useEffect(() => {
+    useMountEffect(() => {
         if (type !== "j") return;
         fetchJuzPagesForMushaf()
             .then(setJuzRanges)
             .catch(() => { /* retain empty — pages won't load for juz mode */ });
-    }, [type, mushafCode]);
+    });
 
     // Determine the full sequential range of pages we *can* load
     const fullPageRange = useMemo(() => {
@@ -71,7 +72,7 @@ export function VerseByVerseViewer({
     const [pagesToShow, setPagesToShow] = React.useState<number>(5);
 
     // If highlightedVerse is provided, ensure enough pages are loaded to show it
-    useEffect(() => {
+    useMountEffect(() => {
         if (!highlightedVerse || !isQcfCode(mushafCode)) return;
 
         async function ensureHighlightedPageLoaded() {
@@ -82,12 +83,12 @@ export function VerseByVerseViewer({
             const targetPage = typeof lookup === "number" ? lookup : lookup[0];
 
             const pageIdx = fullPageRange.indexOf(targetPage);
-            if (pageIdx !== -1 && pageIdx >= pagesToShow) {
-                setPagesToShow(pageIdx + 1);
+            if (pageIdx !== -1) {
+                setPagesToShow((prev) => (prev >= pageIdx + 1 ? prev : pageIdx + 1));
             }
         }
         ensureHighlightedPageLoaded();
-    }, [highlightedVerse, mushafCode, fullPageRange, pagesToShow]);
+    });
 
     const visiblePages = useMemo(() => {
         return fullPageRange.slice(0, pagesToShow);
@@ -117,25 +118,13 @@ export function VerseByVerseViewer({
     // Translation prefetch: warm adjacent page assets so the next page of verses
     // resolves from cache instead of triggering per-verse fetches on first view.
     const { prefs } = usePreferences();
-    useEffect(() => {
+    useMountEffect(() => {
         if (prefs.translationIds.length === 0) return;
-        const firstVisibleIndex = visiblePages.length > 0
-            ? fullPageRange.indexOf(visiblePages[0]!)
-            : -1;
-        const lastVisibleIndex = visiblePages.length > 0
-            ? fullPageRange.indexOf(visiblePages[visiblePages.length - 1]!)
-            : -1;
 
+        // Prefetch the first batch of adjacent pages on mount
         const candidatePages = new Set<number>();
 
-        if (firstVisibleIndex > 0) {
-            candidatePages.add(fullPageRange[firstVisibleIndex - 1]!);
-        }
-        if (lastVisibleIndex >= 0 && lastVisibleIndex < fullPageRange.length - 1) {
-            candidatePages.add(fullPageRange[lastVisibleIndex + 1]!);
-        }
-
-        // Keep the next batch warm too, so progressive expansion doesn't show a wall of skeletons.
+        // Pages just beyond the initial visible window
         for (const pageNum of fullPageRange.slice(visiblePages.length, visiblePages.length + 2)) {
             candidatePages.add(pageNum);
         }
@@ -152,7 +141,7 @@ export function VerseByVerseViewer({
                 prefetchTranslationPage(pageNum, tid);
             }
         }
-    }, [visiblePages, fullPageRange, prefs.translationIds]);
+    });
 
     // Navigation button labels
     const navButtons = useMemo(() => {
@@ -179,8 +168,8 @@ export function VerseByVerseViewer({
         return { prev, next };
     }, [type, id, chapters, onNavigate]);
 
-    // Auto-scroll to highlighted verse on mountain or highlight change
-    useEffect(() => {
+    // Auto-scroll to highlighted verse on mount
+    useMountEffect(() => {
         if (!highlightedVerse) return;
 
         // Small delay to let progressive rendering and layout settle
@@ -193,7 +182,7 @@ export function VerseByVerseViewer({
         }, 250);
 
         return () => clearTimeout(timer);
-    }, [highlightedVerse]);
+    });
 
     return (
         <div className="flex flex-col w-full max-w-3xl mx-auto pb-32">

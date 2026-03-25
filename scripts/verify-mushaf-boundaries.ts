@@ -133,7 +133,12 @@ async function expectedWordsForPage(page: number, mushafId: number): Promise<Exp
     return charTypeRank(a.charTypeName) - charTypeRank(b.charTypeName);
   });
 
-  return out.map(({ surahId: _s, verseId: _v, position: _p, ...rest }) => rest);
+  return out.map(({ surahId, verseId, position, ...rest }) => {
+    void surahId;
+    void verseId;
+    void position;
+    return rest;
+  });
 }
 
 function payloadWordsByLine(payload: MushafPagePayload) {

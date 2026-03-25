@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Copy, X, Check, BookOpen, ExternalLink } from "lucide-react";
 import { TRANSLATION_DISPLAY_NAMES, type TranslationId } from "@/lib/types";
 import { useTranslations } from "@/hooks/useTranslations";
@@ -33,30 +33,12 @@ export function AyahSheet({
   const translations = useTranslations(activeVerseKey, filteredTranslationIds);
 
   const [copiedArabic, setCopiedArabic] = useState(false);
+  const copiedArabicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [footnoteSheetOpen, setFootnoteSheetOpen] = useState(false);
   const [activeFootnotes, setActiveFootnotes] = useState<{
     refs: FootnoteReference[];
     label: string;
   } | null>(null);
-
-  // Reset state when sheet closes
-  useEffect(() => {
-    if (!open) {
-      const t = setTimeout(() => {
-        setCopiedArabic(false);
-        setFootnoteSheetOpen(false);
-        setActiveFootnotes(null);
-      }, 0);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  // Reset copied indicator
-  useEffect(() => {
-    if (!copiedArabic) return;
-    const t = setTimeout(() => setCopiedArabic(false), 900);
-    return () => clearTimeout(t);
-  }, [copiedArabic]);
 
   // Extract footnote references per translation from pre-parsed segments
   const translationFootnoteRefs = useMemo(() => {
@@ -84,6 +66,8 @@ export function AyahSheet({
       if (text) {
         await navigator.clipboard.writeText(text);
         setCopiedArabic(true);
+        if (copiedArabicTimerRef.current) clearTimeout(copiedArabicTimerRef.current);
+        copiedArabicTimerRef.current = setTimeout(() => setCopiedArabic(false), 900);
       }
     } catch { /* ignore */ }
   }
@@ -209,12 +193,7 @@ function TranslationRow({
   onFootnoteClick: (ref: FootnoteReference) => void;
 }) {
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 900);
-    return () => clearTimeout(t);
-  }, [copied]);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleCopy() {
     const plain = content?.plain;
@@ -222,6 +201,8 @@ function TranslationRow({
     try {
       await navigator.clipboard.writeText(plain);
       setCopied(true);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 900);
     } catch { /* ignore */ }
   }
 

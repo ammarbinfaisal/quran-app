@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { loadAbuIyaadSurahs, getSurahsCacheSync } from "@/lib/translations/abu-iyaad";
 
 export function useAbuIyaadSurahs(): Record<string, string> | null {
     const [surahs, setSurahs] = useState<Record<string, string> | null>(getSurahsCacheSync);
 
-    useEffect(() => {
+    useMountEffect(() => {
         let mounted = true;
         loadAbuIyaadSurahs()
             .then((data) => {
@@ -18,7 +19,7 @@ export function useAbuIyaadSurahs(): Record<string, string> | null {
         return () => {
             mounted = false;
         };
-    }, []);
+    });
 
     return surahs;
 }

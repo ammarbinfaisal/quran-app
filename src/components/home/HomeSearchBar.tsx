@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
@@ -14,19 +14,16 @@ export function HomeSearchBar() {
   const trimmed = value.trim();
   const hasText = trimmed.length > 0;
 
-  useEffect(() => {
-    if (!hasText) return;
-
+  function handleChange(newValue: string) {
+    setValue(newValue);
+    const t = newValue.trim();
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
-    }, NAVIGATE_DEBOUNCE_MS);
-
-    return () => {
-      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    };
-  }, [hasText, router, trimmed]);
+    if (t.length > 0) {
+      timeoutRef.current = window.setTimeout(() => {
+        router.push(`/search?q=${encodeURIComponent(t)}`);
+      }, NAVIGATE_DEBOUNCE_MS);
+    }
+  }
 
   return (
     <div className="px-4">
@@ -35,7 +32,7 @@ export function HomeSearchBar() {
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
         <input
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             if (!trimmed) return;

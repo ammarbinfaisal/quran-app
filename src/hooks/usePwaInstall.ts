@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -10,7 +11,7 @@ interface BeforeInstallPromptEvent extends Event {
 export function usePwaInstall() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     function onBeforeInstallPrompt(e: Event) {
       e.preventDefault();
       setPromptEvent(e as BeforeInstallPromptEvent);
@@ -27,7 +28,7 @@ export function usePwaInstall() {
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       window.removeEventListener("appinstalled", onAppInstalled);
     };
-  }, []);
+  });
 
   const install = useCallback(async () => {
     if (!promptEvent) return;

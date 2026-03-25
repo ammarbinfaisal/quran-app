@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { BookMarked, FileText, Library } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useChapters } from "@/hooks/useChapters";
@@ -38,15 +38,10 @@ export function SubmodeToggle({
   const [pendingSubmode, setPendingSubmode] = useState<VbvSubmode | null>(null);
   const [isRoutePending, startRouteTransition] = useTransition();
 
-  useEffect(() => {
-    if (!pendingSubmode) return;
-    if (currentType === pendingSubmode && !isRoutePending) {
-      const timer = window.setTimeout(() => {
-        setPendingSubmode(null);
-      }, 0);
-      return () => window.clearTimeout(timer);
-    }
-  }, [currentType, isRoutePending, pendingSubmode]);
+  // Clear pending state when the route transition completes (adjust-state-during-render)
+  if (pendingSubmode && currentType === pendingSubmode && !isRoutePending) {
+    setPendingSubmode(null);
+  }
 
   async function handleSelect(newSubmode: VbvSubmode) {
     if (newSubmode === currentType || pendingSubmode !== null) return;

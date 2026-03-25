@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Home, Loader2, Search, X } from "lucide-react";
+import { Home, Search, X } from "lucide-react";
 import type { QuranSearchResponse } from "@/lib/search";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -14,6 +14,8 @@ import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import type { WordTapTarget } from "@/lib/wordTap";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import type { MushafCode } from "@/lib/types";
 
 const URL_SYNC_DEBOUNCE_MS = 300;
 const SEARCH_RESULTS_LIMIT = 50;
@@ -23,172 +25,27 @@ export function SearchViewer() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlQ = searchParams.get("q") ?? "";
-
   const { prefs } = usePreferences();
   const mushafCode = prefs.mushafCode;
 
   const [input, setInput] = useState(urlQ);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [response, setResponse] = useState<QuranSearchResponse | null>(null);
-  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
-  const [fontsReady, setFontsReady] = useState(false);
+  const [syncedUrlQ, setSyncedUrlQ] = useState(urlQ);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
 
+  if (syncedUrlQ !== urlQ) {
+    setSyncedUrlQ(urlQ);
+    setInput(urlQ);
+  }
+
   const trimmedInput = input.trim();
   const hasInput = trimmedInput.length > 0;
-
-  // Keep the textbox in sync with back/forward navigations.
-  useEffect(() => {
-    setInput(urlQ);
-  }, [urlQ]);
-
-  // Debounced URL sync. Clearing keeps the user on /search and removes the query.
-  useEffect(() => {
-    const trimmed = trimmedInput;
-    const current = urlQ.trim();
-    if (trimmed === current) return;
-
-    const timeoutId = window.setTimeout(() => {
-      if (!trimmed) {
-        if (current) router.replace("/search");
-        return;
-      }
-      router.replace(`/search?q=${encodeURIComponent(trimmed)}`);
-    }, URL_SYNC_DEBOUNCE_MS);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [router, trimmedInput, urlQ]);
-
-  // Fetch results whenever the URL query changes (already debounced).
-  useEffect(() => {
-    const q = urlQ.trim();
-    setSelectedTap(null);
-    if (!q) {
-      setResponse(null);
-      setLoading(false);
-      setError(null);
-      setVisibleCount(BATCH_SIZE);
-      return;
-    }
-
-    const controller = new AbortController();
-    let active = true;
-
-    setLoading(true);
-    setError(null);
-    setFontsReady(false);
-
-    fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${SEARCH_RESULTS_LIMIT}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        const payload = (await res.json().catch(() => null)) as unknown;
-        if (!res.ok) {
-          const msg =
-            typeof payload === "object" &&
-            payload !== null &&
-            "error" in payload &&
-            typeof (payload as { error?: unknown }).error === "string"
-              ? (payload as { error: string }).error
-              : "Search is unavailable right now.";
-          throw new Error(msg);
-        }
-        return payload as QuranSearchResponse;
-      })
-      .then((data) => {
-        if (!active) return;
-        setResponse(data);
-        setVisibleCount(BATCH_SIZE);
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (e instanceof DOMException && e.name === "AbortError") return;
-        setError(e instanceof Error ? e.message : "Search is unavailable right now.");
-        setResponse(null);
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [urlQ]);
+  const urlSyncTimerRef = useRef<number>(0);
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     setSelectedTap(target);
   }, []);
-
-  const allVerseKeys = useMemo(() => {
-    return (response?.results ?? []).map((r) => r.verse_key);
-  }, [response]);
-
-  const visibleVerseKeys = useMemo(
-    () => allVerseKeys.slice(0, visibleCount),
-    [allVerseKeys, visibleCount],
-  );
-
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node) return;
-    if (visibleCount >= allVerseKeys.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, allVerseKeys.length));
-        }
-      },
-      { rootMargin: "600px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [allVerseKeys.length, visibleCount]);
-
-  // Font preloading for currently visible verses (QCF only).
-  useEffect(() => {
-    let active = true;
-    async function loadFonts() {
-      if (!isQcfCode(mushafCode)) {
-        setFontsReady(true);
-        return;
-      }
-      if (visibleVerseKeys.length === 0) return;
-
-      try {
-        const pagesMap = await fetchVersePages(mushafCode);
-        const pagesToLoad = new Set<number>();
-
-        for (const verseKey of visibleVerseKeys) {
-          const pageLookup = pagesMap[verseKey];
-          if (!pageLookup) continue;
-          const startPage = Array.isArray(pageLookup) ? pageLookup[0] : pageLookup;
-          const endPage = Array.isArray(pageLookup) ? pageLookup[1] : pageLookup;
-          for (let p = startPage; p <= endPage; p++) pagesToLoad.add(p);
-        }
-
-        for (const p of Array.from(pagesToLoad)) {
-          if (!active) break;
-          await loadQcfFont(mushafCode, p);
-        }
-        if (active) setFontsReady(true);
-      } catch {
-        if (active) setFontsReady(true);
-      }
-    }
-    setFontsReady(false);
-    loadFonts();
-    return () => {
-      active = false;
-    };
-  }, [mushafCode, visibleVerseKeys]);
 
   return (
     <div className="flex h-full w-full flex-col bg-[var(--color-bg)]">
@@ -207,10 +64,25 @@ export function SearchViewer() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
             <input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                setInput(newValue);
+                const trimmed = newValue.trim();
+                const current = urlQ.trim();
+                if (urlSyncTimerRef.current) window.clearTimeout(urlSyncTimerRef.current);
+                if (trimmed === current) return;
+                urlSyncTimerRef.current = window.setTimeout(() => {
+                  if (!trimmed) {
+                    if (current) router.replace("/search");
+                    return;
+                  }
+                  router.replace(`/search?q=${encodeURIComponent(trimmed)}`);
+                }, URL_SYNC_DEBOUNCE_MS);
+              }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
                 if (!trimmedInput) return;
+                if (urlSyncTimerRef.current) window.clearTimeout(urlSyncTimerRef.current);
                 router.replace(`/search?q=${encodeURIComponent(trimmedInput)}`);
               }}
               placeholder="Search Quran…"
@@ -218,14 +90,16 @@ export function SearchViewer() {
               autoComplete="off"
               inputMode="search"
             />
-            {loading ? (
-              <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-muted)]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            ) : hasInput ? (
+            {hasInput ? (
               <button
                 type="button"
-                onClick={() => setInput("")}
+                onClick={() => {
+                  setInput("");
+                  if (urlSyncTimerRef.current) window.clearTimeout(urlSyncTimerRef.current);
+                  if (urlQ.trim()) {
+                    router.replace("/search");
+                  }
+                }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-2 text-[var(--color-muted)] active:bg-black/5"
                 aria-label="Clear search"
               >
@@ -234,65 +108,21 @@ export function SearchViewer() {
             ) : null}
           </label>
         </div>
-
-        {urlQ.trim().length > 0 && !loading && response && (
-          <div className="mt-2 flex items-center justify-between text-xs text-[var(--color-muted)]">
-            <span className="truncate">
-              {response.total_matches} match{response.total_matches === 1 ? "" : "es"} for{" "}
-              <span className="font-medium text-[var(--color-text)]">{response.query}</span>
-            </span>
-            <span className="tabular-nums">
-              showing {Math.min(visibleCount, allVerseKeys.length)} /{" "}
-              {response.limited_to}
-            </span>
-          </div>
-        )}
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 pb-28 space-y-6">
-        {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {!error && urlQ.trim().length === 0 && (
+      <main className="flex-1 overflow-y-auto p-4 pb-28">
+        {urlQ.trim().length === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center text-center text-sm text-[var(--color-muted)]">
             <p>Type to search the Quran.</p>
             <p className="mt-1 text-xs opacity-70">Clearing the search returns you home.</p>
           </div>
-        )}
-
-        {!error && urlQ.trim().length > 0 && !loading && allVerseKeys.length === 0 && (
-          <div className="flex h-40 flex-col items-center justify-center text-center text-sm text-[var(--color-muted)]">
-            <p>
-              No matches for{" "}
-              <span className="font-medium text-[var(--color-text)]">{urlQ.trim()}</span>.
-            </p>
-          </div>
-        )}
-
-        {visibleVerseKeys.length > 0 && (
-          <div className="mx-auto max-w-3xl space-y-8 pb-6">
-            {visibleVerseKeys.map((verseKey) => (
-              <VerseCard
-                key={verseKey}
-                verseKey={verseKey}
-                highlightedWords={[]}
-                mushafCode={mushafCode}
-                fontReady={fontsReady}
-                onWordTap={handleWordTap}
-                showVerseLink
-              />
-            ))}
-
-            {visibleCount < allVerseKeys.length && (
-              <div ref={sentinelRef} className="space-y-4">
-                <div className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
-                <div className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
-              </div>
-            )}
-          </div>
+        ) : (
+          <SearchResultsPanel
+            key={`search:${urlQ}:${mushafCode}`}
+            query={urlQ.trim()}
+            mushafCode={mushafCode}
+            onWordTap={handleWordTap}
+          />
         )}
       </main>
 
@@ -315,4 +145,224 @@ export function SearchViewer() {
       <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
     </div>
   );
+}
+
+function SearchResultsPanel({
+  query,
+  mushafCode,
+  onWordTap,
+}: {
+  query: string;
+  mushafCode: MushafCode;
+  onWordTap: (target: WordTapTarget) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [response, setResponse] = useState<QuranSearchResponse | null>(null);
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
+  const [fontsReady, setFontsReady] = useState(!isQcfCode(mushafCode));
+
+  useMountEffect(() => {
+    const controller = new AbortController();
+
+    fetch(`/api/search?q=${encodeURIComponent(query)}&limit=${SEARCH_RESULTS_LIMIT}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        const payload = (await res.json().catch(() => null)) as unknown;
+        if (!res.ok) {
+          const message =
+            typeof payload === "object" &&
+            payload !== null &&
+            "error" in payload &&
+            typeof (payload as { error?: unknown }).error === "string"
+              ? (payload as { error: string }).error
+              : "Search is unavailable right now.";
+          throw new Error(message);
+        }
+        return payload as QuranSearchResponse;
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setResponse(data);
+        setVisibleCount(BATCH_SIZE);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setError(error instanceof Error ? error.message : "Search is unavailable right now.");
+        setResponse(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  });
+
+  const allVerseKeys = useMemo(
+    () => (response?.results ?? []).map((result) => result.verse_key),
+    [response],
+  );
+  const visibleVerseKeys = useMemo(
+    () => allVerseKeys.slice(0, visibleCount),
+    [allVerseKeys, visibleCount],
+  );
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, allVerseKeys.length));
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    observer.observe(node);
+    observerRef.current = observer;
+  }, [allVerseKeys.length]);
+
+  useMountEffect(() => {
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  });
+
+  const fontLoadKey = `${mushafCode}:${visibleVerseKeys.join(",")}`;
+  const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerseKeys.length > 0);
+
+  return (
+    <>
+      {visibleVerseKeys.length > 0 && (
+        <FontPreloader
+          key={fontLoadKey}
+          mushafCode={mushafCode}
+          verseKeys={visibleVerseKeys}
+          onReady={setFontsReady}
+        />
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {!error && !loading && response && (
+        <div className="mb-6 flex items-center justify-between text-xs text-[var(--color-muted)]">
+          <span className="truncate">
+            {response.total_matches} match{response.total_matches === 1 ? "" : "es"} for{" "}
+            <span className="font-medium text-[var(--color-text)]">{response.query}</span>
+          </span>
+          <span className="tabular-nums">
+            showing {Math.min(visibleCount, allVerseKeys.length)} / {response.limited_to}
+          </span>
+        </div>
+      )}
+
+      {!error && !loading && allVerseKeys.length === 0 ? (
+        <div className="flex h-40 flex-col items-center justify-center text-center text-sm text-[var(--color-muted)]">
+          <p>
+            No matches for{" "}
+            <span className="font-medium text-[var(--color-text)]">{query}</span>.
+          </p>
+        </div>
+      ) : null}
+
+      {isWaiting ? (
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10" />
+          ))}
+        </div>
+      ) : visibleVerseKeys.length > 0 ? (
+        <div className="mx-auto max-w-3xl space-y-8 pb-6">
+          {visibleVerseKeys.map((verseKey) => (
+            <VerseCard
+              key={verseKey}
+              verseKey={verseKey}
+              highlightedWords={[]}
+              mushafCode={mushafCode}
+              fontReady={fontsReady}
+              onWordTap={onWordTap}
+              showVerseLink
+            />
+          ))}
+
+          {visibleCount < allVerseKeys.length && (
+            <div ref={sentinelRef} className="space-y-4">
+              <div className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
+              <div className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
+            </div>
+          )}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function FontPreloader({
+  mushafCode,
+  verseKeys,
+  onReady,
+}: {
+  mushafCode: MushafCode;
+  verseKeys: string[];
+  onReady: (ready: boolean) => void;
+}) {
+  useMountEffect(() => {
+    let active = true;
+
+    if (!isQcfCode(mushafCode) || verseKeys.length === 0) {
+      onReady(true);
+      return;
+    }
+
+    onReady(false);
+
+    (async () => {
+      try {
+        const pagesMap = await fetchVersePages(mushafCode);
+        const pagesToLoad = new Set<number>();
+
+        for (const verseKey of verseKeys) {
+          const pageLookup = pagesMap[verseKey];
+          if (!pageLookup) continue;
+          const startPage = Array.isArray(pageLookup) ? pageLookup[0] : pageLookup;
+          const endPage = Array.isArray(pageLookup) ? pageLookup[1] : pageLookup;
+          for (let page = startPage; page <= endPage; page++) {
+            pagesToLoad.add(page);
+          }
+        }
+
+        for (const page of pagesToLoad) {
+          if (!active) return;
+          await loadQcfFont(mushafCode, page);
+        }
+
+        if (active) {
+          onReady(true);
+        }
+      } catch {
+        if (active) {
+          onReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  });
+
+  return null;
 }

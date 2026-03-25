@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const HIDE_DELAY_MS = 2500;
 
@@ -53,12 +54,12 @@ export function useImmersiveMode() {
     );
 
     // Start initial auto-hide timer
-    useEffect(() => {
+    useMountEffect(() => {
         resetTimer();
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [resetTimer]);
+    });
 
     return {
         chromeVisible,

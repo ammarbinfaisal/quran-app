@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useCallback, useEffect, useLayoutEffect } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import type { MushafCode, Chapter } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { useMushafPage } from "@/hooks/useMushafPage";
@@ -102,16 +103,14 @@ export default function SwipeReader({
   const rafIdRef = useRef<number | null>(null);
   const pendingDeltaXRef = useRef<number>(0);
   const interactionStartedRef = useRef(false);
-
-  // Keep callback fresh without triggering renders
   const onPageChangeRef = useRef(onPageChange);
+  const onInteractionStartRef = useRef(onInteractionStart);
+  const currentPageRef = useRef(currentPage);
+
   useLayoutEffect(() => {
     onPageChangeRef.current = onPageChange;
-  });
-
-  const onInteractionStartRef = useRef(onInteractionStart);
-  useLayoutEffect(() => {
     onInteractionStartRef.current = onInteractionStart;
+    currentPageRef.current = currentPage;
   });
 
   // Track the pages we're currently rendering directly during component render
@@ -132,7 +131,7 @@ export default function SwipeReader({
   }, [currentPage]);
 
   // Window resize handler
-  useEffect(() => {
+  useMountEffect(() => {
     const handleResize = () => {
       if (containerRef.current && trackRef.current && stateRef.current === "IDLE") {
         const W = containerRef.current.clientWidth;
@@ -143,27 +142,31 @@ export default function SwipeReader({
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  });
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, []);
+  });
 
   // Keyboard navigation & Mouse Wheel
-  useEffect(() => {
+  useMountEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
         e.preventDefault();
         onInteractionStartRef.current?.();
-        if (currentPage < TOTAL_PAGES) onPageChangeRef.current(currentPage + 1);
+        if (currentPageRef.current < TOTAL_PAGES) {
+          onPageChangeRef.current(currentPageRef.current + 1);
+        }
       } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
         e.preventDefault();
         onInteractionStartRef.current?.();
-        if (currentPage > 1) onPageChangeRef.current(currentPage - 1);
+        if (currentPageRef.current > 1) {
+          onPageChangeRef.current(currentPageRef.current - 1);
+        }
       }
     };
 
@@ -175,14 +178,14 @@ export default function SwipeReader({
       if (Math.abs(e.deltaY) > 20) {
         onInteractionStartRef.current?.();
         if (e.deltaY > 0) {
-          if (currentPage < TOTAL_PAGES) {
-            onPageChangeRef.current(currentPage + 1);
+          if (currentPageRef.current < TOTAL_PAGES) {
+            onPageChangeRef.current(currentPageRef.current + 1);
             wheelLock = true;
             setTimeout(() => { wheelLock = false; }, 220);
           }
         } else {
-          if (currentPage > 1) {
-            onPageChangeRef.current(currentPage - 1);
+          if (currentPageRef.current > 1) {
+            onPageChangeRef.current(currentPageRef.current - 1);
             wheelLock = true;
             setTimeout(() => { wheelLock = false; }, 220);
           }
@@ -201,7 +204,7 @@ export default function SwipeReader({
         container.removeEventListener("wheel", handleWheel);
       }
     };
-  }, [currentPage]);
+  });
 
   // ---------------------------------------------------------------------------
   // Touch Handlers

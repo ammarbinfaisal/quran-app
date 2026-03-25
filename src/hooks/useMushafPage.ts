@@ -16,7 +16,8 @@ import {
   retainActiveQcfPage,
 } from "@/lib/mushaf/fonts";
 import type { MushafCode, MushafPagePayload } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 /**
  * Hook that loads mushaf page data and the corresponding QCF font (if needed).
@@ -34,7 +35,7 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
   const [showFontSkeleton, setShowFontSkeleton] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     let cancelled = false;
     let skeletonTimer: ReturnType<typeof setTimeout> | null = null;
     const shouldTrackQcfPage = isQcfCode(code);
@@ -47,7 +48,7 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
       try {
         setError(null);
 
-        // ✅ sync cache check on every navigation
+        // sync cache check on every navigation
         const now = getCachedMushafPage(code, pageNum);
         if (now) {
           setPageData(now);
@@ -107,7 +108,7 @@ export function useMushafPage(code: MushafCode, pageNum: number) {
         releaseActiveQcfPage(code, pageNum);
       }
     };
-  }, [code, pageNum]);
+  });
 
   return { pageData, loading, fontReady, showFontSkeleton, error };
 }

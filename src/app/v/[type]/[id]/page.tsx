@@ -55,7 +55,7 @@ export default async function VerseModeRoute({
         })}
       />
       <Suspense>
-        <VerseReader type={validType} id={num} />
+        <VerseReader key={`v:${validType}:${num}`} type={validType} id={num} />
       </Suspense>
     </>
   );

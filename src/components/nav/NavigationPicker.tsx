@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { TOTAL_PAGES } from "@/lib/constants";
-import type { Chapter } from "@/lib/types";
+import type { Chapter, MushafCode } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { fetchVersePages } from "@/lib/navigation/maps";
 
@@ -19,57 +20,77 @@ export default function NavigationPicker({
   onClose,
   onNavigate,
 }: NavigationPickerProps) {
-  const chapters = useChapters();
   const { prefs } = usePreferences();
-  const [surahFilter, setSurahFilter] = useState("");
 
-  // Selection state
+  if (!open) return null;
+
+  return (
+    <NavigationPickerContent
+      key={prefs.mushafCode}
+      mushafCode={prefs.mushafCode}
+      onClose={onClose}
+      onNavigate={onNavigate}
+    />
+  );
+}
+
+function NavigationPickerContent({
+  mushafCode,
+  onClose,
+  onNavigate,
+}: {
+  mushafCode: MushafCode;
+  onClose: () => void;
+  onNavigate: (page: number, verseKey: string | null) => void;
+}) {
+  const chapters = useChapters();
+  const [surahFilter, setSurahFilter] = useState("");
   const [selectedSurah, setSelectedSurah] = useState<Chapter | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
+  const [verseMap, setVerseMap] = useState<Record<string, number | [number, number]> | null>(null);
 
-  // Verse→page map (loaded lazily on first open)
-  const verseMapRef = useRef<Record<string, number | [number, number]> | null>(null);
-
-  const surahFilterTrimmed = surahFilter.trim().toLowerCase();
-  const hasSurahFilter = surahFilterTrimmed.length > 0;
-
-  useEffect(() => {
-    if (!open) return;
-    if (verseMapRef.current) return;
-    fetchVersePages(prefs.mushafCode)
+  useMountEffect(() => {
+    let active = true;
+    fetchVersePages(mushafCode)
       .then((map) => {
-        verseMapRef.current = map;
+        if (active) {
+          setVerseMap(map);
+        }
       })
       .catch(() => {
         // Silent fallback: selected ayah will use surah start page.
       });
-  }, [open, prefs.mushafCode]);
+    return () => {
+      active = false;
+    };
+  });
 
-  // Reset map cache when mushaf changes
-  useEffect(() => {
-    verseMapRef.current = null;
-  }, [prefs.mushafCode]);
-
-  // Surah filtering is purely client-side; no API calls here.
+  const surahFilterTrimmed = surahFilter.trim().toLowerCase();
+  const hasSurahFilter = surahFilterTrimmed.length > 0;
 
   const filteredChapters = useMemo(() => {
     if (!hasSurahFilter) return chapters;
-    const q = surahFilterTrimmed;
     const raw = surahFilter.trim();
-    return chapters.filter((c) => {
-      if (String(c.id).startsWith(q)) return true;
-      if (c.nameSimple.toLowerCase().includes(q)) return true;
-      if (raw && c.nameArabic.includes(raw)) return true;
+    return chapters.filter((chapter) => {
+      if (String(chapter.id).startsWith(surahFilterTrimmed)) return true;
+      if (chapter.nameSimple.toLowerCase().includes(surahFilterTrimmed)) return true;
+      if (raw && chapter.nameArabic.includes(raw)) return true;
       return false;
     });
   }, [chapters, hasSurahFilter, surahFilter, surahFilterTrimmed]);
 
-  // All pages 1..TOTAL_PAGES — page column is always global and independent.
   const allPages = useMemo(
-    () => Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1),
+    () => Array.from({ length: TOTAL_PAGES }, (_, index) => index + 1),
     [],
   );
+
+  const resetState = () => {
+    setSurahFilter("");
+    setSelectedSurah(null);
+    setSelectedAyah(null);
+    setSelectedPage(null);
+  };
 
   const handleSurahClick = (chapter: Chapter) => {
     setSelectedSurah(chapter);
@@ -80,32 +101,21 @@ export default function NavigationPicker({
   const handleAyahClick = (ayahNum: number) => {
     if (!selectedSurah) return;
     setSelectedAyah(ayahNum);
-
-    // Resolve exact page for this verse if the map is loaded.
     const verseKey = `${selectedSurah.id}:${ayahNum}`;
-    const map = verseMapRef.current;
-    if (map && map[verseKey] !== undefined) {
-      const val = map[verseKey];
-      const page = Array.isArray(val) ? val[0] : val;
-      setSelectedPage(page);
-    } else {
-      // Fall back to surah start page.
-      setSelectedPage(selectedSurah.pages[0]);
-    }
+    const mapped = verseMap?.[verseKey];
+    const page =
+      mapped === undefined
+        ? selectedSurah.pages[0]
+        : Array.isArray(mapped)
+          ? mapped[0]
+          : mapped;
+    setSelectedPage(page);
   };
 
-  const handlePageClick = (p: number) => {
-    setSelectedPage(p);
-    // Clear ayah selection when page is tapped directly.
+  const handlePageClick = (page: number) => {
+    setSelectedPage(page);
     setSelectedAyah(null);
     setSelectedSurah(null);
-  };
-
-  const resetState = () => {
-    setSurahFilter("");
-    setSelectedSurah(null);
-    setSelectedAyah(null);
-    setSelectedPage(null);
   };
 
   const handleGo = () => {
@@ -116,10 +126,6 @@ export default function NavigationPicker({
     onNavigate(selectedPage, verseKey);
   };
 
-  if (!open) return null;
-
-  const canGo = selectedPage !== null;
-
   const handleClose = () => {
     resetState();
     onClose();
@@ -129,7 +135,6 @@ export default function NavigationPicker({
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={handleClose} />
       <div className="fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[70vh] w-full max-w-xl flex-col rounded-t-2xl bg-[var(--color-surface)] shadow-lg">
-        {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-muted)]/20 px-4 py-3">
           <div className="relative flex-1">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -163,9 +168,7 @@ export default function NavigationPicker({
           </button>
         </div>
 
-        {/* Columns Container */}
         <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--color-bg)]/30">
-          {/* Col 1: Surah */}
           <div className="flex-1 overflow-y-auto border-r border-[var(--color-muted)]/10">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)] px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)]">
               <span>Surah</span>
@@ -175,7 +178,7 @@ export default function NavigationPicker({
                 </span>
               )}
             </div>
-            <div className="p-2 space-y-1">
+            <div className="space-y-1 p-2">
               {filteredChapters.length === 0 ? (
                 <div className="px-3 py-8 text-center text-xs text-[var(--color-muted)]">
                   No surahs match{" "}
@@ -185,12 +188,12 @@ export default function NavigationPicker({
                   .
                 </div>
               ) : (
-                filteredChapters.map((c) => {
-                  const isActive = selectedSurah?.id === c.id;
+                filteredChapters.map((chapter) => {
+                  const isActive = selectedSurah?.id === chapter.id;
                   return (
                     <button
-                      key={c.id}
-                      onClick={() => handleSurahClick(c)}
+                      key={chapter.id}
+                      onClick={() => handleSurahClick(chapter)}
                       className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
                         isActive
                           ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
@@ -198,7 +201,7 @@ export default function NavigationPicker({
                       }`}
                     >
                       <span>
-                        {c.id}. {c.nameSimple}
+                        {chapter.id}. {chapter.nameSimple}
                       </span>
                     </button>
                   );
@@ -207,24 +210,23 @@ export default function NavigationPicker({
             </div>
           </div>
 
-          {/* Col 2: Ayah */}
           <div className="w-[28%] overflow-y-auto border-r border-[var(--color-muted)]/10 bg-[var(--color-bg)]/50">
             <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
               Ayah
             </div>
             <div className="space-y-1 p-2">
               {selectedSurah ? (
-                Array.from({ length: selectedSurah.versesCount }, (_, i) => i + 1).map((a) => (
+                Array.from({ length: selectedSurah.versesCount }, (_, index) => index + 1).map((ayahNum) => (
                   <button
-                    key={a}
-                    onClick={() => handleAyahClick(a)}
+                    key={ayahNum}
+                    onClick={() => handleAyahClick(ayahNum)}
                     className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
-                      selectedAyah === a
+                      selectedAyah === ayahNum
                         ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
                         : "text-[var(--color-text)] active:bg-black/5"
                     }`}
                   >
-                    {a}
+                    {ayahNum}
                   </button>
                 ))
               ) : (
@@ -235,34 +237,32 @@ export default function NavigationPicker({
             </div>
           </div>
 
-          {/* Col 3: Page — always shows all 604 pages, independent of surah */}
           <div className="w-[28%] overflow-y-auto bg-[var(--color-bg)]/50">
             <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
               Page
             </div>
             <div className="space-y-1 p-2">
-              {allPages.map((p) => (
+              {allPages.map((page) => (
                 <button
-                  key={p}
-                  onClick={() => handlePageClick(p)}
+                  key={page}
+                  onClick={() => handlePageClick(page)}
                   className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
-                    selectedPage === p
+                    selectedPage === page
                       ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
                       : "text-[var(--color-text)] active:bg-black/5"
                   }`}
                 >
-                  {p}
+                  {page}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Footer: Go button */}
         <div className="shrink-0 border-t border-[var(--color-muted)]/20 px-4 py-3">
           <button
             onClick={handleGo}
-            disabled={!canGo}
+            disabled={selectedPage === null}
             className="w-full rounded-xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-white transition-opacity active:scale-[0.98] disabled:opacity-40"
           >
             {selectedSurah && selectedAyah

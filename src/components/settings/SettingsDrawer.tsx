@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { X, MonitorDown } from "lucide-react";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { TranslationPicker } from "@/components/settings/TranslationPicker";
@@ -8,6 +8,7 @@ import { VerseCopySettings } from "@/components/settings/VerseCopySettings";
 import { InlineVerseNotesToggle } from "@/components/settings/InlineVerseNotesToggle";
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 export function SettingsDrawer({
   open,
@@ -16,14 +17,23 @@ export function SettingsDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  const openRef = useRef(open);
+  const onCloseRef = useRef(onClose);
+
+  useLayoutEffect(() => {
+    openRef.current = open;
+    onCloseRef.current = onClose;
+  });
+
+  useMountEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (openRef.current && e.key === "Escape") {
+        onCloseRef.current();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  });
 
   const { canInstall, install } = usePwaInstall();
 

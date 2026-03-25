@@ -1,99 +1,142 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import type { TranslationId } from "@/lib/types";
 import type { TranslationContent } from "@/lib/footnotes";
 import { loadTranslation } from "@/lib/translations/loader";
 
+type TranslationRowState = {
+  content: TranslationContent;
+  loading: boolean;
+  showSkeleton: boolean;
+};
+
+const EMPTY: TranslationContent = { segments: [], plain: "" };
+const EMPTY_RESULTS = {} as Record<TranslationId, TranslationRowState>;
+const translationCache = new Map<string, TranslationContent>();
+const translationRequests = new Map<string, Promise<TranslationContent>>();
+
+function getInitialResults(
+  verseKey: string | null,
+  translationIds: TranslationId[],
+): Record<TranslationId, TranslationRowState> {
+  if (!verseKey || translationIds.length === 0) {
+    return EMPTY_RESULTS;
+  }
+
+  const initial = {} as Record<TranslationId, TranslationRowState>;
+
+  for (const id of translationIds) {
+    const cacheKey = `${id}:${verseKey}`;
+    const cached = translationCache.get(cacheKey);
+    initial[id] = cached
+      ? { content: cached, loading: false, showSkeleton: false }
+      : { content: EMPTY, loading: true, showSkeleton: false };
+  }
+
+  return initial;
+}
+
+function loadTranslationCached(
+  requestKey: string,
+  verseKey: string,
+  translationId: TranslationId,
+) {
+  const existing = translationRequests.get(requestKey);
+  if (existing) {
+    return existing;
+  }
+
+  const request = loadTranslation(verseKey, translationId)
+    .then((result) => {
+      translationCache.set(requestKey, result);
+      return result;
+    })
+    .finally(() => {
+      translationRequests.delete(requestKey);
+    });
+
+  translationRequests.set(requestKey, request);
+  return request;
+}
+
 /**
  * Loads translations for a given verse key and list of translation IDs.
  * Returns pre-parsed TranslationContent (segments + plain text).
- * Results are cached in a ref Map.
+ * Results are cached in a module-level Map.
  */
 export function useTranslations(
-    verseKey: string | null,
-    translationIds: TranslationId[],
-): Record<TranslationId, { content: TranslationContent; loading: boolean; showSkeleton: boolean }> {
-    const [results, setResults] = useState<
-        Record<TranslationId, { content: TranslationContent; loading: boolean; showSkeleton: boolean }>
-    >({} as Record<TranslationId, { content: TranslationContent; loading: boolean; showSkeleton: boolean }>);
+  verseKey: string | null,
+  translationIds: TranslationId[],
+): Record<TranslationId, TranslationRowState> {
+  const signature =
+    verseKey && translationIds.length > 0
+      ? `${verseKey}::${translationIds.join(",")}`
+      : null;
+  const [state, setState] = useState(() => ({
+    signature,
+    results: getInitialResults(verseKey, translationIds),
+  }));
 
-    const cacheRef = useRef<Map<string, TranslationContent>>(new Map());
+  if (state.signature !== signature) {
+    const nextResults = getInitialResults(verseKey, translationIds);
+    setState({ signature, results: nextResults });
 
-    useEffect(() => {
-        if (!verseKey || translationIds.length === 0) {
-            setTimeout(() => {
-                setResults({} as Record<TranslationId, { content: TranslationContent; loading: boolean; showSkeleton: boolean }>);
-            }, 0);
-            return;
-        }
+    if (signature && verseKey) {
+      const toFetch = translationIds.filter((id) => nextResults[id]?.loading);
 
-        let cancelled = false;
-        let skeletonTimer: ReturnType<typeof setTimeout> | null = null;
-
-        const EMPTY: TranslationContent = { segments: [], plain: "" };
-        const toFetch: TranslationId[] = [];
-        const initial: Record<TranslationId, { content: TranslationContent; loading: boolean; showSkeleton: boolean }> =
-            {} as Record<TranslationId, { content: TranslationContent; loading: boolean; showSkeleton: boolean }>;
-
-        translationIds.forEach((id) => {
-            const cacheKey = `${id}:${verseKey}`;
-            const cached = cacheRef.current.get(cacheKey);
-
-            if (cached !== undefined) {
-                initial[id] = { content: cached, loading: false, showSkeleton: false };
-            } else {
-                initial[id] = { content: EMPTY, loading: true, showSkeleton: false };
-                toFetch.push(id);
-            }
-        });
-
-        setTimeout(() => setResults(initial), 0);
-
-        if (toFetch.length === 0) return;
-
-        skeletonTimer = setTimeout(() => {
-            if (cancelled) return;
-            setResults((prev) => {
-                const next = { ...prev };
-                for (const id of toFetch) {
-                    const row = next[id];
-                    if (row && row.loading) {
-                        next[id] = { ...row, showSkeleton: true };
-                    }
+      if (toFetch.length > 0) {
+        queueMicrotask(() => {
+          const skeletonTimer = setTimeout(() => {
+            setState((prev) => {
+              if (prev.signature !== signature) return prev;
+              const next = { ...prev.results };
+              for (const id of toFetch) {
+                const row = next[id];
+                if (row?.loading) {
+                  next[id] = { ...row, showSkeleton: true };
                 }
-                return next;
+              }
+              return { ...prev, results: next };
             });
-        }, 140);
+          }, 140);
 
-        Promise.all(
-            toFetch.map(async (id) => {
-                try {
-                    const content = await loadTranslation(verseKey, id);
-                    if (!cancelled) {
-                        const cacheKey = `${id}:${verseKey}`;
-                        cacheRef.current.set(cacheKey, content);
-                        setResults((prev) => ({
-                            ...prev,
-                            [id]: { content, loading: false, showSkeleton: false },
-                        }));
-                    }
-                } catch {
-                    if (!cancelled) {
-                        setResults((prev) => ({
-                            ...prev,
-                            [id]: { content: { segments: [], plain: "" }, loading: false, showSkeleton: false },
-                        }));
-                    }
+          void Promise.allSettled(
+            toFetch.map((id) =>
+              loadTranslationCached(`${id}:${verseKey}`, verseKey, id).then(
+                (content) => ({ id, content }),
+              ),
+            ),
+          ).then((entries) => {
+            clearTimeout(skeletonTimer);
+            setState((prev) => {
+              if (prev.signature !== signature) return prev;
+              const next = { ...prev.results };
+
+              for (const entry of entries) {
+                if (entry.status === "fulfilled") {
+                  next[entry.value.id] = {
+                    content: entry.value.content,
+                    loading: false,
+                    showSkeleton: false,
+                  };
+                } else {
+                  const failedId = toFetch[entries.indexOf(entry)];
+                  next[failedId] = {
+                    content: EMPTY,
+                    loading: false,
+                    showSkeleton: false,
+                  };
                 }
-            }),
-        );
+              }
 
-        return () => {
-            cancelled = true;
-            if (skeletonTimer) clearTimeout(skeletonTimer);
-        };
-    }, [verseKey, translationIds]);
+              return { ...prev, results: next };
+            });
+          });
+        });
+      }
+    }
+  }
 
-    return results;
+  return state.results;
 }

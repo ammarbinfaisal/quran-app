@@ -1,44 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BookOpen } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
 import { HomeSearchBar } from "@/components/home/HomeSearchBar";
-import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme } from "@/hooks/useTheme";
+import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { ModeSettingToggle } from "@/components/navigation/ModeSettingToggle";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import NavigationPicker from "@/components/nav/NavigationPicker";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const RECENTS_LIMIT = 5;
 
 export function HomePageClient() {
-  const pathname = usePathname();
   const { history, refresh } = useReadingHistory();
   const { goToPage } = usePageNavigation();
-  const { prefs } = usePreferences();
-  const { applyTheme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [navPickerOpen, setNavPickerOpen] = useState(false);
 
-  useEffect(() => {
-    applyTheme(prefs.theme);
-    document.documentElement.style.setProperty("--mushaf-font-scale", String(prefs.fontScale));
-  }, [applyTheme, prefs.theme, prefs.fontScale]);
+  // Apply theme and font scale via preferences listener
+  useApplyPreferences();
 
-  // Refresh reading history when navigating back to the homepage. In Next.js
-  // App Router the component may remain mounted in the router cache, so neither
-  // a remount nor a pageshow event fires. Watching pathname ensures we re-read
-  // from localStorage whenever this route becomes active again.
-  useEffect(() => {
-    if (pathname === "/") refresh();
-  }, [pathname, refresh]);
+  useMountEffect(() => {
+    const handlePopState = () => {
+      if (window.location.pathname === "/") {
+        refresh();
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  });
 
   const continueEntry = useMemo(() => {
     if (history.length === 0) return null;

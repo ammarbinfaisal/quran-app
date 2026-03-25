@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme } from "@/hooks/useTheme";
+import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useImmersiveMode } from "@/hooks/useImmersiveMode";
 import SwipeReader from "@/components/mushaf/SwipeReader";
 
@@ -17,7 +17,8 @@ import { devLog } from "@/lib/devLog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mushafPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
-import { useTrackReading } from "@/hooks/useReadingHistory";
+import { trackPageDebounced } from "@/hooks/useReadingHistory";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { useChapters } from "@/hooks/useChapters";
@@ -32,12 +33,14 @@ export function Reader({ initialPage }: { initialPage: number }) {
   const searchParams = useSearchParams();
   const verseParam = searchParams.get("verse");
   const { prefs } = usePreferences();
-  const { applyTheme } = useTheme();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } =
     useImmersiveMode();
 
   const [page, setPage] = useState(initialPage);
-  const [highlightedVerse, setHighlightedVerse] = useState<string | null>(verseParam);
+  const [dismissedVerse, setDismissedVerse] = useState<string | null>(null);
+  const highlightedVerse =
+    verseParam && dismissedVerse === verseParam ? null : verseParam;
+
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
@@ -52,15 +55,10 @@ export function Reader({ initialPage }: { initialPage: number }) {
     return chapters.find(c => c.id === surahId)?.nameSimple ?? String(page);
   }, [page, chapters]);
 
-  useTrackReading(page);
-
-  useEffect(() => {
-    setPage(initialPage);
-  }, [initialPage]);
-
-  useEffect(() => {
-    setHighlightedVerse(verseParam);
-  }, [verseParam]);
+  // --- Track reading: initial + on page change ---
+  useMountEffect(() => {
+    trackPageDebounced(page);
+  });
 
   const replaceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,6 +66,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
     (next: number) => {
       const p = clampPage(next);
       setPage(p);
+      trackPageDebounced(p);
 
       if (replaceTimer.current) clearTimeout(replaceTimer.current);
       replaceTimer.current = setTimeout(() => {
@@ -77,33 +76,35 @@ export function Reader({ initialPage }: { initialPage: number }) {
     [router],
   );
 
-  useEffect(() => {
+  // Cleanup replaceTimer on unmount
+  useMountEffect(() => {
     return () => {
       if (replaceTimer.current) clearTimeout(replaceTimer.current);
     };
-  }, []);
+  });
 
-  useEffect(() => {
-    applyTheme(prefs.theme);
-    document.documentElement.style.setProperty(
-      "--mushaf-font-scale",
-      String(prefs.fontScale),
-    );
-  }, [applyTheme, prefs.fontScale, prefs.theme]);
+  // Apply theme and font scale via preferences listener
+  useApplyPreferences();
 
-  // Idempotent helper specifically for Playwright tests
-  useEffect(() => {
+  // Expose showChrome for Playwright tests
+  const showChromeRef = useRef(showChrome);
+
+  useLayoutEffect(() => {
+    showChromeRef.current = showChrome;
+  });
+
+  useMountEffect(() => {
     const w = window as unknown as { __showChrome?: () => void };
-    w.__showChrome = showChrome;
+    w.__showChrome = () => showChromeRef.current();
     return () => {
       delete w.__showChrome;
     };
-  }, [showChrome]);
+  });
 
   // Save reading mode preference when entering mushaf view
-  useEffect(() => {
+  useMountEffect(() => {
     setPreference("viewMode", "mushaf");
-  }, []);
+  });
 
   const handleWordTap = useCallback(
     (target: WordTapTarget) => {
@@ -123,8 +124,9 @@ export function Reader({ initialPage }: { initialPage: number }) {
 
   const clearHighlightedVerse = useCallback(() => {
     if (!highlightedVerse) return;
-    setHighlightedVerse(null);
+    setDismissedVerse(highlightedVerse);
     removeQueryParamFromCurrentUrl("verse");
+    queueMicrotask(() => setDismissedVerse(null));
   }, [highlightedVerse]);
 
   const ReaderComponent = SwipeReader;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Home } from "lucide-react";
 import { arabicToBuckwalter } from "@/lib/transliteration";
@@ -11,7 +11,8 @@ import { fetchVersePages } from "@/lib/navigation/maps";
 import { dbGet, dbPut } from "@/lib/offline/storage";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
-import { useTheme } from "@/hooks/useTheme";
+import { useApplyPreferences } from "@/hooks/useApplyPreferences";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { usePreferences } from "@/hooks/usePreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
@@ -69,54 +70,68 @@ export function OccurrenceViewer({
     const [occurrences, setOccurrences] = useState<Occurrence[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+    const [fontsReady, setFontsReady] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [downloadsOpen, setDownloadsOpen] = useState(false);
     const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
     const { prefs } = usePreferences();
-    const { applyTheme } = useTheme();
+    useApplyPreferences();
 
-    useEffect(() => {
-        applyTheme(prefs.theme);
-        document.documentElement.style.setProperty("--mushaf-font-scale", String(prefs.fontScale));
-    }, [applyTheme, prefs.fontScale, prefs.theme]);
-
-    // Fetch occurrences – try IDB cache keyed on dataUrl, fall back to network
-    useEffect(() => {
-        let active = true;
+    const fetchRequestIdRef = useRef(0);
+    const fetchControllerRef = useRef<AbortController | null>(null);
+    const prevDataUrlRef = useRef<string | null>(null);
+    if (prevDataUrlRef.current !== dataUrl) {
+        prevDataUrlRef.current = dataUrl;
+        fetchRequestIdRef.current += 1;
+        const requestId = fetchRequestIdRef.current;
+        fetchControllerRef.current?.abort();
+        fetchControllerRef.current = null;
+        setOccurrences(null);
         setLoading(true);
         setVisibleCount(INITIAL_VISIBLE);
         setSelectedTap(null);
+        setFontsReady(false);
 
-        async function fetchData() {
-            const { readKeys, writeKeys } = getOccurrenceCacheKeys(dataUrl);
+        queueMicrotask(() => {
+            const controller = new AbortController();
+            fetchControllerRef.current = controller;
 
-            try {
-                for (const cacheKey of readKeys) {
-                    const cached = await dbGet<Occurrence[] | undefined>("lemmas", cacheKey);
-                    if (cached && Array.isArray(cached)) {
-                        if (active) { setOccurrences(cached); setLoading(false); }
-                        return;
+            (async () => {
+                const { readKeys, writeKeys } = getOccurrenceCacheKeys(dataUrl);
+
+                try {
+                    for (const cacheKey of readKeys) {
+                        const cached = await dbGet<Occurrence[] | undefined>("lemmas", cacheKey);
+                        if (fetchRequestIdRef.current !== requestId) return;
+                        if (cached && Array.isArray(cached)) {
+                            setOccurrences(cached);
+                            setLoading(false);
+                            return;
+                        }
                     }
+                } catch {
+                    // IDB unavailable
                 }
-            } catch { /* IDB unavailable */ }
 
-            try {
-                const res = await fetch(dataUrl);
-                if (!res.ok) throw new Error("not found");
-                const data: Occurrence[] = await res.json();
-                // Best-effort write-through for offline use
-                for (const cacheKey of writeKeys) {
-                    dbPut("lemmas", cacheKey, data).catch(() => { });
+                try {
+                    const res = await fetch(dataUrl, { signal: controller.signal });
+                    if (!res.ok) throw new Error("not found");
+                    const data: Occurrence[] = await res.json();
+                    if (fetchRequestIdRef.current !== requestId || controller.signal.aborted) return;
+                    for (const cacheKey of writeKeys) {
+                        dbPut("lemmas", cacheKey, data).catch(() => { });
+                    }
+                    setOccurrences(data);
+                    setLoading(false);
+                } catch (error) {
+                    if (fetchRequestIdRef.current !== requestId || controller.signal.aborted) return;
+                    if (error instanceof DOMException && error.name === "AbortError") return;
+                    setOccurrences([]);
+                    setLoading(false);
                 }
-                if (active) { setOccurrences(data); setLoading(false); }
-            } catch {
-                if (active) { setOccurrences([]); setLoading(false); }
-            }
-        }
-
-        fetchData();
-        return () => { active = false; };
-    }, [dataUrl]);
+            })();
+        });
+    }
 
     // Group by verse
     const allVerses = useMemo(() => {
@@ -137,57 +152,90 @@ export function OccurrenceViewer({
     const visibleVerses = useMemo(() => allVerses.slice(0, visibleCount), [allVerses, visibleCount]);
 
     // Infinite scroll sentinel
-    const sentinelRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const node = sentinelRef.current;
+    const observerInstanceRef = useRef<IntersectionObserver | null>(null);
+    const allVersesLengthRef = useRef(allVerses.length);
+    allVersesLengthRef.current = allVerses.length;
+    const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+        observerInstanceRef.current?.disconnect();
+        observerInstanceRef.current = null;
         if (!node) return;
+
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting) {
-                    setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, allVerses.length));
+                if (entries[0]?.isIntersecting) {
+                    setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, allVersesLengthRef.current));
                 }
             },
             { rootMargin: "600px" },
         );
         observer.observe(node);
-        return () => observer.disconnect();
-    }, [allVerses.length, visibleCount]);
+        observerInstanceRef.current = observer;
+    }, []);
 
     // Font preloading for visible verses
-    const [fontsReady, setFontsReady] = useState(false);
+    const prevFontSignatureRef = useRef<string | null>(null);
+    const fontLoadActiveRef = useRef<{ cancel: () => void } | null>(null);
+    const fontSignature = `${mushafCode}:${visibleVerses.map(({ verseKey }) => verseKey).join(",")}`;
+    if (prevFontSignatureRef.current !== fontSignature) {
+        prevFontSignatureRef.current = fontSignature;
+        fontLoadActiveRef.current?.cancel();
 
-    useEffect(() => {
-        let active = true;
-        async function loadFonts() {
-            if (!isQcfCode(mushafCode)) { setFontsReady(true); return; }
-            if (visibleVerses.length === 0) return;
+        if (!isQcfCode(mushafCode) || visibleVerses.length === 0) {
+            setFontsReady(true);
+        } else {
+            setFontsReady(false);
 
-            try {
-                const pagesMap = await fetchVersePages(mushafCode);
-                const pagesToLoad = new Set<number>();
+            let active = true;
+            fontLoadActiveRef.current = {
+                cancel: () => {
+                    active = false;
+                },
+            };
 
-                for (const { verseKey } of visibleVerses) {
-                    const pageLookup = pagesMap[verseKey];
-                    if (pageLookup) {
-                        const startPage = Array.isArray(pageLookup) ? pageLookup[0] : pageLookup;
-                        const endPage = Array.isArray(pageLookup) ? pageLookup[1] : pageLookup;
-                        for (let p = startPage; p <= endPage; p++) pagesToLoad.add(p);
+            queueMicrotask(() => {
+                if (!active) return;
+
+                (async () => {
+                    try {
+                        const pagesMap = await fetchVersePages(mushafCode);
+                        const pagesToLoad = new Set<number>();
+
+                        for (const { verseKey } of visibleVerses) {
+                            const pageLookup = pagesMap[verseKey];
+                            if (!pageLookup) continue;
+                            const startPage = Array.isArray(pageLookup) ? pageLookup[0] : pageLookup;
+                            const endPage = Array.isArray(pageLookup) ? pageLookup[1] : pageLookup;
+                            for (let p = startPage; p <= endPage; p++) {
+                                pagesToLoad.add(p);
+                            }
+                        }
+
+                        for (const page of pagesToLoad) {
+                            if (!active) return;
+                            await loadQcfFont(mushafCode, page);
+                        }
+
+                        if (active) {
+                            setFontsReady(true);
+                        }
+                    } catch {
+                        if (active) {
+                            setFontsReady(true);
+                        }
                     }
-                }
-
-                for (const p of Array.from(pagesToLoad)) {
-                    if (!active) break;
-                    await loadQcfFont(mushafCode, p);
-                }
-                if (active) setFontsReady(true);
-            } catch {
-                if (active) setFontsReady(true);
-            }
+                })();
+            });
         }
-        loadFonts();
-        return () => { active = false; };
-    }, [visibleVerses, mushafCode]);
+    }
+
+    useMountEffect(() => {
+        return () => {
+            fetchRequestIdRef.current += 1;
+            fetchControllerRef.current?.abort();
+            fontLoadActiveRef.current?.cancel();
+            observerInstanceRef.current?.disconnect();
+        };
+    });
 
     const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerses.length > 0);
     const handleWordTap = useCallback((target: WordTapTarget) => {

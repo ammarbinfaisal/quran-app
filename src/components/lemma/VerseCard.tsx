@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { type MushafWord as MushafWordType, type MushafCode, type TranslationId, QCF_CODES } from "@/lib/types";
 import type { Chapter, UserPreferences } from "@/lib/types";
 import { fetchVersePages } from "@/lib/navigation/maps";
@@ -17,6 +17,7 @@ import { ExternalLink, FileText } from "lucide-react";
 import { vbvPath } from "@/lib/url";
 import { getTapAnchorFromEvent, type OnWordTap } from "@/lib/wordTap";
 import { loadAbuIyaadNotes, type AbuIyaadNote } from "@/lib/translations/abu-iyaad";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const NOOP = () => {};
 
@@ -27,9 +28,9 @@ type VerseViewPreferences = UserPreferences & { inlineVerseNotes?: boolean };
  * Renders a single verse: Arabic text + translations.
  *
  * Two layout variants driven by `showVerseLink`:
- *   - true  → "card" layout (lemma / root / search): verse key links to VBV,
+ *   - true  -> "card" layout (lemma / root / search): verse key links to VBV,
  *             Arabic on the right, translations below. Words fetched internally.
- *   - false → "block" layout (VBV reader): full-width RTL, verse key badge,
+ *   - false -> "block" layout (VBV reader): full-width RTL, verse key badge,
  *             optional surah header. Words supplied via `words` + `pageNum`.
  */
 export function VerseCard({
@@ -84,7 +85,7 @@ export function VerseCard({
     }, [wordsProp, pageNum, fetchedWords]);
 
     // Only fetch when words aren't supplied (card mode)
-    useEffect(() => {
+    useMountEffect(() => {
         if (wordsProp !== undefined) return;
         let active = true;
         async function load() {
@@ -110,9 +111,9 @@ export function VerseCard({
         }
         load();
         return () => { active = false; };
-    }, [verseKey, mushafCode, wordsProp]);
+    });
 
-    useEffect(() => {
+    useMountEffect(() => {
         let active = true;
         setAbuIyaadNotes(null);
 
@@ -127,7 +128,7 @@ export function VerseCard({
         return () => {
             active = false;
         };
-    }, [verseKey]);
+    });
 
     const translationIds = (translationIdsProp ?? prefs.translationIds) as TranslationId[];
     const translations = useTranslations(verseKey, translationIds);
@@ -157,7 +158,7 @@ export function VerseCard({
     }, [verseKey]);
     const hasNotes = (abuIyaadNotes?.length ?? 0) > 0;
 
-    // ── CARD LAYOUT (lemma / root / search) ────────────────────────────────
+    // -- CARD LAYOUT (lemma / root / search) ----------------------------------
     if (showVerseLink) {
         return (
             <div className="flex flex-col gap-6 border-b border-[var(--color-muted)]/10 pb-8 mb-4">
@@ -248,7 +249,7 @@ export function VerseCard({
         );
     }
 
-    // ── BLOCK LAYOUT (VBV reader) ───────────────────────────────────────────
+    // -- BLOCK LAYOUT (VBV reader) --------------------------------------------
     return (
         <div
             className="border-b border-muted/1 px-4 py-8"

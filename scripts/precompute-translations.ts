@@ -61,7 +61,6 @@ function parseAbuIyaadHtml(html: string): CompactSeg[] {
     while ((m = SPAN_RE.exec(html)) !== null) {
         // Text before the span
         if (m.index > lastIndex) {
-            const text = decodeEntities(stripTags(html.slice(lastIndex, m.index))).trim();
             // Preserve space between segments (don't collapse to nothing)
             const raw = decodeEntities(stripTags(html.slice(lastIndex, m.index)));
             if (raw) segs.push(raw);

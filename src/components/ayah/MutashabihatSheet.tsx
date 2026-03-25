@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeftRight, X } from "lucide-react";
 import Link from "next/link";
 import { ArabicVerseBlock, type PhraseHighlightRange } from "@/components/ayah/ArabicVerseBlock";
 import { useChapters } from "@/hooks/useChapters";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
   loadMutashabihatGroupsForVerse,
@@ -40,21 +41,27 @@ export function MutashabihatSheet({
   verseKey: string | null;
   onClose: () => void;
 }) {
+  if (!open || !verseKey) return null;
+
+  return (
+    <MutashabihatSheetContent key={verseKey} verseKey={verseKey} onClose={onClose} />
+  );
+}
+
+function MutashabihatSheetContent({
+  verseKey,
+  onClose,
+}: {
+  verseKey: string;
+  onClose: () => void;
+}) {
   const chapters = useChapters();
   const { prefs } = usePreferences();
   const [groups, setGroups] = useState<LoadedGroup[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!open || !verseKey) {
-      if (!open) {
-        setGroups(null);
-      }
-      return;
-    }
-
+  useMountEffect(() => {
     let active = true;
-    setLoading(true);
 
     loadMutashabihatGroupsForVerse(verseKey)
       .then((groupData) => {
@@ -72,21 +79,17 @@ export function MutashabihatSheet({
     return () => {
       active = false;
     };
-  }, [open, verseKey]);
+  });
 
   const sortedGroups = useMemo(() => {
     return [...(groups ?? [])].sort((a, b) => b.group.count - a.group.count || a.id - b.id);
   }, [groups]);
-  const activeSurahName = verseKey
-    ? chapters.find((chapter) => chapter.id === Number.parseInt(verseKey.split(":")[0] ?? "0", 10))?.nameSimple
-    : undefined;
-
-  if (!open) return null;
+  const activeSurahName = chapters.find((chapter) => chapter.id === Number.parseInt(verseKey.split(":")[0] ?? "0", 10))?.nameSimple;
 
   return (
     <>
       <div className="sheet-overlay" onClick={onClose} />
-      <div className="sheet-content" data-open="true" role="dialog" aria-label={`Mutashabihat for ${verseKey ?? "verse"}`}>
+      <div className="sheet-content" data-open="true" role="dialog" aria-label={`Mutashabihat for ${verseKey}`}>
         <div className="sheet-handle" />
 
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -94,11 +97,9 @@ export function MutashabihatSheet({
             <div className="text-sm font-semibold text-[var(--color-text)]">
               Similar Passages
             </div>
-            {verseKey && (
-              <div className="text-xs text-[var(--color-muted)]">
-                {getSurahLabel(verseKey, activeSurahName)}
-              </div>
-            )}
+            <div className="text-xs text-[var(--color-muted)]">
+              {getSurahLabel(verseKey, activeSurahName)}
+            </div>
           </div>
           <button
             type="button"

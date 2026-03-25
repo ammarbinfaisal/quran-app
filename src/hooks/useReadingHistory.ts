@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { getReadingHistory, updateReadingHistory } from "@/lib/history";
 import { getChapters, getChaptersOnPage } from "@/lib/chapters";
 import { READING_HISTORY_DEBOUNCE_MS } from "@/lib/constants";
@@ -12,7 +13,7 @@ export function useReadingHistory() {
     return [];
   });
 
-  useEffect(() => {
+  useMountEffect(() => {
     const onHistoryChanged = (e: Event) => {
       setHistory((e as CustomEvent<HistoryEntry[]>).detail);
     };
@@ -37,7 +38,7 @@ export function useReadingHistory() {
       window.removeEventListener("pageshow", onPageShow);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, []);
+  });
 
   const refresh = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -51,48 +52,39 @@ export function useReadingHistory() {
   return { history, refresh };
 }
 
-/**
- * Hook that auto-updates reading history as the user navigates pages.
- * Debounced to avoid excessive writes.
- */
-export function useTrackReading(currentPage: number) {
-  const chaptersRef = useRef<Chapter[]>([]);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+// --- Module-level page tracking (replaces useTrackReading hook) ---
 
-  useEffect(() => {
-    chaptersRef.current = getChapters();
-  }, []);
+let chaptersCache: Chapter[] | null = null;
+let trackTimer: ReturnType<typeof setTimeout> | null = null;
 
-  useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+export function trackPageDebounced(currentPage: number) {
+  if (trackTimer) clearTimeout(trackTimer);
 
-    timerRef.current = setTimeout(() => {
-      const chapters = chaptersRef.current;
-      if (!chapters.length) return;
+  trackTimer = setTimeout(() => {
+    if (!chaptersCache) {
+      chaptersCache = getChapters();
+    }
+    const chapters = chaptersCache;
+    if (!chapters.length) return;
 
-      const onPage = getChaptersOnPage(chapters, currentPage);
-      for (const ch of onPage) {
-        // Estimate which verse we're at based on page position within chapter
-        const [startPage, endPage] = ch.pages;
-        const pageSpan = Math.max(1, endPage - startPage + 1);
-        const pageOffset = currentPage - startPage;
-        const estimatedVerse = Math.max(
-          1,
-          Math.ceil((pageOffset / pageSpan) * ch.versesCount),
-        );
+    const onPage = getChaptersOnPage(chapters, currentPage);
+    for (const ch of onPage) {
+      // Estimate which verse we're at based on page position within chapter
+      const [startPage, endPage] = ch.pages;
+      const pageSpan = Math.max(1, endPage - startPage + 1);
+      const pageOffset = currentPage - startPage;
+      const estimatedVerse = Math.max(
+        1,
+        Math.ceil((pageOffset / pageSpan) * ch.versesCount),
+      );
 
-        updateReadingHistory({
-          chapterId: ch.id,
-          chapterName: ch.nameSimple,
-          verseKey: `${ch.id}:${estimatedVerse}`,
-          pageNumber: currentPage,
-          timestamp: Date.now(),
-        });
-      }
-    }, READING_HISTORY_DEBOUNCE_MS);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [currentPage]);
+      updateReadingHistory({
+        chapterId: ch.id,
+        chapterName: ch.nameSimple,
+        verseKey: `${ch.id}:${estimatedVerse}`,
+        pageNumber: currentPage,
+        timestamp: Date.now(),
+      });
+    }
+  }, READING_HISTORY_DEBOUNCE_MS);
 }

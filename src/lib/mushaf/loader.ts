@@ -20,11 +20,6 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function uniq(nums: number[]) {
-  return Array.from(new Set(nums));
-}
-
-
 async function runPool(tasks: Array<() => Promise<void>>, concurrency: number) {
   let i = 0;
   const workers = new Array(concurrency).fill(0).map(async () => {

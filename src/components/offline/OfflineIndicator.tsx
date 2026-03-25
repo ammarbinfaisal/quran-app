@@ -1,26 +1,31 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { CloudOff } from "lucide-react";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { MUSHAF_DISPLAY_NAMES, TRANSLATION_DISPLAY_NAMES } from "@/lib/types";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 export function OfflineIndicator() {
   const { status } = useOfflineStatus();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const openRef = useRef(open);
 
-  // Close popover on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+  useLayoutEffect(() => {
+    openRef.current = open;
+  });
+
+  useMountEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      if (!openRef.current || !containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+    };
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => document.removeEventListener("mousedown", handleDocumentClick);
+  });
 
   // Only show when offline
   if (!status || status.online) return null;

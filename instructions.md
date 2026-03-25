@@ -64,3 +64,9 @@ Service worker at `public/sw.js` uses cache-first for same-origin resources, net
 ### Themes
 
 3 themes (light-warm, dark-warm, white-green) applied via `data-theme` attribute on `<html>` with CSS custom properties defined in `src/app/globals.css`.
+
+## React Patterns
+
+- Avoid direct `useEffect` usage in app code. Prefer deriving state during render, moving interaction logic into event handlers, and using ref-guarded async work when state must react to prop changes.
+- Use `useMountEffect()` only for mount-scoped external synchronization such as DOM listeners, browser APIs, storage/events subscriptions, and cleanup of mount-started async work.
+- When a component instance is keyed by route/page identity, prefer mount-only data loading in the keyed child over effect-driven reset logic in a long-lived parent.

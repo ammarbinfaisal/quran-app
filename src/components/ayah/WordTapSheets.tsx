@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowLeftRight, BookOpen, Copy, FileText, Loader2, Pause, Play, Search } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
-import { InPlaceNotes } from "@/components/ayah/InPlaceNotes";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
 import { NotesSheet } from "@/components/ayah/NotesSheet";
 import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
@@ -16,6 +15,7 @@ import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
 import { getAudioElement, pauseAudio } from "@/lib/audio";
 import { playVerseAudio } from "@/lib/verseAudio";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
 type AudioState = "idle" | "loading" | "playing";
@@ -32,7 +32,6 @@ export function WordTapSheets({
   onClose: () => void;
 }) {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
-  const [showInPlaceNotes, setShowInPlaceNotes] = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
   const [audioState, setAudioState] = useState<AudioState>("idle");
@@ -43,46 +42,38 @@ export function WordTapSheets({
   const copyTranslationIds = copyPrefs.copyTranslationIds ?? translationIds;
 
   // Reset audio state when tapped verse changes, stop any playing audio.
-  useEffect(() => {
+  const prevTapRef = useRef(selectedTap);
+  if (prevTapRef.current !== selectedTap) {
+    prevTapRef.current = selectedTap;
     setAudioState("idle");
     pauseAudio();
-  }, [selectedTap]);
+
+    // Reset sheet/notes state and load data for new tap
+    setActiveSheet(null);
+    setHasNotes(false);
+    setHasMutashabihat(false);
+
+    if (selectedTap) {
+      const tap = selectedTap;
+      queueMicrotask(() => {
+        loadAbuIyaadNotes(tap.verseKey)
+          .then((notes) => setHasNotes(notes.length > 0))
+          .catch(() => {});
+        loadMutashabihatVerseMap()
+          .then((map) => setHasMutashabihat((map[tap.verseKey]?.length ?? 0) > 0))
+          .catch(() => {});
+      });
+    }
+  }
 
   // Listen for the audio element's ended event to reset state.
-  useEffect(() => {
+  useMountEffect(() => {
     const el = getAudioElement();
     if (!el) return;
     const handleEnded = () => setAudioState("idle");
     el.addEventListener("ended", handleEnded);
     return () => el.removeEventListener("ended", handleEnded);
-  }, []);
-
-  useEffect(() => {
-    setActiveSheet(null);
-    setShowInPlaceNotes(false);
-    setHasNotes(false);
-    setHasMutashabihat(false);
-
-    if (!selectedTap) return;
-
-    let active = true;
-
-    loadAbuIyaadNotes(selectedTap.verseKey)
-      .then((notes) => {
-        if (active) setHasNotes(notes.length > 0);
-      })
-      .catch(() => {});
-
-    loadMutashabihatVerseMap()
-      .then((map) => {
-        if (active) setHasMutashabihat((map[selectedTap.verseKey]?.length ?? 0) > 0);
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, [selectedTap]);
+  });
 
   const buttons = useMemo(() => {
     if (!selectedTap) return [];
@@ -155,12 +146,12 @@ export function WordTapSheets({
       onClick: () => setActiveSheet("translation"),
     });
 
-    if (hasNotes && !prefs.inlineVerseNotes) {
+    if (hasNotes) {
       items.push({
         id: "notes",
         icon: <FileText className="h-4 w-4" />,
-        label: "Toggle Abu Iyaad notes",
-        onClick: () => setShowInPlaceNotes((prev) => !prev),
+        label: "Open Abu Iyaad notes",
+        onClick: () => setActiveSheet("notes"),
       });
     }
 
@@ -174,7 +165,7 @@ export function WordTapSheets({
     }
 
     return items;
-  }, [audioState, copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, prefs.inlineVerseNotes, selectedTap]);
+  }, [audioState, copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, selectedTap]);
 
   if (!selectedTap) return null;
 
@@ -185,14 +176,6 @@ export function WordTapSheets({
           anchor={selectedTap.anchor}
           buttons={buttons}
           onDismiss={onClose}
-        />
-      )}
-
-      {activeSheet === null && showInPlaceNotes && (
-        <InPlaceNotes
-          verseKey={selectedTap.verseKey}
-          anchor={selectedTap.anchor}
-          onDismiss={() => setShowInPlaceNotes(false)}
         />
       )}
 

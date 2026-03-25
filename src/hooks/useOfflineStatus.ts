@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import type { OfflineStatus } from "@/lib/types";
 import { getOfflineStatus } from "@/lib/offline/status";
 
@@ -21,7 +22,7 @@ export function useOfflineStatus(): {
     });
   }, []);
 
-  useEffect(() => {
+  useMountEffect(() => {
     refresh();
 
     const handleOnline = () => {
@@ -43,7 +44,7 @@ export function useOfflineStatus(): {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [refresh]);
+  });
 
   return { status, refresh };
 }

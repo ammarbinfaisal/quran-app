@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { type MushafWord as MushafWordType, type MushafCode, QCF_CODES } from "@/lib/types";
 import { fetchVersePages } from "@/lib/navigation/maps";
 import { loadMushafPage } from "@/lib/mushaf/loader";
 import { getFontFamily, isFontLoaded, isQcfCode, loadQcfFont, loadUnicodeFont } from "@/lib/mushaf/fonts";
 import { MushafWord } from "@/components/mushaf/MushafWord";
 import { getTapAnchorFromEvent, type OnWordTap } from "@/lib/wordTap";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const NOOP = () => {};
 
@@ -63,7 +64,7 @@ export function ArabicVerseBlock({
     return fetchedWords;
   }, [fetchedWords, pageNum, wordsProp]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (wordsProp !== undefined) return;
 
     let active = true;
@@ -99,9 +100,9 @@ export function ArabicVerseBlock({
     return () => {
       active = false;
     };
-  }, [mushafCode, verseKey, wordsProp]);
+  });
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (fontReady !== undefined) {
       setInternalFontReady(fontReady);
       setInternalShowFontSkeleton(showFontSkeleton ?? false);
@@ -158,7 +159,7 @@ export function ArabicVerseBlock({
       active = false;
       if (skeletonTimer) clearTimeout(skeletonTimer);
     };
-  }, [fontReady, mushafCode, showFontSkeleton, words]);
+  });
 
   const resolvedFontReady = fontReady ?? internalFontReady;
   const resolvedShowFontSkeleton = showFontSkeleton ?? internalShowFontSkeleton;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import type { MushafCode } from "@/lib/types";
 import {
   isQcfCode,
@@ -19,7 +20,7 @@ interface UseQcfFontResult {
 export function useQcfFont(code: MushafCode, pageNum: number): UseQcfFontResult {
   const [loaded, setLoaded] = useState(() => !isQcfCode(code));
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!isQcfCode(code)) return;
 
     let cancelled = false;
@@ -38,7 +39,7 @@ export function useQcfFont(code: MushafCode, pageNum: number): UseQcfFontResult 
     return () => {
       cancelled = true;
     };
-  }, [code, pageNum]);
+  });
 
   return { loaded };
 }

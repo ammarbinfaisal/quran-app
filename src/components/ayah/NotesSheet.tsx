@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { NoteCard } from "@/components/ayah/NoteCard";
 import {
   loadAbuIyaadNotes,
@@ -18,34 +19,44 @@ export function NotesSheet({
   verseKey: string | null;
   onClose: () => void;
 }) {
+  if (!open || !verseKey) return null;
+
+  return (
+    <NotesSheetContent key={verseKey} verseKey={verseKey} onClose={onClose} />
+  );
+}
+
+function NotesSheetContent({
+  verseKey,
+  onClose,
+}: {
+  verseKey: string;
+  onClose: () => void;
+}) {
   const chapters = useChapters();
   const [notes, setNotes] = useState<AbuIyaadNote[] | null | undefined>(undefined);
-  const [notesVerseKey, setNotesVerseKey] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!open || !verseKey) return;
-
+  useMountEffect(() => {
     let active = true;
     loadAbuIyaadNotes(verseKey)
       .then((data) => {
         if (!active) return;
         setNotes(data);
-        setNotesVerseKey(verseKey);
+        setLoading(false);
       })
       .catch(() => {
         if (!active) return;
         setNotes([]);
-        setNotesVerseKey(verseKey);
+        setLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [open, verseKey]);
+  });
 
   const subtitle = useMemo(() => {
-    if (!open || !verseKey) return null;
-
     const [surahPart, ayahPart] = verseKey.split(":");
     const surahNum = Number(surahPart);
     const ayahNum = Number(ayahPart);
@@ -58,16 +69,12 @@ export function NotesSheet({
     const surahLabel = surahName ? `Surah ${surahName}` : `Surah ${surahNum}`;
 
     return `${surahLabel} - ${ayahNum}`;
-  }, [chapters, open, verseKey]);
-
-  const loading = open && !!verseKey && notesVerseKey !== verseKey;
-
-  if (!open) return null;
+  }, [chapters, verseKey]);
 
   return (
     <>
       <div className="sheet-overlay" onClick={onClose} />
-      <div className="sheet-content" data-open="true" role="dialog" aria-label={`Notes for ${verseKey ?? "verse"}`}>
+      <div className="sheet-content" data-open="true" role="dialog" aria-label={`Notes for ${verseKey}`}>
         <div className="sheet-handle" />
 
         <div className="mb-4 flex items-start justify-between gap-3">

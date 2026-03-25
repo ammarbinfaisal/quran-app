@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback, type RefObject } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 /**
  * Handles keyboard arrows (RTL-aware) and touch swipe gestures
@@ -12,22 +13,14 @@ export function useSwipeNavigation(
   containerRef: RefObject<HTMLElement | null>,
   onPageChange: (direction: "next" | "prev") => void,
 ): void {
-  // ---- Keyboard ----
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        onPageChange("next");
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        onPageChange("prev");
-      }
-    },
-    [onPageChange],
-  );
+  const onPageChangeRef = useRef(onPageChange);
+
+  useLayoutEffect(() => {
+    onPageChangeRef.current = onPageChange;
+  });
 
   // ---- Touch swipe ----
-  useEffect(() => {
+  useMountEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
@@ -50,9 +43,9 @@ export function useSwipeNavigation(
 
       // RTL: swiping left (negative deltaX) = prev, swiping right (positive) = next
       if (deltaX > 0) {
-        onPageChange("next");
+        onPageChangeRef.current("next");
       } else {
-        onPageChange("prev");
+        onPageChangeRef.current("prev");
       }
     };
 
@@ -63,13 +56,23 @@ export function useSwipeNavigation(
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [containerRef, onPageChange]);
+  });
 
   // ---- Keyboard listener ----
-  useEffect(() => {
+  useMountEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onPageChangeRef.current("next");
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        onPageChangeRef.current("prev");
+      }
+    };
+
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleKeyDown]);
+  });
 }
