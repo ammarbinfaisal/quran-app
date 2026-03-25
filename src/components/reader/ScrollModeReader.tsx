@@ -20,6 +20,7 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
+import { useDirectionalReaderKeyboardNav } from "@/hooks/useDirectionalReaderKeyboardNav";
 
 export function ScrollModeReader({
   type,
@@ -60,6 +61,14 @@ export function ScrollModeReader({
 
   // Apply theme and font scale via preferences listener
   useApplyPreferences();
+
+  useDirectionalReaderKeyboardNav({
+    type,
+    id,
+    onNavigate: (nextType, nextId) => {
+      router.push(scrollPath(nextType, nextId), { scroll: false });
+    },
+  });
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     const resolvedIndex = target.wordIndex;

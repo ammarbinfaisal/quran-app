@@ -20,6 +20,7 @@ import { vbvPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
+import { useDirectionalReaderKeyboardNav } from "@/hooks/useDirectionalReaderKeyboardNav";
 
 export function VerseReader({
   type,
@@ -68,6 +69,14 @@ export function VerseReader({
 
   // Apply theme and font scale via preferences listener
   useApplyPreferences();
+
+  useDirectionalReaderKeyboardNav({
+    type,
+    id,
+    onNavigate: (nextType, nextId) => {
+      router.push(vbvPath(nextType, nextId), { scroll: false });
+    },
+  });
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     const resolvedIndex = target.wordIndex;
