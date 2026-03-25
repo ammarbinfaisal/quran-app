@@ -100,7 +100,10 @@ export function WordTapSheets({
               return;
             }
             setAudioState("loading");
-            const success = await playVerseAudio(selectedTap.verseKey);
+            const success = await playVerseAudio(
+              selectedTap.verseKey,
+              prefs.ayahReciterId,
+            );
             setAudioState(success ? "playing" : "idle");
           })();
         },
@@ -165,7 +168,16 @@ export function WordTapSheets({
     }
 
     return items;
-  }, [audioState, copyMode, copyTranslationIds, hasMutashabihat, hasNotes, onClose, selectedTap]);
+  }, [
+    audioState,
+    copyMode,
+    copyTranslationIds,
+    hasMutashabihat,
+    hasNotes,
+    onClose,
+    prefs.ayahReciterId,
+    selectedTap,
+  ]);
 
   if (!selectedTap) return null;
 

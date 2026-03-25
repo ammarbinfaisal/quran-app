@@ -6,6 +6,7 @@ import { ChevronRight, FileText, MonitorDown, X } from "lucide-react";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { TranslationPicker } from "@/components/settings/TranslationPicker";
 import { VerseCopySettings } from "@/components/settings/VerseCopySettings";
+import { AyahReciterPicker } from "@/components/settings/AyahReciterPicker";
 import { InlineVerseNotesToggle } from "@/components/settings/InlineVerseNotesToggle";
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
@@ -59,6 +60,7 @@ export function SettingsDrawer({
         <div className="max-h-[75vh] overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
           <ThemePicker />
           <TranslationPicker />
+          <AyahReciterPicker />
           <VerseCopySettings />
           <InlineVerseNotesToggle />
           <FontSizeControl />

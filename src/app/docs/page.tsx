@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { createWebPageJsonLd } from "@/lib/seo";
+import { AYAH_RECITER_DISPLAY_NAMES, SUPPORTED_AYAH_RECITERS } from "@/lib/types";
 
 const READ_MODES = [
   {
@@ -246,6 +247,18 @@ export default function DocsPage() {
                   <ExternalLink className="h-4 w-4 text-[var(--color-muted)]" />
                 </a>
               </div>
+              <p className="mt-4 text-pretty text-sm leading-7 text-[var(--color-muted)]">
+                The current ayah-recitation datasets were taken from{" "}
+                <a
+                  href="https://qul.tarteel.ai/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-[var(--color-accent)] underline-offset-2 hover:underline"
+                >
+                  qul.tarteel.ai
+                </a>
+                . We plan to add Shaykh Ali al-Hudhaify later, in sha Allah, from another source.
+              </p>
             </article>
 
             <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
@@ -266,6 +279,27 @@ export default function DocsPage() {
                 </p>
               </div>
             </article>
+          </section>
+
+          <section className="mt-8 rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
+            <h2 className="text-balance text-xl font-semibold">Why these qurra for ayah playback</h2>
+            <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
+              Qari selection is a design choice, not just a content dump. Many reciters balance melody
+              and tajweed differently. Some push melody further while cutting into tajweed precision.
+              For ayah playback we prioritized murattal, not mujawwad, and chose recitations that keep
+              strong itqan in the tajweed rules while still being pleasant to listen to.
+            </p>
+            <ul className="mt-4 space-y-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
+              {SUPPORTED_AYAH_RECITERS.map((id) => (
+                <li key={id} className="rounded-xl border border-[var(--color-muted)]/15 bg-[var(--color-bg)] px-4 py-3">
+                  {AYAH_RECITER_DISPLAY_NAMES[id]}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-pretty text-sm leading-7 text-[var(--color-muted)]">
+              These are the three included for now because they meet that bar in the source datasets we
+              currently rely on.
+            </p>
           </section>
 
           <section className="mt-8 rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">

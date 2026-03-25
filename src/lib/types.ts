@@ -59,12 +59,31 @@ export type TranslationId = "saheeh" | "hilali-khan" | "abu-iyaad";
 export const SUPPORTED_TRANSLATION_IDS = ["saheeh", "hilali-khan", "abu-iyaad"] as const satisfies readonly TranslationId[];
 
 export type CopyVerseContentMode = "arabic" | "arabic-and-translations" | "translations";
+export type AyahReciterId = "abdul-basit" | "husary" | "minshawi";
 
 export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
   saheeh: "Saheeh International",
   "hilali-khan": "Mohsin Khan and Taqi-ud-Din Hilali",
   "abu-iyaad": "Abu Iyaad",
 };
+
+export const AYAH_RECITER_DISPLAY_NAMES: Record<AyahReciterId, string> = {
+  "abdul-basit": "Abdul Basit Abdul Samad",
+  husary: "Mahmoud Khalil al-Husary",
+  minshawi: "Muhammad Siddiq al-Minshawi",
+};
+
+export const AYAH_RECITER_DATA_FILES: Record<AyahReciterId, string> = {
+  "abdul-basit": "ayah-recitation-abdul-basit-abdul-samad-murattal-hafs-950.json",
+  husary: "ayah-recitation-mahmoud-khalil-al-husary-murattal-hafs-957.json",
+  minshawi: "ayah-recitation-muhammad-siddiq-al-minshawi-murattal-hafs-959.json",
+};
+
+export const SUPPORTED_AYAH_RECITERS = [
+  "abdul-basit",
+  "husary",
+  "minshawi",
+] as const satisfies readonly AyahReciterId[];
 
 /** Maps our internal translation ID to the api.quran.com resource ID */
 export const TRANSLATION_API_IDS: Record<Exclude<TranslationId, "abu-iyaad">, number> = {
@@ -120,6 +139,7 @@ export interface UserPreferences {
   translationIds: TranslationId[];
   copyVerseContentMode: CopyVerseContentMode;
   copyTranslationIds: TranslationId[];
+  ayahReciterId: AyahReciterId;
   inlineVerseNotes: boolean;
   theme: ThemeId;
   fontScale: number; // 1-10
@@ -133,6 +153,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   translationIds: ["saheeh", "abu-iyaad"],
   copyVerseContentMode: "arabic-and-translations",
   copyTranslationIds: ["saheeh", "abu-iyaad"],
+  ayahReciterId: "abdul-basit",
   inlineVerseNotes: false,
   theme: "light-warm",
   fontScale: 1,
