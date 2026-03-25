@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Database, Download, Trash2 } from "lucide-react";
+import { Database } from "lucide-react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   getDataManagerStatus,
@@ -80,55 +80,25 @@ export function DataManagerSection() {
           </div>
         </div>
 
-        <div className="grid gap-2">
-          <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--color-text)]">Purge cache</p>
-              <p className="mt-1 text-pretty text-sm leading-6 text-[var(--color-muted)]">
-                Removes warmed pages, translations, and browser caches that can be fetched again while
-                preserving explicit offline downloads.
-              </p>
-            </div>
-            <ConfirmActionButton
-              triggerLabel="Purge cache"
-              title="Purge cached reading data?"
-              description="This removes transient warmed data and browser caches, but keeps your explicit offline downloads. The app may fetch these assets again as you continue reading."
-              confirmLabel="Purge cache"
-              busyLabel="Purging..."
-              onConfirm={handlePurgeTransientData}
-            />
-          </div>
-
-          <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--color-text)]">Remove downloads</p>
-              <p className="mt-1 text-pretty text-sm leading-6 text-[var(--color-muted)]">
-                Deletes mushaf, translation, morphology, and lemma assets that were saved for offline
-                use. Temporary cache entries may still rebuild later while you read.
-              </p>
-            </div>
-            <ConfirmActionButton
-              triggerLabel="Remove downloads"
-              title="Remove downloaded assets?"
-              description="This deletes assets you explicitly saved for offline use, including downloaded mushaf files, translations, morphology, and lemma data."
-              confirmLabel="Remove downloads"
-              busyLabel="Removing..."
-              onConfirm={handleRemoveDownloadedAssets}
-              disabled={!status?.hasDownloadedAssets}
-              tone="danger"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 text-xs text-[var(--color-muted)]">
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2 py-1">
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            Explicit downloads stay separate from cache purging.
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2 py-1">
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Preferences and reading history are not touched here.
-          </span>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <ConfirmActionButton
+            triggerLabel="Purge cache"
+            title="Purge cached reading data?"
+            description="This removes transient warmed data and browser caches, but keeps your explicit offline downloads. The app may fetch these assets again as you continue reading."
+            confirmLabel="Purge cache"
+            busyLabel="Purging..."
+            onConfirm={handlePurgeTransientData}
+          />
+          <ConfirmActionButton
+            triggerLabel="Remove downloads"
+            title="Remove downloaded assets?"
+            description="This deletes assets you explicitly saved for offline use, including downloaded mushaf files, translations, morphology, and lemma data."
+            confirmLabel="Remove downloads"
+            busyLabel="Removing..."
+            onConfirm={handleRemoveDownloadedAssets}
+            disabled={!status?.hasDownloadedAssets}
+            tone="danger"
+          />
         </div>
 
         {error && (

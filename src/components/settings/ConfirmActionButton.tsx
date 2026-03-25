@@ -45,7 +45,7 @@ export function ConfirmActionButton({
           type="button"
           disabled={disabled || busy}
           className={cn(
-            "min-h-12 rounded-xl border px-3 py-3 text-left text-sm font-medium transition-colors",
+            "min-h-12 w-full rounded-xl border px-3 py-3 text-center text-sm font-medium transition-colors",
             "disabled:cursor-not-allowed disabled:opacity-50",
           )}
           style={{

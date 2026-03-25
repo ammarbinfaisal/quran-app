@@ -40,16 +40,10 @@ export function DataUsageModePicker() {
                 </span>
                 <SettingsSelectionIndicator active={active} />
               </div>
-              <p className="mt-2 text-pretty text-sm leading-6 text-[var(--color-muted)]">
-                {detail.shortDescription}
-              </p>
             </button>
           );
         })}
       </div>
-      <p className="mt-2 text-pretty text-xs leading-5 text-[var(--color-muted)]">
-        The docs page explains the exact background warming behavior for each mode.
-      </p>
     </section>
   );
 }
