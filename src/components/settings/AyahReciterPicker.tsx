@@ -5,6 +5,7 @@ import {
   AYAH_RECITER_DISPLAY_NAMES,
   SUPPORTED_AYAH_RECITERS,
 } from "@/lib/types";
+import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 export function AyahReciterPicker() {
   const { prefs, setPref } = usePreferences();
@@ -33,9 +34,7 @@ export function AyahReciterPicker() {
                 <div className="min-w-0 text-sm font-medium text-[var(--color-text)]">
                   {AYAH_RECITER_DISPLAY_NAMES[id]}
                 </div>
-                {active ? (
-                  <div className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-accent)]" />
-                ) : null}
+                <SettingsSelectionIndicator active={active} />
               </div>
             </button>
           );

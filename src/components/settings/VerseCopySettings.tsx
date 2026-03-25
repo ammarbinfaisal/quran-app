@@ -7,6 +7,7 @@ import {
   type CopyVerseContentMode,
   type TranslationId,
 } from "@/lib/types";
+import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 const COPY_MODES: Array<{ value: CopyVerseContentMode; label: string; description: string }> = [
   {
@@ -96,14 +97,12 @@ export function VerseCopySettings() {
                     borderColor: active ? "var(--color-accent)" : "rgba(0,0,0,0.08)",
                     backgroundColor: active ? "var(--color-surface)" : "var(--color-bg)",
                   }}
-                >
-                  <div className="text-sm font-medium text-[var(--color-text)]">
-                    {TRANSLATION_DISPLAY_NAMES[id]}
-                  </div>
-                  {active && (
-                    <div className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
-                  )}
-                </button>
+                  >
+                    <div className="text-sm font-medium text-[var(--color-text)]">
+                      {TRANSLATION_DISPLAY_NAMES[id]}
+                    </div>
+                    <SettingsSelectionIndicator active={active} />
+                  </button>
               );
             })}
           </div>

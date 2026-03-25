@@ -4,6 +4,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { DATA_USAGE_MODES, DATA_USAGE_MODE_DETAILS } from "@/lib/dataUsage";
 import type { DataUsageMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 export function DataUsageModePicker() {
   const { prefs, setPref } = usePreferences();
@@ -37,13 +38,7 @@ export function DataUsageModePicker() {
                 <span className="text-sm font-semibold text-[var(--color-text)]">
                   {detail.label}
                 </span>
-                <span
-                  className={cn(
-                    "size-2 rounded-full",
-                    active ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]/30",
-                  )}
-                  aria-hidden="true"
-                />
+                <SettingsSelectionIndicator active={active} />
               </div>
               <p className="mt-2 text-pretty text-sm leading-6 text-[var(--color-muted)]">
                 {detail.shortDescription}

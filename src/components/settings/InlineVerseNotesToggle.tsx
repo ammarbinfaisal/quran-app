@@ -1,6 +1,7 @@
 "use client";
 
 import { usePreferences } from "@/hooks/usePreferences";
+import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 export function InlineVerseNotesToggle() {
   const { prefs, setPref } = usePreferences();
@@ -28,14 +29,7 @@ export function InlineVerseNotesToggle() {
             Show notes under the verse instead of in a sheet.
           </div>
         </div>
-        <div
-          className="ml-3 h-4 w-8 rounded-full border transition"
-          style={{
-            borderColor: prefs.inlineVerseNotes ? "var(--color-accent)" : "rgba(0,0,0,0.12)",
-            backgroundColor: prefs.inlineVerseNotes ? "var(--color-accent)" : "var(--color-bg)",
-          }}
-          aria-hidden="true"
-        />
+        <SettingsSelectionIndicator active={prefs.inlineVerseNotes} />
       </button>
     </section>
   );

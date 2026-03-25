@@ -5,6 +5,7 @@ import {
   TRANSLATION_DISPLAY_NAMES,
   type TranslationId,
 } from "@/lib/types";
+import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 const TRANSLATIONS: TranslationId[] = ["saheeh", "hilali-khan"];
 
@@ -47,9 +48,7 @@ export function TranslationPicker() {
               <div className="text-sm font-medium text-[var(--color-text)]">
                 {TRANSLATION_DISPLAY_NAMES[id]}
               </div>
-              {active && (
-                <div className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
-              )}
+              <SettingsSelectionIndicator active={active} />
             </button>
           );
         })}
