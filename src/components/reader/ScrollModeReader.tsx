@@ -19,6 +19,7 @@ import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
+import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
 
 export function ScrollModeReader({
   type,
@@ -38,6 +39,13 @@ export function ScrollModeReader({
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const verseParam = searchParams.get("verse");
+  const [navSelection, setNavSelection] = useState<{
+    page: number | null;
+    verseKey: string | null;
+  }>({
+    page: type === "p" ? id : null,
+    verseKey: verseParam,
+  });
   const [dismissedVerse, setDismissedVerse] = useState<string | null>(null);
   const highlightedVerse =
     verseParam && dismissedVerse === verseParam ? null : verseParam;
@@ -110,6 +118,11 @@ export function ScrollModeReader({
           text: label,
           ariaLabel: "Open navigation",
           onClick: () => {
+            const scrollContainer = document.querySelector("[data-scroll-reader]") as HTMLElement | null;
+            setNavSelection({
+              page: scrollContainer ? getFirstFullyVisiblePage(scrollContainer) : type === "p" ? id : null,
+              verseKey: scrollContainer ? getFirstFullyVisibleVerse(scrollContainer) : verseParam,
+            });
             setSurahOpen(true);
             showChrome();
           },
@@ -148,6 +161,8 @@ export function ScrollModeReader({
       <NavigationPicker
         open={surahOpen}
         onClose={() => setSurahOpen(false)}
+        initialPage={navSelection.page}
+        initialVerseKey={navSelection.verseKey}
         onNavigate={(page: number, verseKey: string | null) => {
           setSelectedTap(null);
           setSurahOpen(false);

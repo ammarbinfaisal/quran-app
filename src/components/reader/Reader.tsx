@@ -189,6 +189,8 @@ export function Reader({ initialPage }: { initialPage: number }) {
       <NavigationPicker
         open={surahOpen}
         onClose={() => setSurahOpen(false)}
+        initialPage={page}
+        initialVerseKey={highlightedVerse}
         onNavigate={(nextPage, verseKey) => {
           router.push(mushafPath(clampPage(nextPage), verseKey), { scroll: false });
           setSelectedTap(null);

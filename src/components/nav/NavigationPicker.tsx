@@ -1,24 +1,62 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { TOTAL_PAGES } from "@/lib/constants";
 import type { Chapter, MushafCode } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
-import { fetchVersePages } from "@/lib/navigation/maps";
+import { fetchVersePages, pageToSurah, type VersePageMap } from "@/lib/navigation/maps";
 
 interface NavigationPickerProps {
   open: boolean;
   onClose: () => void;
   onNavigate: (page: number, verseKey: string | null) => void;
+  initialPage?: number | null;
+  initialVerseKey?: string | null;
+}
+
+function parseVerseKey(verseKey: string | null): {
+  surahId: number | null;
+  ayahNum: number | null;
+} {
+  if (!verseKey) {
+    return { surahId: null, ayahNum: null };
+  }
+
+  const [surahPart, ayahPart] = verseKey.split(":");
+  const surahId = Number.parseInt(surahPart, 10);
+  const ayahNum = Number.parseInt(ayahPart, 10);
+
+  return {
+    surahId: Number.isFinite(surahId) ? surahId : null,
+    ayahNum: Number.isFinite(ayahNum) ? ayahNum : null,
+  };
+}
+
+function getPageForVerse(verseMap: VersePageMap, verseKey: string): number | null {
+  const mapped = verseMap[verseKey];
+  if (mapped === undefined) return null;
+  return Array.isArray(mapped) ? mapped[0] : mapped;
+}
+
+function getFirstVerseOnPage(verseMap: VersePageMap, page: number): string | null {
+  for (const [verseKey, mapped] of Object.entries(verseMap)) {
+    const startPage = Array.isArray(mapped) ? mapped[0] : mapped;
+    if (startPage === page) {
+      return verseKey;
+    }
+  }
+  return null;
 }
 
 export default function NavigationPicker({
   open,
   onClose,
   onNavigate,
+  initialPage = null,
+  initialVerseKey = null,
 }: NavigationPickerProps) {
   const { prefs } = usePreferences();
 
@@ -30,6 +68,8 @@ export default function NavigationPicker({
       mushafCode={prefs.mushafCode}
       onClose={onClose}
       onNavigate={onNavigate}
+      initialPage={initialPage}
+      initialVerseKey={initialVerseKey}
     />
   );
 }
@@ -38,17 +78,32 @@ function NavigationPickerContent({
   mushafCode,
   onClose,
   onNavigate,
+  initialPage,
+  initialVerseKey,
 }: {
   mushafCode: MushafCode;
   onClose: () => void;
   onNavigate: (page: number, verseKey: string | null) => void;
+  initialPage: number | null;
+  initialVerseKey: string | null;
 }) {
   const chapters = useChapters();
+  const initialVerse = useMemo(() => parseVerseKey(initialVerseKey), [initialVerseKey]);
   const [surahFilter, setSurahFilter] = useState("");
-  const [selectedSurah, setSelectedSurah] = useState<Chapter | null>(null);
-  const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
-  const [selectedPage, setSelectedPage] = useState<number | null>(null);
+  const [selectedSurahId, setSelectedSurahId] = useState<number | null>(
+    initialVerse.surahId ?? (initialPage !== null ? pageToSurah(initialPage, chapters) : null),
+  );
+  const [selectedAyah, setSelectedAyah] = useState<number | null>(initialVerse.ayahNum);
+  const [selectedPage, setSelectedPage] = useState<number | null>(initialPage);
   const [verseMap, setVerseMap] = useState<Record<string, number | [number, number]> | null>(null);
+  const surahListRef = useRef<HTMLDivElement>(null);
+  const ayahListRef = useRef<HTMLDivElement>(null);
+  const pageListRef = useRef<HTMLDivElement>(null);
+
+  const selectedSurah = useMemo(
+    () => chapters.find((chapter) => chapter.id === selectedSurahId) ?? null,
+    [chapters, selectedSurahId],
+  );
 
   useMountEffect(() => {
     let active = true;
@@ -65,6 +120,42 @@ function NavigationPickerContent({
       active = false;
     };
   });
+
+  if (selectedPage === null && initialVerseKey && verseMap) {
+    const resolvedPage = getPageForVerse(verseMap, initialVerseKey);
+    if (resolvedPage !== null) {
+      setSelectedPage(resolvedPage);
+    }
+  }
+
+  if (
+    initialVerseKey === null &&
+    initialPage !== null &&
+    verseMap &&
+    selectedPage === initialPage &&
+    selectedAyah === null
+  ) {
+    const firstVerseOnPage = getFirstVerseOnPage(verseMap, initialPage);
+    const parsed = parseVerseKey(firstVerseOnPage);
+    if (parsed.surahId !== null && parsed.ayahNum !== null) {
+      if (selectedSurahId !== parsed.surahId) {
+        setSelectedSurahId(parsed.surahId);
+      }
+      setSelectedAyah(parsed.ayahNum);
+    }
+  }
+
+  useLayoutEffect(() => {
+    surahListRef.current
+      ?.querySelector<HTMLElement>("[data-nav-selected='true']")
+      ?.scrollIntoView({ block: "center" });
+    ayahListRef.current
+      ?.querySelector<HTMLElement>("[data-nav-selected='true']")
+      ?.scrollIntoView({ block: "center" });
+    pageListRef.current
+      ?.querySelector<HTMLElement>("[data-nav-selected='true']")
+      ?.scrollIntoView({ block: "center" });
+  }, [selectedSurahId, selectedAyah, selectedPage]);
 
   const surahFilterTrimmed = surahFilter.trim().toLowerCase();
   const hasSurahFilter = surahFilterTrimmed.length > 0;
@@ -87,13 +178,13 @@ function NavigationPickerContent({
 
   const resetState = () => {
     setSurahFilter("");
-    setSelectedSurah(null);
+    setSelectedSurahId(null);
     setSelectedAyah(null);
     setSelectedPage(null);
   };
 
   const handleSurahClick = (chapter: Chapter) => {
-    setSelectedSurah(chapter);
+    setSelectedSurahId(chapter.id);
     setSelectedAyah(null);
     setSelectedPage(chapter.pages[0]);
   };
@@ -115,7 +206,7 @@ function NavigationPickerContent({
   const handlePageClick = (page: number) => {
     setSelectedPage(page);
     setSelectedAyah(null);
-    setSelectedSurah(null);
+    setSelectedSurahId(pageToSurah(page, chapters));
   };
 
   const handleGo = () => {
@@ -178,7 +269,7 @@ function NavigationPickerContent({
                 </span>
               )}
             </div>
-            <div className="space-y-1 p-2">
+            <div ref={surahListRef} className="space-y-1 p-2">
               {filteredChapters.length === 0 ? (
                 <div className="px-3 py-8 text-center text-xs text-[var(--color-muted)]">
                   No surahs match{" "}
@@ -189,11 +280,12 @@ function NavigationPickerContent({
                 </div>
               ) : (
                 filteredChapters.map((chapter) => {
-                  const isActive = selectedSurah?.id === chapter.id;
+                  const isActive = selectedSurahId === chapter.id;
                   return (
                     <button
                       key={chapter.id}
                       onClick={() => handleSurahClick(chapter)}
+                      data-nav-selected={isActive ? "true" : undefined}
                       className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
                         isActive
                           ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
@@ -214,12 +306,13 @@ function NavigationPickerContent({
             <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
               Ayah
             </div>
-            <div className="space-y-1 p-2">
+            <div ref={ayahListRef} className="space-y-1 p-2">
               {selectedSurah ? (
                 Array.from({ length: selectedSurah.versesCount }, (_, index) => index + 1).map((ayahNum) => (
                   <button
                     key={ayahNum}
                     onClick={() => handleAyahClick(ayahNum)}
+                    data-nav-selected={selectedAyah === ayahNum ? "true" : undefined}
                     className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
                       selectedAyah === ayahNum
                         ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
@@ -241,11 +334,12 @@ function NavigationPickerContent({
             <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
               Page
             </div>
-            <div className="space-y-1 p-2">
+            <div ref={pageListRef} className="space-y-1 p-2">
               {allPages.map((page) => (
                 <button
                   key={page}
                   onClick={() => handlePageClick(page)}
+                  data-nav-selected={selectedPage === page ? "true" : undefined}
                   className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
                     selectedPage === page
                       ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"

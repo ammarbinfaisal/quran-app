@@ -19,6 +19,7 @@ import { devLog } from "@/lib/devLog";
 import { vbvPath } from "@/lib/url";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import type { WordTapTarget } from "@/lib/wordTap";
+import { getFirstFullyVisibleVerse } from "@/lib/viewport";
 
 export function VerseReader({
   type,
@@ -49,6 +50,13 @@ export function VerseReader({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [navSelection, setNavSelection] = useState<{
+    page: number | null;
+    verseKey: string | null;
+  }>({
+    page: type === "p" ? id : null,
+    verseKey: verseParam,
+  });
 
   // Save reading mode + submode preferences on mount
   useMountEffect(() => {
@@ -118,6 +126,11 @@ export function VerseReader({
           text: label,
           ariaLabel: "Open navigation",
           onClick: () => {
+            const scrollContainer = document.querySelector("[data-vbv-scroll]") as HTMLElement | null;
+            setNavSelection({
+              page: type === "p" ? id : null,
+              verseKey: scrollContainer ? getFirstFullyVisibleVerse(scrollContainer) : verseParam,
+            });
             setSurahOpen(true);
             showChrome();
           },
@@ -156,6 +169,8 @@ export function VerseReader({
       <NavigationPicker
         open={surahOpen}
         onClose={() => setSurahOpen(false)}
+        initialPage={navSelection.page}
+        initialVerseKey={navSelection.verseKey}
         onNavigate={(page: number, verseKey: string | null) => {
           setSelectedTap(null);
           setSurahOpen(false);
