@@ -118,15 +118,15 @@ export interface ThemeColors {
 export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors }> = {
   "light-warm": {
     label: "Light",
-    colors: { bg: "#f7f1e4", text: "#2c2c2c", accent: "#8b6914", surface: "#efe8d6", muted: "#a09070" },
+    colors: { bg: "#f7f1e4", text: "#2c2c2c", accent: "#8b6914", surface: "#efe8d6", muted: "#756548" },
   },
   "dark-warm": {
     label: "Dark",
-    colors: { bg: "#1a1410", text: "#e8dcc8", accent: "#c4a35a", surface: "#2a2218", muted: "#7a6a50" },
+    colors: { bg: "#1a1410", text: "#e8dcc8", accent: "#c4a35a", surface: "#2a2218", muted: "#9b8b70" },
   },
   "white-green": {
     label: "Classic",
-    colors: { bg: "#ffffff", text: "#1a1a1a", accent: "#2d6a4f", surface: "#f0f5f0", muted: "#6b8f7b" },
+    colors: { bg: "#ffffff", text: "#1a1a1a", accent: "#2d6a4f", surface: "#f0f5f0", muted: "#567362" },
   },
   "blue-slate-dark": {
     label: "Slate Dark",
@@ -134,7 +134,7 @@ export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors }> = {
   },
   "blue-slate-light": {
     label: "Slate Light",
-    colors: { bg: "#f4f7fb", text: "#1f2937", accent: "#345caa", surface: "#e7edf6", muted: "#62748f" },
+    colors: { bg: "#f4f7fb", text: "#1f2937", accent: "#345caa", surface: "#e7edf6", muted: "#586a84" },
   },
 };
 

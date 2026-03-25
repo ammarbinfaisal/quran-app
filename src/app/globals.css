@@ -20,8 +20,8 @@
   --color-text: #2c2c2c;
   --color-accent: #8b6914;
   --color-surface: #efe8d6;
-  --color-muted: #a09070;
-  --color-annotation: #8f7f60;
+  --color-muted: #756548;
+  --color-annotation: #6f5f46;
 
   --mushaf-font-scale: 3;
 
@@ -49,7 +49,7 @@
   --color-text: #e8dcc8;
   --color-accent: #c4a35a;
   --color-surface: #2a2218;
-  --color-muted: #7a6a50;
+  --color-muted: #9b8b70;
   --color-annotation: #b7a484;
 
   --pos-verb: #4ade80;
@@ -75,8 +75,8 @@
   --color-text: #1a1a1a;
   --color-accent: #2d6a4f;
   --color-surface: #f0f5f0;
-  --color-muted: #6b8f7b;
-  --color-annotation: #5f7e6d;
+  --color-muted: #567362;
+  --color-annotation: #4c6758;
 
   --pos-verb: #2d6a4f;
   --pos-noun: #1e40af;
@@ -127,7 +127,7 @@
   --color-text: #1f2937;
   --color-accent: #345caa;
   --color-surface: #e7edf6;
-  --color-muted: #62748f;
+  --color-muted: #586a84;
   --color-annotation: #4f627f;
 
   --pos-verb: #1f6b52;

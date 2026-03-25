@@ -72,14 +72,14 @@ export function TranslationBlock({
                     )}
             </div>
 
-            <div className={`${textClassName} text-[var(--color-text)] opacity-90`}>
+            <div className={`${textClassName} text-[var(--color-text)]`}>
                 {segments.map((part: TranslationSegment, idx: number) => {
                     if (part.type === "text") {
                         return <span key={idx}>{part.text}</span>;
                     }
                     if (part.type === "annotation") {
                         return (
-                            <span key={idx} className="text-[var(--color-muted)] opacity-70">
+                            <span key={idx} className="text-[var(--color-annotation)]">
                                 {part.text}
                             </span>
                         );
