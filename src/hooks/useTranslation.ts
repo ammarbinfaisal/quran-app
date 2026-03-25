@@ -4,10 +4,15 @@ import { useState } from "react";
 import type { TranslationId } from "@/lib/types";
 import type { TranslationContent } from "@/lib/footnotes";
 import { loadTranslation } from "@/lib/translations/loader";
+import {
+  deleteTranslationRequest,
+  getCachedTranslationContent,
+  getTranslationRequest,
+  setCachedTranslationContent,
+  setTranslationRequest,
+} from "@/lib/translations/runtimeCache";
 
 const EMPTY: TranslationContent = { segments: [], plain: "" };
-const translationCache = new Map<string, TranslationContent>();
-const translationRequests = new Map<string, Promise<TranslationContent>>();
 
 type TranslationState = {
   requestKey: string | null;
@@ -21,7 +26,7 @@ function getInitialState(requestKey: string | null): TranslationState {
     return { requestKey, content: EMPTY, loading: false, startedRequestKey: null };
   }
 
-  const cached = translationCache.get(requestKey);
+  const cached = getCachedTranslationContent(requestKey);
   if (cached !== undefined) {
     return { requestKey, content: cached, loading: false, startedRequestKey: requestKey };
   }
@@ -34,21 +39,21 @@ function loadTranslationCached(
   verseKey: string,
   translationId: TranslationId,
 ) {
-  const existing = translationRequests.get(requestKey);
+  const existing = getTranslationRequest(requestKey);
   if (existing) {
     return existing;
   }
 
   const request = loadTranslation(verseKey, translationId)
     .then((result) => {
-      translationCache.set(requestKey, result);
+      setCachedTranslationContent(requestKey, result);
       return result;
     })
     .finally(() => {
-      translationRequests.delete(requestKey);
+      deleteTranslationRequest(requestKey);
     });
 
-  translationRequests.set(requestKey, request);
+  setTranslationRequest(requestKey, request);
   return request;
 }
 

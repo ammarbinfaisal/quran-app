@@ -42,6 +42,11 @@ const memCache = new Map<string, MushafPagePayload>();
 // ✅ Deduplicate concurrent loads
 const inflight = new Map<string, Promise<MushafPagePayload>>();
 
+export function clearMushafPageMemoryCache(): void {
+  memCache.clear();
+  inflight.clear();
+}
+
 export function getCachedMushafPage(code: MushafCode, pageNum: number) {
   return memCache.get(cacheKeyOf(code, pageNum)) ?? null;
 }
