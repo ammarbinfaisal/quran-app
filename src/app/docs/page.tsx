@@ -110,21 +110,21 @@ const DOCS_SECTIONS = [
 export const metadata: Metadata = {
   title: "Docs",
   description:
-    "Read about reading modes, icon meanings, data sources, notes attribution, and the design choices behind the Quran app.",
+    "Read about the app's reading modes, navigation, sources, and design choices.",
   alternates: {
     canonical: "/docs",
   },
   openGraph: {
     title: "Docs",
     description:
-      "Read about reading modes, icon meanings, data sources, notes attribution, and the design choices behind the Quran app.",
+      "Read about the app's reading modes, navigation, sources, and design choices.",
     url: "/docs",
   },
   twitter: {
     card: "summary_large_image",
     title: "Docs",
     description:
-      "Read about reading modes, icon meanings, data sources, notes attribution, and the design choices behind the Quran app.",
+      "Read about the app's reading modes, navigation, sources, and design choices.",
   },
 };
 
@@ -137,7 +137,7 @@ export default function DocsPage() {
           path: "/docs",
           title: "Docs",
           description:
-            "Read about reading modes, icon meanings, data sources, notes attribution, and the design choices behind the Quran app.",
+            "Read about the app's reading modes, navigation, sources, and design choices.",
         })}
       />
 
@@ -164,20 +164,18 @@ export default function DocsPage() {
               <section className="rounded-3xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] px-5 py-6 shadow-sm sm:px-8 sm:py-8">
                 <p className="text-sm font-medium text-[var(--color-accent)]">Documentation</p>
                 <h1 className="mt-3 text-balance text-3xl font-semibold sm:text-4xl">
-                  How the app is organized and why it behaves this way
+                  How the app works
                 </h1>
                 <p className="mt-4 max-w-2xl text-pretty text-sm leading-7 text-[var(--color-muted)] sm:text-base">
-                  This app is designed for focused phone reading first. Controls are kept compact, labels
-                  appear where they matter, and the main reading anchors stay stable so you can resume
-                  from where you actually were instead of where the interface decided to reset you.
+                  The app is built for focused phone reading: compact controls, stable reading anchors, and
+                  details moved out of the main surface unless they are needed.
                 </p>
               </section>
 
               <section id="reading-modes" className="mt-8 scroll-mt-6">
                 <h2 className="text-balance text-xl font-semibold">Reading modes</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  The main mode switch uses icons instead of wide labels to preserve horizontal space
-                  while staying reachable with one hand.
+                  The mode switch uses icons to save space and stay reachable with one hand.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {READ_MODES.map(({ label, description, Icon }) => (
@@ -200,8 +198,8 @@ export default function DocsPage() {
               <section id="scope-icons" className="mt-8 scroll-mt-6">
                 <h2 className="text-balance text-xl font-semibold">Scope icons</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Verse and scroll views can be anchored by surah, juz, or page. These icons show how the
-                  current reading span is grouped without taking over the bottom bar.
+                  Verse and scroll views can be anchored by surah, juz, or page. These icons show the
+                  current scope without adding more text to the bottom bar.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {NAVIGATION_SCOPES.map(({ label, description, Icon }) => (
@@ -224,8 +222,8 @@ export default function DocsPage() {
               <section id="ayah-actions" className="mt-8 scroll-mt-6">
                 <h2 className="text-balance text-xl font-semibold">Ayah actions</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Ayah tools stay close to the thumb zone and appear only when they are relevant to the
-                  selected word or verse.
+                  Ayah tools stay near the thumb zone and only appear when relevant to the selected verse
+                  or word.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {AYAH_ACTIONS.map(({ label, description, Icon }) => (
@@ -250,16 +248,13 @@ export default function DocsPage() {
               <section id="data-controls" className="mt-8 scroll-mt-6">
                 <h2 className="text-balance text-xl font-semibold">Data controls</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Settings keeps the controls here terse on purpose. The buttons stay short, and the detail
-                  lives here where it is easier to scan, compare, and revisit later.
+                  Settings keeps these controls short. The details live here instead.
                 </p>
 
                 <div id="data-usage-modes" className="mt-6 scroll-mt-6">
                   <h3 className="text-balance text-lg font-semibold">Data usage modes</h3>
                   <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Settings includes a data usage control so background warming can match your connection,
-                    device budget, and reading style instead of assuming every session should fetch as much
-                    as possible.
+                    This controls how aggressively the app prefetches in the background.
                   </p>
                   <div className="mt-4 grid gap-3">
                     {DATA_USAGE_MODES.map((mode) => {
@@ -285,17 +280,15 @@ export default function DocsPage() {
                     <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
                       <h4 className="text-sm font-semibold">Purge cache</h4>
                       <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                        This removes transient warmed data such as nearby pages, translation cache entries,
-                        and browser caches that can be rebuilt naturally as you keep reading. It is meant for
-                        clearing temporary buildup without removing assets you explicitly saved for offline use.
+                        Removes temporary warmed data that can be rebuilt as you keep reading. It does not
+                        remove things you explicitly downloaded for offline use.
                       </p>
                     </article>
                     <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
                       <h4 className="text-sm font-semibold">Remove downloads</h4>
                       <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                        This deletes the assets you intentionally downloaded for offline reading, including
-                        mushaf data, translations, morphology chunks, and lemma data. It is the larger reset
-                        when you want to reclaim storage rather than just trim temporary cache.
+                        Deletes assets you intentionally downloaded for offline use, including mushaf data,
+                        translations, morphology chunks, and lemma data.
                       </p>
                     </article>
                   </div>
@@ -306,10 +299,9 @@ export default function DocsPage() {
                 <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
                   <h2 className="text-balance text-xl font-semibold">Sources and attribution</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Quran text, page structure, and search behavior are grounded in the Tarteel dataset and
-                    related Quran data feeds used across the app. Shaykh Abu Iyaad&apos;s translation and notes
-                    are linked back to their source on thenoblequran.com so updates or verification can
-                    always be checked manually.
+                    Quran text, page structure, and search are based on Tarteel and related Quran data
+                    feeds. Shaykh Abu Iyaad&apos;s translation and notes are attributed back to
+                    thenoblequran.com.
                   </p>
                   <div className="mt-4 space-y-2">
                     <a
@@ -332,7 +324,7 @@ export default function DocsPage() {
                     </a>
                   </div>
                   <p className="mt-4 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    The current ayah-recitation datasets were taken from{" "}
+                    The current ayah-recitation data was taken from{" "}
                     <a
                       href="https://qul.tarteel.ai/"
                       target="_blank"
@@ -341,7 +333,7 @@ export default function DocsPage() {
                     >
                       qul.tarteel.ai
                     </a>
-                    . We plan to add Shaykh Ali al-Hudhaify later, in sha Allah, from another source.
+                    . We may add Shaykh Ali al-Hudhaify later, in sha Allah, from another source.
                   </p>
                 </article>
               </section>
@@ -351,17 +343,15 @@ export default function DocsPage() {
                   <h2 className="text-balance text-xl font-semibold">Design choices</h2>
                   <div className="mt-3 space-y-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     <p>
-                      Tajweed color coding is intentionally absent. The aim is to avoid permanent visual
-                      training wheels so recognition of the rules can be learned directly instead of being
-                      delegated to color.
+                      Tajweed color coding is intentionally absent so rule recognition is not outsourced to
+                      color.
                     </p>
                     <p>
-                      Reading position is preserved on purpose. When you switch views or return later, the
-                      app tries to keep you near the same ayah rather than forcing a fresh start.
+                      Reading position is preserved so switching views or returning later keeps you near the
+                      same ayah.
                     </p>
                     <p>
-                      More settings will continue to be added for UI customization, ayah highlighting, and
-                      reading comfort without crowding the main reading surface.
+                      More settings can be added over time without crowding the main reading surface.
                     </p>
                   </div>
                 </article>
@@ -371,22 +361,19 @@ export default function DocsPage() {
                 <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
                   <h2 className="text-balance text-xl font-semibold">Why these qurra for ayah playback</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Qari selection is a design choice, not just a content dump. Many reciters balance melody
-                    and tajweed differently. Some push melody further while cutting into tajweed precision.
-                    For ayah playback we prioritized murattal, not mujawwad, and chose recitations that keep
-                    strong itqan in the tajweed rules while still being pleasant to listen to.
+                    Qari selection here is a design choice, not a content dump. For ayah playback we
+                    prioritized murattal over mujawwad and favored recitations with clear tajweed and
+                    measured delivery.
                   </p>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    That also means mujawwad was not treated here as a neutral upgrade in beauty or emotion.
-                    We regard mujawwad-style recitation as an introduced performance layer, not the baseline
-                    reading form to normalize through an ayah player, even when the reciter himself is one of
-                    the three included here and even when his own mujawwad recitation is widely admired.
+                    That also means mujawwad is not treated here as a neutral upgrade in beauty or emotion.
+                    We regard it as an introduced performance layer, not the baseline style to normalize in
+                    an ayah player, even for these same reciters.
                   </p>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    So the restriction to these three should not be read as an endorsement of every recitational
-                    style they are known for. The inclusion is specifically for their murattal recordings in the
-                    available datasets, because those better fit the app&apos;s aim of clear memorization support,
-                    measured listening, and tajweed-first playback rather than ornamental mujawwad delivery.
+                    Their inclusion should not be read as an endorsement of every style associated with
+                    them. What is included here is their murattal recitation from the datasets currently
+                    available to the app.
                   </p>
                   <ul className="mt-4 space-y-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     {SUPPORTED_AYAH_RECITERS.map((id) => (
@@ -396,8 +383,8 @@ export default function DocsPage() {
                     ))}
                   </ul>
                   <p className="mt-4 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    These are the three included for now because they meet that bar in the source datasets we
-                    currently rely on.
+                    These are the three included for now because they meet that bar in the source datasets
+                    we currently rely on.
                   </p>
                 </article>
               </section>
@@ -406,10 +393,9 @@ export default function DocsPage() {
                 <article className="rounded-2xl border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-5 shadow-sm">
                   <h2 className="text-balance text-xl font-semibold">Ergonomics</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Buttons that are used often are intentionally kept close to thumb reach, especially on
-                    phones. Icons are favored where they stay recognizable, labels appear where ambiguity
-                    would cost more than the saved space, and secondary controls live in sheets instead of
-                    permanently occupying the reading area.
+                    Frequent controls stay within thumb reach, especially on phones. Icons are used where
+                    they stay clear, labels appear where needed, and secondary controls live in sheets
+                    instead of occupying the reading area full time.
                   </p>
                 </article>
               </section>
