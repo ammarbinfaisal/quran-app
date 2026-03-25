@@ -122,7 +122,10 @@ export default function DocsPage() {
         })}
       />
 
-      <main className="min-h-dvh bg-[var(--color-bg)] text-[var(--color-text)]" dir="ltr">
+      <main
+        className="h-dvh overflow-y-auto overscroll-contain bg-[var(--color-bg)] text-[var(--color-text)]"
+        dir="ltr"
+      >
         <div className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-16 pt-6 sm:px-6">
           <div className="mb-6">
             <Link
