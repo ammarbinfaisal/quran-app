@@ -1,52 +1,33 @@
 import { playAudio } from "./audio";
 import {
-  AYAH_RECITER_DATA_FILES,
+  AYAH_RECITER_AUDIO_PATHS,
   type AyahReciterId,
 } from "./types";
 
-interface VerseAudioEntry {
-  audio_url: string;
-  segments: number[][];
-}
+const AUDIO_CDN_BASE_URL = "https://audio-cdn.tarteel.ai/quran";
 
-const verseAudioMapCache = new Map<AyahReciterId, Record<string, VerseAudioEntry>>();
-const verseAudioMapRequests = new Map<
-  AyahReciterId,
-  Promise<Record<string, VerseAudioEntry>>
->();
-
-async function loadVerseAudioMap(
+function getVerseAudioUrlForReciter(
+  verseKey: string,
   reciterId: AyahReciterId,
-): Promise<Record<string, VerseAudioEntry>> {
-  const cached = verseAudioMapCache.get(reciterId);
-  if (cached) return cached;
+): string | null {
+  const [surahRaw, ayahRaw] = verseKey.split(":");
+  const surahNumber = Number.parseInt(surahRaw, 10);
+  const ayahNumber = Number.parseInt(ayahRaw, 10);
 
-  const existing = verseAudioMapRequests.get(reciterId);
-  if (existing) return existing;
+  if (!Number.isInteger(surahNumber) || !Number.isInteger(ayahNumber)) {
+    return null;
+  }
 
-  const request = fetch(`/data/${AYAH_RECITER_DATA_FILES[reciterId]}`)
-    .then(async (res) => {
-      if (!res.ok) {
-        throw new Error(`Failed to load ${AYAH_RECITER_DATA_FILES[reciterId]}: ${res.status}`);
-      }
-      const map = (await res.json()) as Record<string, VerseAudioEntry>;
-      verseAudioMapCache.set(reciterId, map);
-      return map;
-    })
-    .finally(() => {
-      verseAudioMapRequests.delete(reciterId);
-    });
-
-  verseAudioMapRequests.set(reciterId, request);
-  return request;
+  const reciterPath = AYAH_RECITER_AUDIO_PATHS[reciterId];
+  const fileName = `${String(surahNumber).padStart(3, "0")}${String(ayahNumber).padStart(3, "0")}.mp3`;
+  return `${AUDIO_CDN_BASE_URL}/${reciterPath}/${fileName}`;
 }
 
 export async function getVerseAudioUrl(
   verseKey: string,
   reciterId: AyahReciterId,
 ): Promise<string | null> {
-  const map = await loadVerseAudioMap(reciterId);
-  return map[verseKey]?.audio_url ?? null;
+  return getVerseAudioUrlForReciter(verseKey, reciterId);
 }
 
 export async function playVerseAudio(
