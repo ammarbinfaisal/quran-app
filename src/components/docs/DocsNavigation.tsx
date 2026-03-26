@@ -19,24 +19,29 @@ function flattenSections(sections: readonly DocsNavSection[]): DocsNavItem[] {
   return sections.flatMap((section) => [section, ...(section.items ?? [])]);
 }
 
-function useActiveDocsSection(sections: readonly DocsNavSection[]) {
+function useActiveDocsSection(sections: readonly DocsNavSection[], scrollRootId?: string) {
   const [activeId, setActiveId] = useState(sections[0]?.id ?? "");
 
   useMountEffect(() => {
     const sectionIds = flattenSections(sections).map((section) => section.id);
     if (sectionIds.length === 0) return;
 
+    const scrollRoot = scrollRootId ? document.getElementById(scrollRootId) : null;
+    const scrollTarget: Window | HTMLElement = scrollRoot ?? window;
     let rafId = 0;
 
     const updateActiveSection = () => {
-      const threshold = Math.min(window.innerHeight * 0.28, 180);
+      const rootTop = scrollRoot?.getBoundingClientRect().top ?? 0;
+      const rootHeight = scrollRoot?.clientHeight ?? window.innerHeight;
+      const threshold = Math.min(rootHeight * 0.28, 180);
       let nextActiveId = sectionIds[0];
 
       for (const sectionId of sectionIds) {
         const sectionNode = document.getElementById(sectionId);
         if (!sectionNode) continue;
 
-        if (sectionNode.getBoundingClientRect().top <= threshold) {
+        const sectionTop = sectionNode.getBoundingClientRect().top - rootTop;
+        if (sectionTop <= threshold) {
           nextActiveId = sectionId;
           continue;
         }
@@ -44,7 +49,7 @@ function useActiveDocsSection(sections: readonly DocsNavSection[]) {
         break;
       }
 
-      setActiveId(nextActiveId);
+      setActiveId((currentId) => (currentId === nextActiveId ? currentId : nextActiveId));
     };
 
     const scheduleUpdate = () => {
@@ -56,13 +61,13 @@ function useActiveDocsSection(sections: readonly DocsNavSection[]) {
     };
 
     updateActiveSection();
-    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    scrollTarget.addEventListener("scroll", scheduleUpdate, { passive: true });
     window.addEventListener("resize", scheduleUpdate);
     window.addEventListener("hashchange", scheduleUpdate);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
-      window.removeEventListener("scroll", scheduleUpdate);
+      scrollTarget.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
       window.removeEventListener("hashchange", scheduleUpdate);
     };
@@ -83,7 +88,7 @@ function DocsNavigationLinks({
   onSelect?: (id: string) => void;
 }) {
   return (
-    <nav aria-label="Docs sections" className="space-y-5">
+    <nav aria-label="Docs sections" className="space-y-3.5">
       {sections.map((section) => (
         <div key={section.id}>
           <a
@@ -92,8 +97,9 @@ function DocsNavigationLinks({
               onSelect?.(section.id);
               onNavigate?.();
             }}
+            aria-current={activeId === section.id ? "location" : undefined}
             className={cn(
-              "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition duration-150 ease-out",
+              "group flex items-center gap-2.5 rounded-2xl px-2.5 py-2 text-sm font-semibold transition duration-150 ease-out",
               activeId === section.id
                 ? "bg-[var(--color-accent)]/12 text-[var(--color-accent)]"
                 : "text-[var(--color-text)] hover:bg-[var(--color-bg)]",
@@ -109,7 +115,7 @@ function DocsNavigationLinks({
             {section.title}
           </a>
           {section.items?.length ? (
-            <div className="mt-1 space-y-1 pl-3">
+            <div className="mt-0.5 space-y-0.5 pl-2">
               {section.items.map((item) => (
                 <a
                   key={item.id}
@@ -118,8 +124,9 @@ function DocsNavigationLinks({
                     onSelect?.(item.id);
                     onNavigate?.();
                   }}
+                  aria-current={activeId === item.id ? "location" : undefined}
                   className={cn(
-                    "group flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition duration-150 ease-out",
+                    "group flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5 text-sm transition duration-150 ease-out",
                     activeId === item.id
                       ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
                       : "text-[var(--color-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]",
@@ -143,14 +150,20 @@ function DocsNavigationLinks({
   );
 }
 
-export function DocsSidebarNavigation({ sections }: { sections: readonly DocsNavSection[] }) {
-  const { activeId, setActiveId } = useActiveDocsSection(sections);
+export function DocsSidebarNavigation({
+  sections,
+  scrollRootId,
+}: {
+  sections: readonly DocsNavSection[];
+  scrollRootId?: string;
+}) {
+  const { activeId, setActiveId } = useActiveDocsSection(sections, scrollRootId);
 
   return (
-    <aside className="hidden lg:block">
-      <div className="lg:sticky lg:top-6 xl:fixed xl:left-6 xl:top-6 xl:w-64">
-        <div className="rounded-[1.75rem] border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-4 shadow-sm">
-          <p className="px-3 text-xs font-semibold uppercase text-[var(--color-muted)]">
+    <aside className="hidden lg:block lg:self-start">
+      <div className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto">
+        <div className="rounded-[1.75rem] border border-[var(--color-muted)]/15 bg-[var(--color-surface)] p-3.5 shadow-sm">
+          <p className="px-2.5 text-xs font-semibold uppercase text-[var(--color-muted)]">
             On this page
           </p>
           <div className="mt-3">
@@ -166,9 +179,15 @@ export function DocsSidebarNavigation({ sections }: { sections: readonly DocsNav
   );
 }
 
-export function DocsMobileNavigation({ sections }: { sections: readonly DocsNavSection[] }) {
+export function DocsMobileNavigation({
+  sections,
+  scrollRootId,
+}: {
+  sections: readonly DocsNavSection[];
+  scrollRootId?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const { activeId, setActiveId } = useActiveDocsSection(sections);
+  const { activeId, setActiveId } = useActiveDocsSection(sections, scrollRootId);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>

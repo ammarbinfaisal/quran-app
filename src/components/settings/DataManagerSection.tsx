@@ -84,7 +84,7 @@ export function DataManagerSection() {
           <ConfirmActionButton
             triggerLabel="Purge cache"
             title="Purge cached reading data?"
-            description="This removes transient warmed data and browser caches, but keeps your explicit offline downloads. The app may fetch these assets again as you continue reading."
+            description="This removes background reading data and browser caches, but keeps your explicit offline downloads. The app may download some of this again as you continue reading."
             confirmLabel="Purge cache"
             busyLabel="Purging..."
             onConfirm={handlePurgeTransientData}

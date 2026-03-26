@@ -22,23 +22,23 @@ export const DATA_USAGE_MODE_DETAILS: Record<DataUsageMode, DataUsageModeDetail>
   low: {
     label: "Low data",
     shortDescription:
-      "Keep background work minimal and fetch only what the current reading step needs.",
+      "Download only what the current page or action needs.",
     docsDescription:
-      "Low data mode avoids proactive warming beyond the current reading action. Fonts still load for the page you open, and translations resolve when you request them, but the app does not keep walking ahead through nearby pages, morphology chunks, or lemma files in the background.",
+      "Low data mode keeps background downloading to a minimum. The app brings in what is needed for the page you open and for features you choose to use, but it does not keep pulling in nearby material on its own.",
   },
   balanced: {
     label: "Balanced",
     shortDescription:
-      "Warm a small nearby window so the next few pages and verse actions feel immediate.",
+      "Quietly download a small amount around where you are reading.",
     docsDescription:
-      "Balanced mode keeps a short buffer around what you are reading now. It can warm a couple of adjacent pages and their related translation data, but it stays intentionally local instead of trying to complete the full surrounding surah or juz.",
+      "Balanced mode quietly downloads a small amount around your current place so nearby pages and common verse actions feel more ready. It stays close to where you are reading rather than trying to fill a whole surah or juz.",
   },
   high: {
-    label: "Proactive",
+    label: "High data",
     shortDescription:
-      "Keep filling the current reading scope in batches, including nearby verse, morphology, and lemma data.",
+      "Keep downloading more of the current area while you continue reading.",
     docsDescription:
-      "Proactive mode uses the widest background window. While you stay in a surah, juz, or page flow, the app keeps batching ahead toward that active scope, including page assets, verse translations, morphology chunks, and nearby lemma files, while still stopping short of a full offline download unless you explicitly ask for one.",
+      "High data mode keeps working further ahead in the background while you remain in the same reading flow. Over time it can gather more of the current surah, juz, or nearby study data, but it still does not replace a full offline download unless you choose one.",
   },
 };
 
