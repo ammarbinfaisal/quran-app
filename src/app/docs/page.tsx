@@ -360,9 +360,15 @@ export default function DocsPage() {
                   <h2 className="text-balance text-xl font-semibold">Design choices</h2>
                   <div className="mt-3 space-y-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     <p>
-                      Tajweed color coding is intentionally absent. The app is not trying to train
-                      dependence on color as a substitute for learning the rules directly from the script
-                      and the recitation.
+                      Tajweed color coding is intentionally absent. Many readers do learn the rules and
+                      use color only as an auxiliary cue for when to apply them. Even then, repeated
+                      practice can train the reflex around the color itself instead of around recognizing
+                      the rule in the script, whether that is noon sakinah, meem sakinah, or something
+                      else.
+                    </p>
+                    <p>
+                      The aim here is for that recognition to develop directly from the written text and
+                      the recitation, without an extra visual layer in between.
                     </p>
                     <p>
                       Reading position is preserved so switching views, leaving the app, or returning later
