@@ -386,20 +386,18 @@ export default function DocsPage() {
                 <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Why these qurra for ayah playback</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Qari selection here is a design choice, not a content dump. For ayah playback the aim
-                    is dependable recitation for listening, repetition, and following the ayah closely, so
-                    the app prefers murattal over more embellished styles.
+                    Qari selection here is deliberate. For ayah playback, the app favors recitations that
+                    are easy to follow closely, repeat after, and study against.
                   </p>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Murattal, when it is strong, stays closer to itqan (precision): cleaner articulation,
-                    steadier pacing, clearer lengths, and stopping points that are easier for the ear to
-                    follow. That makes it better suited here for study, revision, and repeated verse
-                    playback.
+                    Some recitations lean further into melody and embellishment, and that can come with
+                    less precision in how consistently the tajweed is carried through. The murattal
+                    recitations included here do not make that tradeoff. They stay clearer, steadier, and
+                    more exact in the way the rules are applied.
                   </p>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    The list is intentionally small. The goal is not to gather every famous qari, but to
-                    keep a purposeful set whose murattal recordings, as available in the current data
-                    sources, fit that standard of clarity and measured tajweed.
+                    The list is intentionally small because, in the source data the app uses, these
+                    murattal recordings best suit ayah-by-ayah listening, revision, and repetition.
                   </p>
                   <ul className="mt-4 space-y-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     {SUPPORTED_AYAH_RECITERS.map((id) => (
@@ -408,10 +406,6 @@ export default function DocsPage() {
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-4 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    These are the three included for now because their murattal recitations best match
-                    that purpose in the source data the app currently uses.
-                  </p>
                 </article>
               </section>
 
