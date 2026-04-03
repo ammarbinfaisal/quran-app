@@ -78,6 +78,10 @@ function MushafWordInner({
         className={`mushaf-word ${textClass}`}
         data-highlighted={highlighted}
         data-phrase-color-index={phraseColorIndex ?? undefined}
+        data-word-tap-target="true"
+        data-word-tap-verse-key={word.verseKey}
+        data-word-tap-word-index={wordIndex >= 0 ? wordIndex : undefined}
+        data-word-tap-char-type={word.charTypeName}
         data-verse-key={word.verseKey}
         style={style}
         onClick={handleTap}
@@ -91,6 +95,10 @@ function MushafWordInner({
       className={`mushaf-word ${textClass}`}
       data-highlighted={highlighted}
       data-phrase-color-index={phraseColorIndex ?? undefined}
+      data-word-tap-target="true"
+      data-word-tap-verse-key={word.verseKey}
+      data-word-tap-word-index={wordIndex >= 0 ? wordIndex : undefined}
+      data-word-tap-char-type={word.charTypeName}
       data-verse-key={word.verseKey}
       style={style}
       onClick={handleTap}

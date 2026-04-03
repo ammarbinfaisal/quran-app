@@ -191,6 +191,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
         selectedTap={selectedTap}
         translationIds={prefs.translationIds}
         mushafCode={mushafCode}
+        onRetargetTap={setSelectedTap}
         onClose={() => {
           setSelectedTap(null);
         }}

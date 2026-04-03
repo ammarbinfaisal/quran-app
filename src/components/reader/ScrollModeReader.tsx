@@ -181,6 +181,7 @@ export function ScrollModeReader({
         selectedTap={selectedTap}
         translationIds={prefs.translationIds}
         mushafCode={prefs.mushafCode}
+        onRetargetTap={setSelectedTap}
         onClose={() => {
           setSelectedTap(null);
         }}

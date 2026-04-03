@@ -25,11 +25,13 @@ export function WordTapSheets({
   translationIds,
   mushafCode,
   onClose,
+  onRetargetTap,
 }: {
   selectedTap: WordTapTarget | null;
   translationIds: TranslationId[];
   mushafCode: MushafCode;
   onClose: () => void;
+  onRetargetTap?: (target: WordTapTarget) => void;
 }) {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [hasNotes, setHasNotes] = useState(false);
@@ -188,6 +190,7 @@ export function WordTapSheets({
           anchor={selectedTap.anchor}
           buttons={buttons}
           onDismiss={onClose}
+          onRetargetTap={onRetargetTap}
         />
       )}
 

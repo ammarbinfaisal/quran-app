@@ -278,6 +278,7 @@ export function VerseCard({
                 fontReady={fontReady}
                 showFontSkeleton={showFontSkeleton}
                 fontScale={fontScale}
+                enableVerseTap={false}
             />
 
             <div

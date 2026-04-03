@@ -34,6 +34,7 @@ export function ArabicVerseBlock({
   labelClassName = "text-xs font-bold text-muted tabular-nums border border-muted/20 px-2 py-0.5 rounded shadow-sm",
   phraseHighlightRanges = [],
   compact = false,
+  enableVerseTap = true,
 }: {
   verseKey: string;
   mushafCode: MushafCode;
@@ -49,6 +50,7 @@ export function ArabicVerseBlock({
   labelClassName?: string;
   phraseHighlightRanges?: PhraseHighlightRange[];
   compact?: boolean;
+  enableVerseTap?: boolean;
 }) {
   const [fetchedWords, setFetchedWords] = useState<WordWithPage[] | null>(null);
   const [internalFontReady, setInternalFontReady] = useState<boolean>(() => {
@@ -190,6 +192,10 @@ export function ArabicVerseBlock({
   }, [morphIndices, phraseHighlightRanges, words]);
 
   const handleVerseTap = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!enableVerseTap) {
+      event.stopPropagation();
+      return;
+    }
     event.stopPropagation();
     handleWordTap({
       verseKey,

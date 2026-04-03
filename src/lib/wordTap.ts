@@ -14,6 +14,8 @@ export interface WordTapTarget {
 
 export type OnWordTap = (target: WordTapTarget) => void;
 
+export const WORD_TAP_TARGET_SELECTOR = "[data-word-tap-target='true']";
+
 export function isMorphologyTap(target: WordTapTarget | null): boolean {
   return target?.wordIndex != null && target.charTypeName === "word";
 }
@@ -30,5 +32,35 @@ export function getTapAnchorFromEvent(event: {
   return {
     x: Number.isFinite(event.clientX) ? event.clientX : rect.left + rect.width / 2,
     y: Number.isFinite(event.clientY) ? event.clientY : rect.top + rect.height / 2,
+  };
+}
+
+export function getWordTapTargetFromElement(
+  element: HTMLElement | null,
+  point?: Partial<TapAnchor>,
+): WordTapTarget | null {
+  const target = element?.closest<HTMLElement>(WORD_TAP_TARGET_SELECTOR);
+  if (!target) return null;
+
+  const verseKey = target.dataset.wordTapVerseKey;
+  const charTypeName = target.dataset.wordTapCharType;
+  const rawWordIndex = target.dataset.wordTapWordIndex;
+  if (!verseKey || !charTypeName) return null;
+
+  const wordIndex =
+    rawWordIndex == null || rawWordIndex === "" ? null : Number.parseInt(rawWordIndex, 10);
+  if (rawWordIndex != null && rawWordIndex !== "" && Number.isNaN(wordIndex)) {
+    return null;
+  }
+
+  const rect = target.getBoundingClientRect();
+  return {
+    verseKey,
+    wordIndex,
+    charTypeName,
+    anchor: {
+      x: Number.isFinite(point?.x) ? point.x! : rect.left + rect.width / 2,
+      y: Number.isFinite(point?.y) ? point.y! : rect.top + rect.height / 2,
+    },
   };
 }

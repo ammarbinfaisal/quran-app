@@ -1,7 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import type { TapAnchor } from "@/lib/wordTap";
+import {
+  getWordTapTargetFromElement,
+  type OnWordTap,
+  type TapAnchor,
+} from "@/lib/wordTap";
 
 interface FloatingWordMenuButton {
   id: string;
@@ -14,10 +18,12 @@ export function FloatingWordMenu({
   anchor,
   buttons,
   onDismiss,
+  onRetargetTap,
 }: {
   anchor: TapAnchor;
   buttons: FloatingWordMenuButton[];
   onDismiss: () => void;
+  onRetargetTap?: OnWordTap;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>({
@@ -53,7 +59,29 @@ export function FloatingWordMenu({
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onDismiss} />
+      <div
+        className="fixed inset-0 z-40"
+        onClick={(event) => {
+          const overlay = event.currentTarget;
+          overlay.style.pointerEvents = "none";
+          const underlying = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+          overlay.style.pointerEvents = "";
+
+          const nextTap = onRetargetTap
+            ? getWordTapTargetFromElement(underlying, {
+                x: event.clientX,
+                y: event.clientY,
+              })
+            : null;
+
+          if (nextTap) {
+            onRetargetTap(nextTap);
+            return;
+          }
+
+          onDismiss();
+        }}
+      />
       <div
         ref={menuRef}
         className="fixed z-50 flex items-center gap-0.5 rounded-full border border-[var(--color-muted)]/20 bg-[var(--color-surface)]/95 p-0.5 shadow-lg backdrop-blur sm:gap-0.5 sm:p-0.5"
