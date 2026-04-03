@@ -85,7 +85,7 @@ const AYAH_ACTIONS = [
   },
   {
     label: "Similar passages",
-    description: "Open the mutashabihat sheet for related verses.",
+    description: "Open the mutashabihat (similar passages) sheet for related verses.",
     Icon: ArrowLeftRight,
   },
   {
@@ -109,7 +109,7 @@ const DOCS_SECTIONS = [
   },
   { id: "sources-and-attribution", title: "Sources and attribution" },
   { id: "design-choices", title: "Design choices" },
-  { id: "ayah-playback", title: "Why these qurra" },
+  { id: "ayah-playback", title: "Why these qurra' (reciters)" },
   { id: "ergonomics", title: "Ergonomics" },
 ] as const;
 
@@ -178,9 +178,8 @@ export default function DocsPage() {
                 </h1>
                 <p className="mt-4 max-w-2xl text-pretty text-sm leading-7 text-[var(--color-muted)] sm:text-base">
                   The app is built for focused phone reading: compact controls, stable reading anchors,
-                  and details moved out of the main surface unless they are needed. These notes explain
-                  the main choices in plain language so both regular readers and more detail-oriented
-                  users can understand what the settings are doing.
+                  and secondary details kept out of the way until they are needed. This page explains
+                  the main settings and design choices in plain language.
                 </p>
               </section>
 
@@ -188,7 +187,7 @@ export default function DocsPage() {
                 <h2 className="text-balance text-xl font-semibold">Reading modes</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                   The mode switch uses icons to save space and stay reachable with one hand. Each mode is
-                  meant to keep the reader oriented without asking them to relearn the app.
+                  meant to keep your place without making the app feel different every time you switch.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {READ_MODES.map(({ label, description, Icon }) => (
@@ -211,8 +210,8 @@ export default function DocsPage() {
               <section id="scope-icons" className={SECTION_CLASS}>
                 <h2 className="text-balance text-xl font-semibold">Scope icons</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Verse and scroll views can be anchored by surah, juz, or page. These icons show the
-                  current scope without adding more text to the bottom bar.
+                  Verse and scroll views can be anchored by surah, juz' (part), or page. These icons
+                  show the current scope without taking extra space in the bottom bar.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {NAVIGATION_SCOPES.map(({ label, description, Icon }) => (
@@ -235,8 +234,8 @@ export default function DocsPage() {
               <section id="ayah-actions" className={SECTION_CLASS}>
                 <h2 className="text-balance text-xl font-semibold">Ayah actions</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Ayah tools stay near the thumb zone and only appear when relevant to the selected verse
-                  or word.
+                  Ayah tools stay near the thumb zone and only appear when they are relevant to the
+                  selected verse or word.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {AYAH_ACTIONS.map(({ label, description, Icon }) => (
@@ -261,16 +260,15 @@ export default function DocsPage() {
               <section id="data-controls" className={SECTION_CLASS}>
                 <h2 className="text-balance text-xl font-semibold">Data controls</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Settings keeps these controls short. The details live here instead, in more ordinary
-                  language, so you can tell the difference between background downloading and full offline
+                  This section explains the difference between background downloads and full offline
                   downloads.
                 </p>
 
                 <div id="data-usage-modes" className="mt-6 scroll-mt-24">
                   <h3 className="text-balance text-lg font-semibold">Data usage modes</h3>
                   <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    This setting changes how much the app quietly downloads around your current reading
-                    position while you continue using it.
+                    This setting controls how much the app preloads around your current reading position
+                    while you keep using it.
                   </p>
                   <div className="mt-4 grid gap-3">
                     {DATA_USAGE_MODES.map((mode) => {
@@ -315,9 +313,9 @@ export default function DocsPage() {
                 <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Sources and attribution</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Quran text, page structure, and search are based on Tarteel and related Quran data
-                    feeds. Shaykh Abu Iyaad&apos;s translation and notes are linked back to
-                    thenoblequran.com, so the source trail remains clear.
+                    Quran text, page structure, and search come from Tarteel and related Quran data
+                    feeds. Shaykh Abu Iyaad&apos;s translation and notes are attributed to The Noble
+                    Quran.
                   </p>
                   <div className="mt-4 space-y-2">
                     <a
@@ -349,7 +347,7 @@ export default function DocsPage() {
                     >
                       qul.tarteel.ai
                     </a>
-                    . Additional reciters may be added later if a source fits the same standard and can
+                    . More reciters may be added later if the source quality is strong and the data can
                     be integrated cleanly.
                   </p>
                 </article>
@@ -360,23 +358,22 @@ export default function DocsPage() {
                   <h2 className="text-balance text-xl font-semibold">Design choices</h2>
                   <div className="mt-3 space-y-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     <p>
-                      Tajweed color coding is intentionally absent. Many readers do learn the rules and
-                      use color only as an auxiliary cue for when to apply them. Even then, repeated
-                      practice can train the reflex around the color itself instead of around recognizing
-                      the rule in the script, whether that is noon sakinah, meem sakinah, or something
-                      else.
+                      Tajwid (recitation rules) color coding is intentionally absent. Some readers do
+                      learn the rules and use color only as a reminder, but repeated reliance on color can
+                      still train recognition around the cue instead of around the rule in the script
+                      itself, such as nun sakinah (a nun without a vowel) or mim sakinah (a mim without a
+                      vowel).
                     </p>
                     <p>
-                      The aim here is for that recognition to develop directly from the written text and
-                      the recitation, without an extra visual layer in between.
+                      The aim is for that recognition to develop directly from the written text and the
+                      recitation.
                     </p>
                     <p>
-                      Reading position is preserved so switching views, leaving the app, or returning later
-                      keeps you near the same ayah instead of making you reconstruct your place.
+                      Reading position stays anchored, so switching views, leaving the app, or returning
+                      later keeps you near the same ayah.
                     </p>
                     <p>
-                      Secondary tools live in sheets and drawers so the reading surface can stay calm while
-                      still making notes, word study, and downloads easy to reach when needed.
+                      Secondary tools live in sheets and drawers so the reading surface stays calm.
                     </p>
                   </div>
                 </article>
@@ -384,20 +381,22 @@ export default function DocsPage() {
 
               <section id="ayah-playback" className={SECTION_CLASS}>
                 <article className={SECTION_CARD_CLASS}>
-                  <h2 className="text-balance text-xl font-semibold">Why these qurra for ayah playback</h2>
+                  <h2 className="text-balance text-xl font-semibold">
+                    Why these qurra&apos; (reciters) for ayah playback
+                  </h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Qari selection here is deliberate. For ayah playback, the app favors recitations that
-                    are easy to follow closely, repeat after, and study against.
+                    These qurra&apos; (reciters) were chosen for close ayah-by-ayah listening,
+                    repetition, and study.
                   </p>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     Some recitations lean further into melody and embellishment, and that can come with
-                    less precision in how consistently the tajweed is carried through. The murattal
-                    recitations included here do not make that tradeoff. They stay clearer, steadier, and
-                    more exact in the way the rules are applied.
+                    less precision in how consistently the tajwid (recitation rules) is carried through.
+                    The murattal (measured recitation) recordings included here do not make that
+                    tradeoff.
                   </p>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    The list is intentionally small because, in the source data the app uses, these
-                    murattal recordings best suit ayah-by-ayah listening, revision, and repetition.
+                    The list is intentionally small because these are the murattal recordings in the
+                    current source data that best suit ayah-by-ayah listening, revision, and repetition.
                   </p>
                   <ul className="mt-4 space-y-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
                     {SUPPORTED_AYAH_RECITERS.map((id) => (
@@ -413,10 +412,9 @@ export default function DocsPage() {
                 <article className={SECTION_CARD_CLASS}>
                   <h2 className="text-balance text-xl font-semibold">Ergonomics</h2>
                   <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Frequent controls stay within thumb reach, especially on phones, because that is where
-                    the app is used most. Icons are used where they remain unmistakable, labels appear
-                    where ambiguity would slow the reader down, and secondary controls stay in sheets
-                    instead of occupying the reading area all the time.
+                    Frequent controls stay within thumb reach because the app is used mostly on phones.
+                    Icons are used where they are obvious, labels appear where they prevent ambiguity, and
+                    secondary controls move into sheets instead of crowding the reading area.
                   </p>
                 </article>
               </section>
