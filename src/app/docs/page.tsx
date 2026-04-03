@@ -210,7 +210,7 @@ export default function DocsPage() {
               <section id="scope-icons" className={SECTION_CLASS}>
                 <h2 className="text-balance text-xl font-semibold">Scope icons</h2>
                 <p className="mt-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                  Verse and scroll views can be anchored by surah, juz' (part), or page. These icons
+                  Verse and scroll views can be anchored by surah, juz&apos; (part), or page. These icons
                   show the current scope without taking extra space in the bottom bar.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">

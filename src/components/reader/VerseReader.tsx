@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -21,6 +21,9 @@ import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
 import { useDirectionalReaderKeyboardNav } from "@/hooks/useDirectionalReaderKeyboardNav";
+import { useChapters } from "@/hooks/useChapters";
+import { pageToSurah } from "@/lib/navigation/maps";
+import { JUZ_PAGE_RANGES } from "@/lib/juz";
 
 export function VerseReader({
   type,
@@ -33,6 +36,7 @@ export function VerseReader({
   const searchParams = useSearchParams();
   const verseParam = searchParams.get("verse");
   const { prefs } = usePreferences();
+  const chapters = useChapters();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } =
     useImmersiveMode();
 
@@ -94,10 +98,18 @@ export function VerseReader({
     }
   }, [verseParam]);
 
-  let label = String(id);
-  if (type === "s") label = `Surah ${id}`;
-  if (type === "j") label = `Juz ${id}`;
-  if (type === "p") label = `Page ${id}`;
+  const labelPage = useMemo(() => {
+    if (focusPage !== null) return focusPage;
+    if (type === "p") return id;
+    if (type === "s") return chapters.find((chapter) => chapter.id === id)?.pages[0] ?? null;
+    return JUZ_PAGE_RANGES.find((range) => range.juz === id)?.pages[0] ?? null;
+  }, [chapters, focusPage, id, type]);
+
+  const label = useMemo(() => {
+    if (!chapters.length || labelPage === null) return String(id);
+    const surahId = pageToSurah(labelPage, chapters);
+    return chapters.find((chapter) => chapter.id === surahId)?.nameSimple ?? String(id);
+  }, [chapters, id, labelPage]);
 
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
@@ -145,9 +157,9 @@ export function VerseReader({
           text: label,
           ariaLabel: "Open navigation",
           onClick: () => {
-            const scrollContainer = document.querySelector("[data-vbv-scroll]") as HTMLElement | null;
+            const scrollContainer = scrollContainerRef.current;
             setNavSelection({
-              page: type === "p" ? id : null,
+              page: scrollContainer ? getFirstFullyVisiblePage(scrollContainer) : labelPage,
               verseKey: scrollContainer ? getFirstFullyVisibleVerse(scrollContainer) : verseParam,
             });
             setSurahOpen(true);
