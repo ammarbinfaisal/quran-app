@@ -7,7 +7,6 @@ import { useTranslations } from "@/hooks/useTranslations";
 import { usePreferences } from "@/hooks/usePreferences";
 import { ArabicVerseBlock } from "@/components/ayah/ArabicVerseBlock";
 import { TranslationBlock } from "@/components/ayah/TranslationBlock";
-import { NotesSheet } from "@/components/ayah/NotesSheet";
 import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import Link from "next/link";
 import { ExternalLink, FileText } from "lucide-react";
@@ -63,14 +62,13 @@ export function VerseCard({
     showVerseLink?: boolean;
 }) {
     const [abuIyaadNotes, setAbuIyaadNotes] = useState<AbuIyaadNote[] | null>(null);
-    const [notesSheetOpen, setNotesSheetOpen] = useState(false);
     const { prefs } = usePreferences();
     const versePrefs = prefs as VerseViewPreferences;
     const inlineVerseNotes = !!versePrefs.inlineVerseNotes;
 
     useMountEffect(() => {
+        if (!inlineVerseNotes) return;
         let active = true;
-        setAbuIyaadNotes(null);
 
         loadAbuIyaadNotes(verseKey)
             .then((notes) => {
@@ -172,41 +170,9 @@ export function VerseCard({
                 })}
             </div>
 
-            {hasNotes && (
-                inlineVerseNotes ? (
-                    <VerseNotesInline notes={abuIyaadNotes ?? []} />
-                ) : (
-                    <VerseNotesButton onOpen={() => setNotesSheetOpen(true)} />
-                )
+            {inlineVerseNotes && hasNotes && (
+                <VerseNotesInline notes={abuIyaadNotes ?? []} />
             )}
-
-            {!inlineVerseNotes && hasNotes && (
-                <NotesSheet
-                    open={notesSheetOpen}
-                    verseKey={verseKey}
-                    onClose={() => setNotesSheetOpen(false)}
-                />
-            )}
-        </div>
-    );
-}
-
-function VerseNotesButton({
-    onOpen,
-}: {
-    onOpen: () => void;
-}) {
-    return (
-        <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)] opacity-60 [font-variant-caps:small-caps]">
-            <button
-                type="button"
-                onClick={onOpen}
-                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[var(--color-muted)] transition-colors hover:text-[var(--color-accent)] active:opacity-70"
-                aria-label="Open notes"
-            >
-                <FileText className="h-3.5 w-3.5" />
-                <span>Notes</span>
-            </button>
         </div>
     );
 }
