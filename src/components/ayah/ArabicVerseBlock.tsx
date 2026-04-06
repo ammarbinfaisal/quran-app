@@ -35,6 +35,7 @@ export function ArabicVerseBlock({
   phraseHighlightRanges = [],
   compact = false,
   enableVerseTap = true,
+  highlightedWords,
 }: {
   verseKey: string;
   mushafCode: MushafCode;
@@ -51,6 +52,8 @@ export function ArabicVerseBlock({
   phraseHighlightRanges?: PhraseHighlightRange[];
   compact?: boolean;
   enableVerseTap?: boolean;
+  /** 1-based word indices to highlight (lemma/root occurrences). */
+  highlightedWords?: number[];
 }) {
   const [fetchedWords, setFetchedWords] = useState<WordWithPage[] | null>(null);
   const [internalFontReady, setInternalFontReady] = useState<boolean>(() => {
@@ -256,7 +259,7 @@ export function ArabicVerseBlock({
                 mushafCode={mushafCode}
                 pageNum={word.pageNum}
                 onTap={handleWordTap}
-                highlighted={false}
+                highlighted={morphIndex >= 0 && !!highlightedWords?.includes(morphIndex + 1)}
                 phraseColorIndex={phraseColorIndices[index] ?? null}
                 fontReady={resolvedFontReady}
                 showFontSkeleton={resolvedShowFontSkeleton}

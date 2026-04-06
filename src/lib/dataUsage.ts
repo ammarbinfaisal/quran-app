@@ -14,6 +14,7 @@ export interface DataUsagePolicy {
   prefetchMorphology: boolean;
   lemmaPageRadius: number;
   maxLemmaFilesPerPage: number;
+  occurrenceBatchSize: number;
 }
 
 export const DATA_USAGE_MODES: DataUsageMode[] = ["low", "balanced", "high"];
@@ -51,6 +52,7 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     prefetchMorphology: false,
     lemmaPageRadius: 0,
     maxLemmaFilesPerPage: 0,
+    occurrenceBatchSize: 3,
   },
   balanced: {
     adjacentPageRadius: 2,
@@ -60,6 +62,7 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     prefetchMorphology: false,
     lemmaPageRadius: 0,
     maxLemmaFilesPerPage: 0,
+    occurrenceBatchSize: 5,
   },
   high: {
     adjacentPageRadius: 4,
@@ -69,5 +72,6 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     prefetchMorphology: true,
     lemmaPageRadius: 1,
     maxLemmaFilesPerPage: 8,
+    occurrenceBatchSize: 10,
   },
 };

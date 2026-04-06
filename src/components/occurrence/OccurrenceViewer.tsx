@@ -4,10 +4,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Home } from "lucide-react";
 import { arabicToBuckwalter } from "@/lib/transliteration";
-import { type MushafCode } from "@/lib/types";
+import { type MushafCode, type MushafWord as MushafWordType } from "@/lib/types";
 import { VerseCard } from "@/components/lemma/VerseCard";
-import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
-import { fetchVersePages } from "@/lib/navigation/maps";
+import { fetchVersePages, type VersePageMap } from "@/lib/navigation/maps";
 import { dbGet, dbPut } from "@/lib/offline/storage";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
@@ -17,6 +16,9 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import type { WordTapTarget } from "@/lib/wordTap";
+import { useMushafPage } from "@/hooks/useMushafPage";
+import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
+import type { OnWordTap } from "@/lib/wordTap";
 
 interface Occurrence {
     surah: number;
@@ -24,14 +26,16 @@ interface Occurrence {
     word: number;
 }
 
-const INITIAL_VISIBLE = 60;
-const BATCH_SIZE = 20;
+/** A group of occurrence verses that share the same mushaf page. */
+interface PageGroup {
+    page: number;
+    verses: { verseKey: string; highlightedWords: number[] }[];
+}
 
 function getOccurrenceCacheKeys(dataUrl: string): { readKeys: string[]; writeKeys: string[] } {
     const readKeys: string[] = [dataUrl];
     const writeKeys: string[] = [dataUrl];
 
-    // LemmaViewer / RootRoute use URL-encoded buckwalter in the path; downloads store by decoded key.
     const mLemma = /^\/data\/lemmas\/(.+)\.json$/.exec(dataUrl);
     if (mLemma?.[1]) {
         const key = decodeURIComponent(mLemma[1]);
@@ -58,25 +62,24 @@ export function OccurrenceViewer({
     mushafCode,
     showModeToggle = true,
 }: {
-    /** Arabic text shown in the header */
     displayArabic: string;
-    /** Label shown above the Arabic (e.g. "Lemma Lookup" or "Root") */
     subtitle: string;
-    /** URL to fetch occurrences JSON from, e.g. /data/lemmas/foo.json */
     dataUrl: string;
     mushafCode: MushafCode;
     showModeToggle?: boolean;
 }) {
     const [occurrences, setOccurrences] = useState<Occurrence[] | null>(null);
     const [loading, setLoading] = useState(true);
-    const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
-    const [fontsReady, setFontsReady] = useState(false);
+    const [versePages, setVersePages] = useState<VersePageMap | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [downloadsOpen, setDownloadsOpen] = useState(false);
     const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
     const { prefs } = usePreferences();
     useApplyPreferences();
 
+    const batchSize = DATA_USAGE_POLICIES[prefs.dataUsageMode].occurrenceBatchSize;
+
+    // Fetch occurrence data
     const fetchRequestIdRef = useRef(0);
     const fetchControllerRef = useRef<AbortController | null>(null);
     const prevDataUrlRef = useRef<string | null>(null);
@@ -88,9 +91,7 @@ export function OccurrenceViewer({
         fetchControllerRef.current = null;
         setOccurrences(null);
         setLoading(true);
-        setVisibleCount(INITIAL_VISIBLE);
         setSelectedTap(null);
-        setFontsReady(false);
 
         queueMicrotask(() => {
             const controller = new AbortController();
@@ -133,9 +134,20 @@ export function OccurrenceViewer({
         });
     }
 
-    // Group by verse
-    const allVerses = useMemo(() => {
-        if (!occurrences) return [];
+    // Fetch verse-to-page mapping
+    useMountEffect(() => {
+        let active = true;
+        fetchVersePages(mushafCode)
+            .then((map) => { if (active) setVersePages(map); })
+            .catch(() => {});
+        return () => { active = false; };
+    });
+
+    // Group occurrences by verse, then by mushaf page
+    const { pageGroups, totalVerses, totalOccurrences } = useMemo(() => {
+        if (!occurrences || !versePages) return { pageGroups: null, totalVerses: 0, totalOccurrences: 0 };
+
+        // Group by verse
         const grouped = new Map<string, number[]>();
         for (const occ of occurrences) {
             const key = `${occ.surah}:${occ.ayah}`;
@@ -143,18 +155,45 @@ export function OccurrenceViewer({
             existing.push(occ.word);
             grouped.set(key, existing);
         }
-        return Array.from(grouped.entries()).map(([verseKey, highlightedWords]) => ({
-            verseKey,
-            highlightedWords,
-        }));
-    }, [occurrences]);
 
-    const visibleVerses = useMemo(() => allVerses.slice(0, visibleCount), [allVerses, visibleCount]);
+        // Map each verse to its mushaf page
+        const pages = new Map<number, { verseKey: string; highlightedWords: number[] }[]>();
+        const pageOrder: number[] = [];
+
+        for (const [verseKey, words] of grouped) {
+            const lookup = versePages[verseKey];
+            if (!lookup) continue;
+            const page = Array.isArray(lookup) ? lookup[0] : lookup;
+            if (!pages.has(page)) {
+                pages.set(page, []);
+                pageOrder.push(page);
+            }
+            pages.get(page)!.push({ verseKey, highlightedWords: words });
+        }
+
+        // Sort by page number for sequential loading
+        pageOrder.sort((a, b) => a - b);
+
+        const groups: PageGroup[] = pageOrder.map((page) => ({
+            page,
+            verses: pages.get(page)!,
+        }));
+
+        return { pageGroups: groups, totalVerses: grouped.size, totalOccurrences: occurrences.length };
+    }, [occurrences, versePages]);
+
+    // Progressive page rendering
+    const [pagesToShow, setPagesToShow] = useState(batchSize);
+    const prevBatchSizeRef = useRef(batchSize);
+    if (prevBatchSizeRef.current !== batchSize) {
+        prevBatchSizeRef.current = batchSize;
+        setPagesToShow((prev) => Math.max(prev, batchSize));
+    }
+
+    const totalPages = pageGroups?.length ?? 0;
 
     // Infinite scroll sentinel
     const observerInstanceRef = useRef<IntersectionObserver | null>(null);
-    const allVersesLengthRef = useRef(allVerses.length);
-    allVersesLengthRef.current = allVerses.length;
     const sentinelRef = useCallback((node: HTMLDivElement | null) => {
         observerInstanceRef.current?.disconnect();
         observerInstanceRef.current = null;
@@ -163,81 +202,24 @@ export function OccurrenceViewer({
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0]?.isIntersecting) {
-                    setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, allVersesLengthRef.current));
+                    setPagesToShow((prev) => Math.min(prev + batchSize, totalPages));
                 }
             },
             { rootMargin: "600px" },
         );
         observer.observe(node);
         observerInstanceRef.current = observer;
-    }, []);
-
-    // Font preloading for visible verses
-    const prevFontSignatureRef = useRef<string | null>(null);
-    const fontLoadActiveRef = useRef<{ cancel: () => void } | null>(null);
-    const fontSignature = `${mushafCode}:${visibleVerses.map(({ verseKey }) => verseKey).join(",")}`;
-    if (prevFontSignatureRef.current !== fontSignature) {
-        prevFontSignatureRef.current = fontSignature;
-        fontLoadActiveRef.current?.cancel();
-
-        if (!isQcfCode(mushafCode) || visibleVerses.length === 0) {
-            setFontsReady(true);
-        } else {
-            setFontsReady(false);
-
-            let active = true;
-            fontLoadActiveRef.current = {
-                cancel: () => {
-                    active = false;
-                },
-            };
-
-            queueMicrotask(() => {
-                if (!active) return;
-
-                (async () => {
-                    try {
-                        const pagesMap = await fetchVersePages(mushafCode);
-                        const pagesToLoad = new Set<number>();
-
-                        for (const { verseKey } of visibleVerses) {
-                            const pageLookup = pagesMap[verseKey];
-                            if (!pageLookup) continue;
-                            const startPage = Array.isArray(pageLookup) ? pageLookup[0] : pageLookup;
-                            const endPage = Array.isArray(pageLookup) ? pageLookup[1] : pageLookup;
-                            for (let p = startPage; p <= endPage; p++) {
-                                pagesToLoad.add(p);
-                            }
-                        }
-
-                        for (const page of pagesToLoad) {
-                            if (!active) return;
-                            await loadQcfFont(mushafCode, page);
-                        }
-
-                        if (active) {
-                            setFontsReady(true);
-                        }
-                    } catch {
-                        if (active) {
-                            setFontsReady(true);
-                        }
-                    }
-                })();
-            });
-        }
-    }
+    }, [batchSize, totalPages]);
 
     useMountEffect(() => {
         return () => {
             fetchRequestIdRef.current += 1;
             fetchControllerRef.current?.abort();
-            fontLoadActiveRef.current?.cancel();
             observerInstanceRef.current?.disconnect();
         };
     });
 
-    const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerses.length > 0);
+    const isWaiting = loading || !versePages;
     const handleWordTap = useCallback((target: WordTapTarget) => {
         setSelectedTap(target);
     }, []);
@@ -262,43 +244,40 @@ export function OccurrenceViewer({
                     </div>
                 </div>
                 <div className="flex flex-col items-end text-sm text-[var(--color-muted)]">
-                    <span>{occurrences?.length ?? 0} occurrences</span>
-                    {!loading && allVerses.length > 0 && (
+                    <span>{totalOccurrences} occurrences</span>
+                    {!loading && totalVerses > 0 && (
                         <span className="text-xs opacity-70">
-                            showing {Math.min(visibleCount, allVerses.length)} of {allVerses.length} verses
+                            {totalVerses} verses
                         </span>
                     )}
                 </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto p-4 pb-20 space-y-6">
+            <main className="flex-1 overflow-y-auto pb-20">
                 {isWaiting ? (
-                    <div className="animate-pulse space-y-4">
+                    <div className="animate-pulse space-y-4 p-4">
                         {[1, 2, 3].map((i) => (
                             <div key={i} className="h-32 w-full rounded-xl bg-[var(--color-muted)]/10" />
                         ))}
                     </div>
-                ) : visibleVerses.length === 0 ? (
+                ) : pageGroups && pageGroups.length === 0 ? (
                     <div className="flex h-40 flex-col items-center justify-center text-[var(--color-muted)]">
                         <p className="text-lg">No occurrences found.</p>
                     </div>
-                ) : (
-                    <div className="mx-auto max-w-3xl space-y-8 pb-10">
-                        {visibleVerses.map(({ verseKey, highlightedWords }) => (
-                            <VerseCard
-                                key={verseKey}
-                                verseKey={verseKey}
-                                highlightedWords={highlightedWords}
+                ) : pageGroups ? (
+                    <div className="mx-auto max-w-3xl pb-10">
+                        {pageGroups.slice(0, pagesToShow).map((group) => (
+                            <OccurrencePageBatch
+                                key={group.page}
+                                pageNum={group.page}
                                 mushafCode={mushafCode}
-                                fontReady={fontsReady}
+                                verses={group.verses}
                                 onWordTap={handleWordTap}
-                                showVerseLink
                             />
                         ))}
-                        {/* Infinite scroll sentinel */}
-                        {visibleCount < allVerses.length && (
+                        {pagesToShow < totalPages && (
                             <div ref={sentinelRef}>
-                                <div className="animate-pulse space-y-4">
+                                <div className="animate-pulse space-y-4 p-4">
                                     {[1, 2].map((i) => (
                                         <div key={i} className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10" />
                                     ))}
@@ -306,7 +285,7 @@ export function OccurrenceViewer({
                             </div>
                         )}
                     </div>
-                )}
+                ) : null}
             </main>
 
             <ReaderBottomNav
@@ -327,6 +306,70 @@ export function OccurrenceViewer({
             <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
             <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
         </div>
+    );
+}
+
+/**
+ * Renders all occurrence verses from a single mushaf page.
+ * Mirrors VersePageBatch from VBV mode but filters to specific verse keys.
+ */
+function OccurrencePageBatch({
+    pageNum,
+    mushafCode,
+    verses,
+    onWordTap,
+}: {
+    pageNum: number;
+    mushafCode: MushafCode;
+    verses: { verseKey: string; highlightedWords: number[] }[];
+    onWordTap: OnWordTap;
+}) {
+    const { pageData, fontReady, showFontSkeleton } = useMushafPage(mushafCode, pageNum);
+
+    // Extract words for the filtered verses from this page's data
+    const verseWords = useMemo(() => {
+        if (!pageData) return null;
+        const verseKeySet = new Set(verses.map((v) => v.verseKey));
+        const blocks: Record<string, MushafWordType[]> = {};
+
+        for (const line of pageData.lines) {
+            for (const word of line.words) {
+                if (!word.verseKey || !verseKeySet.has(word.verseKey)) continue;
+                if (!blocks[word.verseKey]) blocks[word.verseKey] = [];
+                blocks[word.verseKey].push(word);
+            }
+        }
+
+        return blocks;
+    }, [pageData, verses]);
+
+    if (!pageData) {
+        return (
+            <div className="animate-pulse space-y-4 p-4">
+                {verses.slice(0, 2).map((v) => (
+                    <div key={v.verseKey} className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10" />
+                ))}
+            </div>
+        );
+    }
+
+    return (
+        <>
+            {verses.map((v) => (
+                <VerseCard
+                    key={v.verseKey}
+                    verseKey={v.verseKey}
+                    words={verseWords?.[v.verseKey]}
+                    mushafCode={mushafCode}
+                    pageNum={pageNum}
+                    fontReady={fontReady}
+                    showFontSkeleton={showFontSkeleton}
+                    onWordTap={onWordTap}
+                    highlightedWords={v.highlightedWords}
+                    showVerseLink
+                />
+            ))}
+        </>
     );
 }
 

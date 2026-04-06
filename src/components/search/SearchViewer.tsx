@@ -5,21 +5,22 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Home, Search, X } from "lucide-react";
 import type { QuranSearchResponse } from "@/lib/search";
+import type { MushafWord as MushafWordType } from "@/lib/types";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import { usePreferences } from "@/hooks/usePreferences";
-import { fetchVersePages } from "@/lib/navigation/maps";
-import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
+import { fetchVersePages, type VersePageMap } from "@/lib/navigation/maps";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
-import type { WordTapTarget } from "@/lib/wordTap";
+import type { WordTapTarget, OnWordTap } from "@/lib/wordTap";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import type { MushafCode } from "@/lib/types";
+import { useMushafPage } from "@/hooks/useMushafPage";
+import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
 
 const URL_SYNC_DEBOUNCE_MS = 300;
 const SEARCH_RESULTS_LIMIT = 50;
-const BATCH_SIZE = 10;
 
 export function SearchViewer() {
   const router = useRouter();
@@ -147,6 +148,12 @@ export function SearchViewer() {
   );
 }
 
+/** A group of search-result verses on the same mushaf page. */
+interface SearchPageGroup {
+  page: number;
+  verseKeys: string[];
+}
+
 function SearchResultsPanel({
   query,
   mushafCode,
@@ -156,11 +163,14 @@ function SearchResultsPanel({
   mushafCode: MushafCode;
   onWordTap: (target: WordTapTarget) => void;
 }) {
+  const { prefs } = usePreferences();
+  const batchSize = DATA_USAGE_POLICIES[prefs.dataUsageMode].occurrenceBatchSize;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<QuranSearchResponse | null>(null);
-  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
-  const [fontsReady, setFontsReady] = useState(!isQcfCode(mushafCode));
+  const [versePages, setVersePages] = useState<VersePageMap | null>(null);
+  const [pagesToShow, setPagesToShow] = useState(batchSize);
 
   useMountEffect(() => {
     const controller = new AbortController();
@@ -186,7 +196,6 @@ function SearchResultsPanel({
       .then((data) => {
         if (controller.signal.aborted) return;
         setResponse(data);
-        setVisibleCount(BATCH_SIZE);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
@@ -205,15 +214,41 @@ function SearchResultsPanel({
     };
   });
 
-  const allVerseKeys = useMemo(
-    () => (response?.results ?? []).map((result) => result.verse_key),
-    [response],
-  );
-  const visibleVerseKeys = useMemo(
-    () => allVerseKeys.slice(0, visibleCount),
-    [allVerseKeys, visibleCount],
-  );
+  // Fetch verse-to-page mapping
+  useMountEffect(() => {
+    let active = true;
+    fetchVersePages(mushafCode)
+      .then((map) => { if (active) setVersePages(map); })
+      .catch(() => {});
+    return () => { active = false; };
+  });
 
+  // Group search results by mushaf page
+  const pageGroups = useMemo<SearchPageGroup[] | null>(() => {
+    if (!response || !versePages) return null;
+    const allVerseKeys = response.results.map((r) => r.verse_key);
+
+    const pages = new Map<number, string[]>();
+    const pageOrder: number[] = [];
+
+    for (const verseKey of allVerseKeys) {
+      const lookup = versePages[verseKey];
+      if (!lookup) continue;
+      const page = Array.isArray(lookup) ? lookup[0] : lookup;
+      if (!pages.has(page)) {
+        pages.set(page, []);
+        pageOrder.push(page);
+      }
+      pages.get(page)!.push(verseKey);
+    }
+
+    // Keep search result order (don't sort by page)
+    return pageOrder.map((page) => ({ page, verseKeys: pages.get(page)! }));
+  }, [response, versePages]);
+
+  const totalPages = pageGroups?.length ?? 0;
+
+  // Infinite scroll sentinel
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {
     observerRef.current?.disconnect();
@@ -222,14 +257,14 @@ function SearchResultsPanel({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, allVerseKeys.length));
+          setPagesToShow((prev) => Math.min(prev + batchSize, totalPages));
         }
       },
       { rootMargin: "600px" },
     );
     observer.observe(node);
     observerRef.current = observer;
-  }, [allVerseKeys.length]);
+  }, [batchSize, totalPages]);
 
   useMountEffect(() => {
     return () => {
@@ -237,20 +272,11 @@ function SearchResultsPanel({
     };
   });
 
-  const fontLoadKey = `${mushafCode}:${visibleVerseKeys.join(",")}`;
-  const isWaiting = loading || (isQcfCode(mushafCode) && !fontsReady && visibleVerseKeys.length > 0);
+  const isWaiting = loading || !versePages;
+  const allVerseKeys = response?.results?.map((r) => r.verse_key) ?? [];
 
   return (
     <>
-      {visibleVerseKeys.length > 0 && (
-        <FontPreloader
-          key={fontLoadKey}
-          mushafCode={mushafCode}
-          verseKeys={visibleVerseKeys}
-          onReady={setFontsReady}
-        />
-      )}
-
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-3 text-sm text-red-700">
           {error}
@@ -264,7 +290,7 @@ function SearchResultsPanel({
             <span className="font-medium text-[var(--color-text)]">{response.query}</span>
           </span>
           <span className="tabular-nums">
-            showing {Math.min(visibleCount, allVerseKeys.length)} / {response.limited_to}
+            {allVerseKeys.length} / {response.limited_to}
           </span>
         </div>
       )}
@@ -284,21 +310,19 @@ function SearchResultsPanel({
             <div key={item} className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10" />
           ))}
         </div>
-      ) : visibleVerseKeys.length > 0 ? (
-        <div className="mx-auto max-w-3xl space-y-8 pb-6">
-          {visibleVerseKeys.map((verseKey) => (
-            <VerseCard
-              key={verseKey}
-              verseKey={verseKey}
-              highlightedWords={[]}
+      ) : pageGroups && pageGroups.length > 0 ? (
+        <div className="mx-auto max-w-3xl pb-6">
+          {pageGroups.slice(0, pagesToShow).map((group) => (
+            <SearchPageBatch
+              key={group.page}
+              pageNum={group.page}
               mushafCode={mushafCode}
-              fontReady={fontsReady}
+              verseKeys={group.verseKeys}
               onWordTap={onWordTap}
-              showVerseLink
             />
           ))}
 
-          {visibleCount < allVerseKeys.length && (
+          {pagesToShow < totalPages && (
             <div ref={sentinelRef} className="space-y-4">
               <div className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
               <div className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
@@ -310,59 +334,60 @@ function SearchResultsPanel({
   );
 }
 
-function FontPreloader({
+function SearchPageBatch({
+  pageNum,
   mushafCode,
   verseKeys,
-  onReady,
+  onWordTap,
 }: {
+  pageNum: number;
   mushafCode: MushafCode;
   verseKeys: string[];
-  onReady: (ready: boolean) => void;
+  onWordTap: OnWordTap;
 }) {
-  useMountEffect(() => {
-    let active = true;
+  const { pageData, fontReady, showFontSkeleton } = useMushafPage(mushafCode, pageNum);
 
-    if (!isQcfCode(mushafCode) || verseKeys.length === 0) {
-      onReady(true);
-      return;
+  const verseWords = useMemo(() => {
+    if (!pageData) return null;
+    const verseKeySet = new Set(verseKeys);
+    const blocks: Record<string, MushafWordType[]> = {};
+
+    for (const line of pageData.lines) {
+      for (const word of line.words) {
+        if (!word.verseKey || !verseKeySet.has(word.verseKey)) continue;
+        if (!blocks[word.verseKey]) blocks[word.verseKey] = [];
+        blocks[word.verseKey].push(word);
+      }
     }
 
-    onReady(false);
+    return blocks;
+  }, [pageData, verseKeys]);
 
-    (async () => {
-      try {
-        const pagesMap = await fetchVersePages(mushafCode);
-        const pagesToLoad = new Set<number>();
+  if (!pageData) {
+    return (
+      <div className="animate-pulse space-y-4 py-4">
+        {verseKeys.slice(0, 2).map((vk) => (
+          <div key={vk} className="h-28 w-full rounded-xl bg-[var(--color-muted)]/10" />
+        ))}
+      </div>
+    );
+  }
 
-        for (const verseKey of verseKeys) {
-          const pageLookup = pagesMap[verseKey];
-          if (!pageLookup) continue;
-          const startPage = Array.isArray(pageLookup) ? pageLookup[0] : pageLookup;
-          const endPage = Array.isArray(pageLookup) ? pageLookup[1] : pageLookup;
-          for (let page = startPage; page <= endPage; page++) {
-            pagesToLoad.add(page);
-          }
-        }
-
-        for (const page of pagesToLoad) {
-          if (!active) return;
-          await loadQcfFont(mushafCode, page);
-        }
-
-        if (active) {
-          onReady(true);
-        }
-      } catch {
-        if (active) {
-          onReady(true);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  });
-
-  return null;
+  return (
+    <>
+      {verseKeys.map((vk) => (
+        <VerseCard
+          key={vk}
+          verseKey={vk}
+          words={verseWords?.[vk]}
+          mushafCode={mushafCode}
+          pageNum={pageNum}
+          fontReady={fontReady}
+          showFontSkeleton={showFontSkeleton}
+          onWordTap={onWordTap}
+          showVerseLink
+        />
+      ))}
+    </>
+  );
 }
