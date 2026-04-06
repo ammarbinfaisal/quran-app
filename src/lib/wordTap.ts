@@ -59,8 +59,8 @@ export function getWordTapTargetFromElement(
     wordIndex,
     charTypeName,
     anchor: {
-      x: Number.isFinite(point?.x) ? point.x! : rect.left + rect.width / 2,
-      y: Number.isFinite(point?.y) ? point.y! : rect.top + rect.height / 2,
+      x: point?.x != null && Number.isFinite(point.x) ? point.x : rect.left + rect.width / 2,
+      y: point?.y != null && Number.isFinite(point.y) ? point.y : rect.top + rect.height / 2,
     },
   };
 }

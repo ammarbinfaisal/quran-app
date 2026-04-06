@@ -66,6 +66,7 @@ export function ArabicVerseBlock({
     return fetchedWords;
   }, [fetchedWords, pageNum, wordsProp]);
 
+  // Self-fetch words (and their fonts) when no wordsProp is provided
   useMountEffect(() => {
     if (wordsProp !== undefined) return;
 
@@ -92,6 +93,23 @@ export function ArabicVerseBlock({
           }
         }
 
+        if (!active) return;
+
+        // Load fonts for the pages we just fetched before revealing words
+        if (fontReady === undefined) {
+          const pages = Array.from(new Set(collected.map((w) => w.pageNum).filter((p) => p > 0)));
+          if (pages.length > 0) {
+            try {
+              if (isQcfCode(mushafCode)) {
+                await Promise.all(pages.map((p) => loadQcfFont(mushafCode, p)));
+              } else {
+                await loadUnicodeFont(mushafCode);
+              }
+            } catch { /* font load failure is non-fatal */ }
+          }
+          if (active) setInternalFontReady(true);
+        }
+
         if (active) setFetchedWords(collected);
       } catch {
         if (active) setFetchedWords([]);
@@ -104,12 +122,16 @@ export function ArabicVerseBlock({
     };
   });
 
+  // Load fonts when words are provided as props
   useMountEffect(() => {
     if (fontReady !== undefined) {
       setInternalFontReady(fontReady);
       setInternalShowFontSkeleton(showFontSkeleton ?? false);
       return;
     }
+
+    // Self-fetch path handles its own font loading above
+    if (wordsProp === undefined) return;
 
     let active = true;
     let skeletonTimer: ReturnType<typeof setTimeout> | null = null;

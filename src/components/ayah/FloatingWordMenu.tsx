@@ -74,7 +74,7 @@ export function FloatingWordMenu({
               })
             : null;
 
-          if (nextTap) {
+          if (nextTap && onRetargetTap) {
             onRetargetTap(nextTap);
             return;
           }
