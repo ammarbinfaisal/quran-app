@@ -20,12 +20,11 @@ interface AbuIyaadNote {
 
 const execFileAsync = promisify(execFile);
 
-// Slow-mode: set SCRAPE_SLOW=1 to add long delays between requests.
-// Used by the pm2 cron so we don't hammer thenoblequran.com.
-const SLOW_MODE = !!process.env.SCRAPE_SLOW;
-const TRANSLATION_DELAY_MS = SLOW_MODE ? 100_000 : 0;
-const NOTES_DELAY_MS = SLOW_MODE ? 200_000 : 0;
-const NOTES_CONCURRENCY = SLOW_MODE ? 1 : 6;
+// Slow by default to be respectful. Set SCRAPE_FAST=1 for no delays.
+const FAST_MODE = !!process.env.SCRAPE_FAST;
+const TRANSLATION_DELAY_MS = FAST_MODE ? 0 : 100_000;
+const NOTES_DELAY_MS = FAST_MODE ? 0 : 200_000;
+const NOTES_CONCURRENCY = FAST_MODE ? 6 : 1;
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
@@ -238,9 +237,10 @@ async function run() {
 
   try {
     console.log(`Using ${executable}`);
-    if (SLOW_MODE) {
-      console.log(`Slow mode: ${TRANSLATION_DELAY_MS / 1000}s between translation pages, ${NOTES_DELAY_MS / 1000}s between notes (concurrency ${NOTES_CONCURRENCY})`);
-    }
+    console.log(FAST_MODE
+      ? "Fast mode (no delays)"
+      : `Slow mode: ${TRANSLATION_DELAY_MS / 1000}s between translation pages, ${NOTES_DELAY_MS / 1000}s between notes (concurrency ${NOTES_CONCURRENCY})`,
+    );
     console.log("Establishing session...");
     await initSession(executable, cookieFile);
     console.log("Session ready. Starting translation scrape...");

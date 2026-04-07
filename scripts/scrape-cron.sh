@@ -28,9 +28,8 @@ fi
 echo $$ > "$LOCK_FILE"
 trap 'rm -f "$LOCK_FILE"' EXIT
 
-log "Starting scrape of translation of Abu Iyaad (slow mode)..."
+log "Starting scrape of translation of Abu Iyaad..."
 
-export SCRAPE_SLOW=1
 if ! bun scripts/scrape-translation-of-abu-iyaad.ts >> "$LOG_FILE" 2>&1; then
   log "Scrape failed (exit $?). Skipping push."
   exit 1
