@@ -20,6 +20,18 @@ interface AbuIyaadNote {
 
 const execFileAsync = promisify(execFile);
 
+// Slow-mode: set SCRAPE_SLOW=1 to add long delays between requests.
+// Used by the pm2 cron so we don't hammer thenoblequran.com.
+const SLOW_MODE = !!process.env.SCRAPE_SLOW;
+const TRANSLATION_DELAY_MS = SLOW_MODE ? 100_000 : 0;
+const NOTES_DELAY_MS = SLOW_MODE ? 200_000 : 0;
+const NOTES_CONCURRENCY = SLOW_MODE ? 1 : 6;
+
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const NAMED: Record<string, string> = {
   amp: "&",
   lt: "<",
@@ -226,6 +238,9 @@ async function run() {
 
   try {
     console.log(`Using ${executable}`);
+    if (SLOW_MODE) {
+      console.log(`Slow mode: ${TRANSLATION_DELAY_MS / 1000}s between translation pages, ${NOTES_DELAY_MS / 1000}s between notes (concurrency ${NOTES_CONCURRENCY})`);
+    }
     console.log("Establishing session...");
     await initSession(executable, cookieFile);
     console.log("Session ready. Starting translation scrape...");
@@ -272,6 +287,7 @@ async function run() {
             keepGoing = false;
           } else {
             start += 10;
+            await sleep(TRANSLATION_DELAY_MS);
           }
         } catch (error) {
           console.error(`\nError fetching sura ${surah} start ${start}:`, error);
@@ -290,7 +306,7 @@ async function run() {
 
     console.log(`Scraping notes for ${verseKeys.length} verses...`);
 
-    await mapWithConcurrency(verseKeys, 6, async (verseKey, index) => {
+    await mapWithConcurrency(verseKeys, NOTES_CONCURRENCY, async (verseKey, index) => {
       const query = verseKey.replace(":", "_");
       const url = `https://www.thenoblequran.com/q/includes/cfm/search.cfm?q=${query}&shownotes=1`;
 
@@ -311,6 +327,8 @@ async function run() {
       if ((index + 1) % 100 === 0 || index + 1 === verseKeys.length) {
         console.log(`Processed ${index + 1}/${verseKeys.length} note pages`);
       }
+
+      await sleep(NOTES_DELAY_MS);
     });
 
     const publicDataDir = join(process.cwd(), "public", "data");
