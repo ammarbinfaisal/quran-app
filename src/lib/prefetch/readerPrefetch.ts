@@ -1,4 +1,5 @@
 import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
+import { getEffectiveDataMode } from "./networkQuality";
 import { loadAbuIyaadData } from "@/lib/translations/abu-iyaad";
 import { loadTranslation } from "@/lib/translations/loader";
 import { loadMushafPage } from "@/lib/mushaf/loader";
@@ -87,12 +88,12 @@ function pumpQueue() {
   }
 }
 
-function collectTargetPages(request: ReaderPrefetchRequest): {
+function collectTargetPages(request: ReaderPrefetchRequest, effectiveMode: DataUsageMode): {
   assetPages: number[];
   translationPages: number[];
   detailPages: number[];
 } {
-  const policy = DATA_USAGE_POLICIES[request.dataUsageMode];
+  const policy = DATA_USAGE_POLICIES[effectiveMode];
   const focusPage = request.focusPage ?? request.scopePages[0] ?? null;
   if (!focusPage) {
     return { assetPages: [], translationPages: [], detailPages: [] };
@@ -251,10 +252,11 @@ async function prefetchPageDetails(
 }
 
 export function scheduleReaderPrefetch(request: ReaderPrefetchRequest): void {
-  const policy = DATA_USAGE_POLICIES[request.dataUsageMode];
-  if (request.dataUsageMode === "low") return;
+  const effectiveMode = getEffectiveDataMode(request.dataUsageMode);
+  if (effectiveMode === "low") return;
 
-  const { assetPages, translationPages, detailPages } = collectTargetPages(request);
+  const policy = DATA_USAGE_POLICIES[effectiveMode];
+  const { assetPages, translationPages, detailPages } = collectTargetPages(request, effectiveMode);
 
   for (const page of assetPages) {
     scheduleTask(`page-assets:${request.mushafCode}:${page}`, () =>

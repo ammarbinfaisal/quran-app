@@ -1,5 +1,16 @@
 import type { DataUsageMode } from "@/lib/types";
 
+export type PrefetchLayer =
+  | "L1_current"
+  | "L2_adjacent"
+  | "L3_scope"
+  | "L4_bridge"
+  | "L5_mode_switch"
+  | "L6_intent"
+  | "L7_home_resume"
+  | "L8_home_idle"
+  | "L9_nav_sheet";
+
 export interface DataUsageModeDetail {
   label: string;
   shortDescription: string;
@@ -15,6 +26,7 @@ export interface DataUsagePolicy {
   lemmaPageRadius: number;
   maxLemmaFilesPerPage: number;
   occurrenceBatchSize: number;
+  prefetchLayers: ReadonlySet<PrefetchLayer>;
 }
 
 export const DATA_USAGE_MODES: DataUsageMode[] = ["low", "balanced", "high"];
@@ -53,6 +65,7 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     lemmaPageRadius: 0,
     maxLemmaFilesPerPage: 0,
     occurrenceBatchSize: 3,
+    prefetchLayers: new Set<PrefetchLayer>(),
   },
   balanced: {
     adjacentPageRadius: 2,
@@ -63,6 +76,14 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     lemmaPageRadius: 0,
     maxLemmaFilesPerPage: 0,
     occurrenceBatchSize: 5,
+    prefetchLayers: new Set<PrefetchLayer>([
+      "L1_current",
+      "L2_adjacent",
+      "L6_intent",
+      "L7_home_resume",
+      "L8_home_idle",
+      "L9_nav_sheet",
+    ]),
   },
   high: {
     adjacentPageRadius: 4,
@@ -73,5 +94,20 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     lemmaPageRadius: 1,
     maxLemmaFilesPerPage: 8,
     occurrenceBatchSize: 10,
+    prefetchLayers: new Set<PrefetchLayer>([
+      "L1_current",
+      "L2_adjacent",
+      "L3_scope",
+      "L4_bridge",
+      "L5_mode_switch",
+      "L6_intent",
+      "L7_home_resume",
+      "L8_home_idle",
+      "L9_nav_sheet",
+    ]),
   },
 };
+
+export function isLayerEnabled(mode: DataUsageMode, layer: PrefetchLayer): boolean {
+  return DATA_USAGE_POLICIES[mode].prefetchLayers.has(layer);
+}
