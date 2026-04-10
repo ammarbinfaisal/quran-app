@@ -46,10 +46,22 @@ export function VerseReader({
 
   const mushafCode = prefs.mushafCode;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastTrackedPageRef = useRef<number | null>(null);
 
-  // Track reading on mount
+  // Track reading on mount — derive the actual first page for s/j types
   useMountEffect(() => {
-    trackPageDebounced(type === "p" ? id : 1);
+    let page: number | null = null;
+    if (type === "p") {
+      page = id;
+    } else if (type === "s") {
+      page = chapters.find((c) => c.id === id)?.pages[0] ?? null;
+    } else {
+      page = JUZ_PAGE_RANGES.find((r) => r.juz === id)?.pages[0] ?? null;
+    }
+    if (page !== null) {
+      lastTrackedPageRef.current = page;
+      trackPageDebounced(page);
+    }
   });
 
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
@@ -64,6 +76,17 @@ export function VerseReader({
     verseKey: verseParam,
   });
   const [focusPage, setFocusPage] = useState<number | null>(type === "p" ? id : null);
+
+  const handleScrollFocusPage = useCallback(
+    (nextPage: number | null) => {
+      setFocusPage(nextPage);
+      if (nextPage !== null && nextPage !== lastTrackedPageRef.current) {
+        lastTrackedPageRef.current = nextPage;
+        trackPageDebounced(nextPage);
+      }
+    },
+    [],
+  );
 
   // Save reading mode + submode preferences on mount
   useMountEffect(() => {
@@ -120,7 +143,9 @@ export function VerseReader({
         onScroll={() => {
           const container = scrollContainerRef.current;
           if (container) {
-            setFocusPage(getFirstFullyVisiblePage(container) ?? (type === "p" ? id : null));
+            handleScrollFocusPage(
+              getFirstFullyVisiblePage(container) ?? (type === "p" ? id : null),
+            );
           }
         }}
         onClick={(e) => {
