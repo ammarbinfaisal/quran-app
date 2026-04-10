@@ -7,6 +7,7 @@ import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
 import { pageToJuz } from "@/lib/navigation/maps";
 import { dbGet, dbPut } from "@/lib/offline/storage";
 import type { DataUsageMode, MushafCode, TranslationId } from "@/lib/types";
+import { getChapters } from "@/lib/chapters";
 
 type MorphologyChunk = Record<string, MorphologyEntry[]>;
 
@@ -133,9 +134,20 @@ function collectTargetPages(request: ReaderPrefetchRequest, effectiveMode: DataU
     if (focusPage <= first + 1 && first > 1) bridgePages.push(first - 1);
   }
 
+  const modeSwitchPages: number[] = [];
+  if (isLayerEnabled(effectiveMode, "L5_mode_switch") && request.scopeType === "p" && focusPage != null) {
+    const chapter = getChapters().find((c) => c.pages[0] <= focusPage && focusPage <= c.pages[1]);
+    if (chapter) {
+      const alreadyQueued = new Set([...assetPages, ...localWindow]);
+      for (let p = chapter.pages[0]; p <= chapter.pages[1]; p++) {
+        if (!alreadyQueued.has(p)) modeSwitchPages.push(p);
+      }
+    }
+  }
+
   return {
-    assetPages: uniquePages([...assetPages, ...bridgePages]),
-    translationPages: uniquePages([...translationPages, ...bridgePages]),
+    assetPages: uniquePages([...assetPages, ...bridgePages, ...modeSwitchPages]),
+    translationPages: uniquePages([...translationPages, ...bridgePages, ...modeSwitchPages]),
     detailPages,
   };
 }
