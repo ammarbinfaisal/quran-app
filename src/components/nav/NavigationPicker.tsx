@@ -8,6 +8,7 @@ import { TOTAL_PAGES } from "@/lib/constants";
 import type { Chapter, MushafCode } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { fetchVersePages, pageToSurah, type VersePageMap } from "@/lib/navigation/maps";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 
 interface NavigationPickerProps {
   open: boolean;
@@ -99,6 +100,7 @@ function NavigationPickerContent({
   const surahListRef = useRef<HTMLDivElement>(null);
   const ayahListRef = useRef<HTMLDivElement>(null);
   const pageListRef = useRef<HTMLDivElement>(null);
+  const { register } = useIntentPrefetch("L9_nav_sheet");
 
   const selectedSurah = useMemo(
     () => chapters.find((chapter) => chapter.id === selectedSurahId) ?? null,
@@ -284,6 +286,7 @@ function NavigationPickerContent({
                   return (
                     <button
                       key={chapter.id}
+                      ref={register(chapter.pages[0])}
                       onClick={() => handleSurahClick(chapter)}
                       data-nav-selected={isActive ? "true" : undefined}
                       className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
@@ -338,6 +341,7 @@ function NavigationPickerContent({
               {allPages.map((page) => (
                 <button
                   key={page}
+                  ref={register(page)}
                   onClick={() => handlePageClick(page)}
                   data-nav-selected={selectedPage === page ? "true" : undefined}
                   className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${

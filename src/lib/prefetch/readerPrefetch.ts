@@ -308,6 +308,42 @@ export function scheduleReaderPrefetch(request: ReaderPrefetchRequest): void {
   }
 }
 
+// Cap intent warms per session to bound blast radius from fast-scroll observer events
+let intentWarmBudget = 24;
+const intentWarmedPages = new Set<string>();
+
+export function prefetchIntentTarget(
+  mushafCode: MushafCode,
+  dataUsageMode: DataUsageMode,
+  translationIds: TranslationId[],
+  page: number,
+  layer: "L6_intent" | "L9_nav_sheet",
+): void {
+  const effectiveMode = getEffectiveDataMode(dataUsageMode);
+  if (effectiveMode === "low" || !isLayerEnabled(effectiveMode, layer)) return;
+
+  const clampedPage = Math.round(page);
+  if (!Number.isFinite(clampedPage) || clampedPage < 1 || clampedPage > 604) return;
+
+  const pageKey = `${mushafCode}:${clampedPage}`;
+  if (intentWarmedPages.has(pageKey)) return;
+  if (intentWarmBudget <= 0) return;
+
+  intentWarmedPages.add(pageKey);
+  intentWarmBudget--;
+
+  scheduleTask(`intent-assets:${mushafCode}:${clampedPage}`, () =>
+    prefetchPageAssets(mushafCode, clampedPage),
+  );
+
+  if (translationIds.length > 0) {
+    const translationKey = translationIds.slice().sort().join(",");
+    scheduleTask(`intent-translations:${mushafCode}:${translationKey}:${clampedPage}`, () =>
+      prefetchPageTranslations(mushafCode, clampedPage, translationIds),
+    );
+  }
+}
+
 export function prefetchNavigationTarget(
   mushafCode: MushafCode,
   dataUsageMode: DataUsageMode,
@@ -329,4 +365,6 @@ export function resetReaderPrefetchState(): void {
   queuedTaskKeys.clear();
   taskQueue.length = 0;
   morphologyChunkCache.clear();
+  intentWarmedPages.clear();
+  intentWarmBudget = 24;
 }

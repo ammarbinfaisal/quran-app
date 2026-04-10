@@ -7,6 +7,7 @@ import { JUZ_PAGE_RANGES } from "@/lib/juz";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { useAbuIyaadSurahs } from "@/hooks/useAbuIyaadSurahs";
 import { TOTAL_PAGES } from "@/lib/constants";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 
 type TabId = "surah" | "juz" | "page";
 
@@ -48,15 +49,21 @@ function SurahRow({
   ch,
   translation,
   onClick,
+  innerRef,
+  onFocus,
 }: {
   ch: Chapter;
   translation: string | undefined;
   onClick: () => void;
+  innerRef?: (el: HTMLElement | null) => void;
+  onFocus?: () => void;
 }) {
   return (
     <button
       type="button"
+      ref={innerRef}
       onClick={onClick}
+      onFocus={onFocus}
       className={classNames(
         "min-h-11 w-full rounded-lg px-3 py-2 text-left outline-none transition",
         "bg-[var(--color-surface)] ring-1 ring-[var(--color-muted)]/20",
@@ -94,15 +101,21 @@ function ListButton({
   title,
   subtitle,
   onClick,
+  innerRef,
+  onFocus,
 }: {
   title: React.ReactNode;
   subtitle: React.ReactNode;
   onClick: () => void;
+  innerRef?: (el: HTMLElement | null) => void;
+  onFocus?: () => void;
 }) {
   return (
     <button
       type="button"
+      ref={innerRef}
       onClick={onClick}
+      onFocus={onFocus}
       className={classNames(
         "min-h-11 w-full rounded-lg px-3 py-2 text-left outline-none transition",
         "bg-[var(--color-surface)] ring-1 ring-[var(--color-muted)]/20",
@@ -170,6 +183,7 @@ export function QuickNavigation() {
   const { goToSurah, goToJuz, goToPage } = usePageNavigation();
   const [tab, setTab] = useState<TabId>("surah");
   const surahNames = useAbuIyaadSurahs();
+  const { warm, register } = useIntentPrefetch("L6_intent");
 
   return (
     <section className="flex flex-col">
@@ -206,6 +220,8 @@ export function QuickNavigation() {
                   ch={ch}
                   translation={surahNames?.[String(ch.id)]}
                   onClick={() => goToSurah(ch.id, ch.pages[0])}
+                  innerRef={register(ch.pages[0])}
+                  onFocus={() => warm(ch.pages[0])}
                 />
               </li>
             ))}
@@ -220,6 +236,8 @@ export function QuickNavigation() {
                   title={<span className="tabular-nums">Juz {j.juz}</span>}
                   subtitle={`Pages ${j.pages[0]}–${j.pages[1]}`}
                   onClick={() => goToJuz(j.juz, j.pages[0])}
+                  innerRef={register(j.pages[0])}
+                  onFocus={() => warm(j.pages[0])}
                 />
               </li>
             ))}
