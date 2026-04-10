@@ -13,6 +13,8 @@ import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { DownloadManager } from "@/components/offline/DownloadManager";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { prefetchHomeEntry } from "@/lib/prefetch/readerPrefetch";
+import { getPreferences } from "@/lib/preferences";
 
 const RECENTS_LIMIT = 5;
 
@@ -44,6 +46,17 @@ export function HomePageClient() {
   }, [history]);
 
   const recentEntries = useMemo(() => history.slice(0, RECENTS_LIMIT), [history]);
+
+  useMountEffect(() => {
+    const prefs = getPreferences();
+    prefetchHomeEntry(
+      prefs.mushafCode,
+      prefs.dataUsageMode,
+      prefs.translationIds,
+      continueEntry?.pageNumber ?? null,
+      recentEntries.map((e) => e.pageNumber),
+    );
+  });
 
   return (
     <main className="h-full w-full overflow-hidden">

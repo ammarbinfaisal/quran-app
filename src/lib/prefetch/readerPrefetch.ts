@@ -4,7 +4,7 @@ import { loadAbuIyaadData } from "@/lib/translations/abu-iyaad";
 import { loadTranslation } from "@/lib/translations/loader";
 import { loadMushafPage } from "@/lib/mushaf/loader";
 import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
-import { pageToJuz } from "@/lib/navigation/maps";
+import { fetchVersePages, pageToJuz } from "@/lib/navigation/maps";
 import { dbGet, dbPut } from "@/lib/offline/storage";
 import type { DataUsageMode, MushafCode, TranslationId } from "@/lib/types";
 import { getChapters } from "@/lib/chapters";
@@ -308,6 +308,82 @@ export function scheduleReaderPrefetch(request: ReaderPrefetchRequest): void {
   }
 }
 
+// Per-session guard: true after first home mount fires warmup; resets only on full page reload.
+let homeEntryWarmed = false;
+
+export function prefetchHomeEntry(
+  mushafCode: MushafCode,
+  dataUsageMode: DataUsageMode,
+  translationIds: TranslationId[],
+  resumePage: number | null,
+  recentPages: number[],
+): void {
+  const effectiveMode = getEffectiveDataMode(dataUsageMode);
+  if (effectiveMode === "low") return;
+  if (homeEntryWarmed) return;
+  homeEntryWarmed = true;
+
+  const translationKey = translationIds.slice().sort().join(",");
+
+  if (isLayerEnabled(effectiveMode, "L7_home_resume")) {
+    const page = resumePage !== null ? Math.round(resumePage) : null;
+    if (page !== null && Number.isFinite(page) && page >= 1 && page <= 604) {
+      scheduleTask(`home-resume-assets:${mushafCode}:${page}`, () =>
+        prefetchPageAssets(mushafCode, page),
+      );
+      if (translationIds.length > 0) {
+        scheduleTask(`home-resume-translations:${mushafCode}:${translationKey}:${page}`, () =>
+          prefetchPageTranslations(mushafCode, page, translationIds),
+        );
+      }
+    }
+  }
+
+  if (isLayerEnabled(effectiveMode, "L8_home_idle")) {
+    const runIdle = () => {
+      scheduleTask(`home-idle-verse-pages:${mushafCode}`, () =>
+        fetchVersePages(mushafCode).then(() => {}),
+      );
+
+      if (translationIds.includes("abu-iyaad")) {
+        scheduleTask(`home-idle-abu-iyaad:${translationKey}`, () =>
+          loadAbuIyaadData().then(() => {}),
+        );
+      }
+
+      if (effectiveMode === "high") {
+        const resumePageClamped =
+          resumePage !== null ? Math.round(resumePage) : null;
+        const seen = new Set<number>();
+        if (resumePageClamped !== null) seen.add(resumePageClamped);
+        let count = 0;
+        for (const rawPage of recentPages) {
+          if (count >= 4) break;
+          const page = Math.round(rawPage);
+          if (!Number.isFinite(page) || page < 1 || page > 604) continue;
+          if (seen.has(page)) continue;
+          seen.add(page);
+          count++;
+          scheduleTask(`home-idle-assets:${mushafCode}:${page}`, () =>
+            prefetchPageAssets(mushafCode, page),
+          );
+          if (translationIds.length > 0) {
+            scheduleTask(`home-idle-translations:${mushafCode}:${translationKey}:${page}`, () =>
+              prefetchPageTranslations(mushafCode, page, translationIds),
+            );
+          }
+        }
+      }
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      window.requestIdleCallback(runIdle);
+    } else {
+      setTimeout(runIdle, 400);
+    }
+  }
+}
+
 // Cap intent warms per session to bound blast radius from fast-scroll observer events
 let intentWarmBudget = 24;
 const intentWarmedPages = new Set<string>();
@@ -367,4 +443,5 @@ export function resetReaderPrefetchState(): void {
   morphologyChunkCache.clear();
   intentWarmedPages.clear();
   intentWarmBudget = 24;
+  homeEntryWarmed = false;
 }
