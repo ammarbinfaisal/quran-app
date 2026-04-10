@@ -1,4 +1,4 @@
-import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
+import { DATA_USAGE_POLICIES, isLayerEnabled } from "@/lib/dataUsage";
 import { getEffectiveDataMode } from "./networkQuality";
 import { loadAbuIyaadData } from "@/lib/translations/abu-iyaad";
 import { loadTranslation } from "@/lib/translations/loader";
@@ -121,7 +121,23 @@ function collectTargetPages(request: ReaderPrefetchRequest, effectiveMode: DataU
     ? uniquePages(expandAround(focusPage, policy.lemmaPageRadius))
     : [];
 
-  return { assetPages, translationPages, detailPages };
+  const bridgePages: number[] = [];
+  if (
+    isLayerEnabled(effectiveMode, "L4_bridge") &&
+    request.scopeType !== "p" &&
+    request.scopePages.length > 0
+  ) {
+    const first = request.scopePages[0];
+    const last = request.scopePages[request.scopePages.length - 1];
+    if (focusPage >= last - 1 && last < 604) bridgePages.push(last + 1);
+    if (focusPage <= first + 1 && first > 1) bridgePages.push(first - 1);
+  }
+
+  return {
+    assetPages: uniquePages([...assetPages, ...bridgePages]),
+    translationPages: uniquePages([...translationPages, ...bridgePages]),
+    detailPages,
+  };
 }
 
 function padJuz(juz: number) {
