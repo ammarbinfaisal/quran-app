@@ -42,7 +42,7 @@ if git diff --quiet public/data/abu-iyaad.json public/data/abu-iyaad-notes.json 
 else
   log "Changes detected, committing and pushing..."
   git add public/data/abu-iyaad.json public/data/abu-iyaad-notes.json public/data/abu-iyaad-surahs.json
-  git commit -m "Update Abu Iyaad translations and notes data (auto-scrape)"
+  git commit --no-gpg-sign -m "Update Abu Iyaad translations and notes data (auto-scrape)"
   git push
   log "Pushed to remote."
 fi
