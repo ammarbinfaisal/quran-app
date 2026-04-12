@@ -59,7 +59,13 @@ export type TranslationId = "saheeh" | "hilali-khan" | "abu-iyaad";
 export const SUPPORTED_TRANSLATION_IDS = ["saheeh", "hilali-khan", "abu-iyaad"] as const satisfies readonly TranslationId[];
 
 export type CopyVerseContentMode = "arabic" | "arabic-and-translations" | "translations";
-export type AyahReciterId = "abdul-basit" | "husary" | "minshawi";
+export type AyahReciterId =
+  | "maher-al-mu-aiqly"
+  | "khalifa-al-tunaiji"
+  | "saad-al-ghamdi"
+  | "abdul-basit"
+  | "husary"
+  | "minshawi";
 export type DataUsageMode = "low" | "balanced" | "high";
 
 export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
@@ -69,18 +75,18 @@ export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
 };
 
 export const AYAH_RECITER_DISPLAY_NAMES: Record<AyahReciterId, string> = {
+  "maher-al-mu-aiqly": "Maher Al Mu'aiqly",
+  "khalifa-al-tunaiji": "Khalifa Al Tunaiji",
+  "saad-al-ghamdi": "Saad Al Ghamdi",
   "abdul-basit": "Abdul Basit Abdul Samad",
   husary: "Mahmoud Khalil al-Husary",
   minshawi: "Muhammad Siddiq al-Minshawi",
 };
 
-export const AYAH_RECITER_AUDIO_PATHS: Record<AyahReciterId, string> = {
-  "abdul-basit": "abdulBasitMurattal",
-  husary: "husary",
-  minshawi: "minshawyMurattal",
-};
-
 export const SUPPORTED_AYAH_RECITERS = [
+  "maher-al-mu-aiqly",
+  "khalifa-al-tunaiji",
+  "saad-al-ghamdi",
   "abdul-basit",
   "husary",
   "minshawi",
@@ -180,7 +186,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   dataUsageMode: "balanced",
   copyVerseContentMode: "arabic-and-translations",
   copyTranslationIds: ["saheeh", "abu-iyaad"],
-  ayahReciterId: "abdul-basit",
+  ayahReciterId: "maher-al-mu-aiqly",
   inlineVerseNotes: false,
   theme: "light-warm",
   fontScale: 1,

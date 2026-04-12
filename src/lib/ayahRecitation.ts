@@ -1,25 +1,43 @@
 import { dbGet, dbPut } from "@/lib/offline/storage";
+import type { AyahReciterId } from "@/lib/types";
 
-export type AyahReciterId =
-  | "maher-al-mu-aiqly"
-  | "khalifa-al-tunaiji"
-  | "saad-al-ghamdi";
+export type { AyahReciterId };
+
+const TARTEEL_CDN = "https://audio-cdn.tarteel.ai/quran";
 
 export const AYAH_RECITERS: Record<
   AyahReciterId,
-  { label: string; dataFile: string }
+  { label: string; dataFile: string | null; cdnPath: string }
 > = {
   "maher-al-mu-aiqly": {
     label: "Maher Al Mu'aiqly",
     dataFile: "/data/ayah-recitations/maher-al-mu-aiqly.json",
+    cdnPath: `${TARTEEL_CDN}/maherAlMuaiqly`,
   },
   "khalifa-al-tunaiji": {
     label: "Khalifa Al Tunaiji",
     dataFile: "/data/ayah-recitations/khalifa-al-tunaiji.json",
+    cdnPath: `${TARTEEL_CDN}/khalifaAlTunaiji`,
   },
   "saad-al-ghamdi": {
     label: "Saad Al Ghamdi",
     dataFile: "/data/ayah-recitations/saad-al-ghamdi.json",
+    cdnPath: `${TARTEEL_CDN}/ghamadi`,
+  },
+  "abdul-basit": {
+    label: "Abdul Basit Abdul Samad",
+    dataFile: null,
+    cdnPath: `${TARTEEL_CDN}/abdulBasitMurattal`,
+  },
+  husary: {
+    label: "Mahmoud Khalil al-Husary",
+    dataFile: null,
+    cdnPath: `${TARTEEL_CDN}/husary`,
+  },
+  minshawi: {
+    label: "Muhammad Siddiq al-Minshawi",
+    dataFile: null,
+    cdnPath: `${TARTEEL_CDN}/minshawyMurattal`,
   },
 };
 
@@ -47,10 +65,21 @@ const recitationCache = new Map<AyahReciterId, AyahRecitationMap>();
 /**
  * Load all ayah recitation data for a given reciter.
  * Data is cached in memory and IndexedDB.
+ * For CDN-only reciters (no dataFile), returns an empty map.
  */
 export async function loadAyahRecitations(
   reciterId: AyahReciterId
 ): Promise<AyahRecitationMap> {
+  const reciter = AYAH_RECITERS[reciterId];
+  if (!reciter) {
+    throw new Error(`Unknown reciter: ${reciterId}`);
+  }
+
+  // CDN-only reciters don't have pre-built data
+  if (!reciter.dataFile) {
+    return {};
+  }
+
   // Check memory cache first
   const cached = recitationCache.get(reciterId);
   if (cached) return cached;
@@ -68,11 +97,6 @@ export async function loadAyahRecitations(
   }
 
   // Fetch from network
-  const reciter = AYAH_RECITERS[reciterId];
-  if (!reciter) {
-    throw new Error(`Unknown reciter: ${reciterId}`);
-  }
-
   const res = await fetch(reciter.dataFile);
   if (!res.ok) {
     throw new Error(`Failed to load recitation data: ${res.status}`);
@@ -88,14 +112,48 @@ export async function loadAyahRecitations(
 }
 
 /**
+ * Build CDN audio URL for a verse.
+ */
+function buildCdnAudioUrl(cdnPath: string, verseKey: string): string {
+  const [surahStr, ayahStr] = verseKey.split(":");
+  const surah = Number.parseInt(surahStr, 10);
+  const ayah = Number.parseInt(ayahStr, 10);
+  const fileName = `${String(surah).padStart(3, "0")}${String(ayah).padStart(3, "0")}.mp3`;
+  return `${cdnPath}/${fileName}`;
+}
+
+/**
  * Get recitation data for a specific verse.
+ * For reciters with dataFile, uses cached data with word timing.
+ * For CDN-only reciters, constructs audio URL dynamically (no word timing).
  */
 export async function getAyahRecitation(
   reciterId: AyahReciterId,
   verseKey: string
 ): Promise<AyahRecitationEntry | null> {
-  const data = await loadAyahRecitations(reciterId);
-  return data[verseKey] ?? null;
+  const reciter = AYAH_RECITERS[reciterId];
+  if (!reciter) return null;
+
+  const [surahStr, ayahStr] = verseKey.split(":");
+  const surah = Number.parseInt(surahStr, 10);
+  const ayah = Number.parseInt(ayahStr, 10);
+  if (!Number.isFinite(surah) || !Number.isFinite(ayah)) return null;
+
+  // For reciters with dataFile, try to get cached data with word timing
+  if (reciter.dataFile) {
+    const data = await loadAyahRecitations(reciterId);
+    const entry = data[verseKey];
+    if (entry) return entry;
+  }
+
+  // Fall back to CDN URL (no word timing)
+  return {
+    surah_number: surah,
+    ayah_number: ayah,
+    audio_url: buildCdnAudioUrl(reciter.cdnPath, verseKey),
+    duration: null,
+    segments: [],
+  };
 }
 
 /**

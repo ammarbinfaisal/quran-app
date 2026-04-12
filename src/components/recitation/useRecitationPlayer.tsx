@@ -9,13 +9,14 @@ import {
   type ReactNode,
 } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { usePreferences } from "@/hooks/usePreferences";
 import { getAudioElement, pauseAudio, playAudio } from "@/lib/audio";
 import {
   getAyahRecitation,
-  type AyahReciterId,
-  type AyahRecitationEntry,
   DEFAULT_AYAH_RECITER,
+  type AyahRecitationEntry,
 } from "@/lib/ayahRecitation";
+import type { AyahReciterId } from "@/lib/types";
 
 export type RecitationStatus = "idle" | "loading" | "playing" | "paused";
 export type RangeMode = "surah" | "juz" | "page" | "custom";
@@ -70,6 +71,7 @@ function dispatchVerseChange(verseKey: string | null, wordIndex: number | null) 
 }
 
 export function RecitationProvider({ children }: { children: ReactNode }) {
+  const { prefs, setPref } = usePreferences();
   const [status, setStatus] = useState<RecitationStatus>("idle");
   const [range, setRange] = useState<RecitationRange | null>(null);
   const [currentVerse, setCurrentVerse] = useState<string | null>(null);
@@ -78,7 +80,12 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   const [syncWithRecitation, setSyncWithRecitation] = useState(true);
   const [progress, setProgress] = useState(0);
   const [rangeMode, setRangeMode] = useState<RangeMode>("surah");
-  const [reciterId, setReciterId] = useState<AyahReciterId>(DEFAULT_AYAH_RECITER);
+
+  const reciterId = prefs.ayahReciterId;
+  const setReciterId = useCallback(
+    (id: AyahReciterId) => setPref("ayahReciterId", id),
+    [setPref]
+  );
 
   const rafRef = useRef<number>(0);
   const currentRecitationRef = useRef<AyahRecitationEntry | null>(null);
