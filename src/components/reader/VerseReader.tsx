@@ -12,7 +12,6 @@ import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { VbvSubmodeToggle } from "@/components/navigation/VbvSubmodeToggle";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
-import { DownloadManager } from "@/components/offline/DownloadManager";
 import { VerseByVerseViewer } from "@/components/mushaf/VerseByVerseViewer";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
@@ -67,7 +66,6 @@ export function VerseReader({
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [navSelection, setNavSelection] = useState<{
     page: number | null;
     verseKey: string | null;
@@ -203,10 +201,6 @@ export function VerseReader({
             }}
           />
         }
-        onDownloadsClick={() => {
-          setDownloadsOpen(true);
-          showChrome();
-        }}
         onSettingsClick={() => {
           setSettingsOpen(true);
           showChrome();
@@ -238,10 +232,6 @@ export function VerseReader({
       <SettingsDrawer
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-      />
-      <DownloadManager
-        open={downloadsOpen}
-        onClose={() => setDownloadsOpen(false)}
       />
     </main>
   );

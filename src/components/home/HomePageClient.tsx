@@ -10,7 +10,6 @@ import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { ModeSettingToggle } from "@/components/navigation/ModeSettingToggle";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
-import { DownloadManager } from "@/components/offline/DownloadManager";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { prefetchHomeEntry } from "@/lib/prefetch/readerPrefetch";
@@ -22,7 +21,6 @@ export function HomePageClient() {
   const { history, refresh } = useReadingHistory();
   const { goToPage } = usePageNavigation();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [navPickerOpen, setNavPickerOpen] = useState(false);
 
   // Apply theme and font scale via preferences listener
@@ -138,7 +136,6 @@ export function HomePageClient() {
             onClick: () => setNavPickerOpen(true),
           }}
           centerExtra={<ModeSettingToggle />}
-          onDownloadsClick={() => setDownloadsOpen(true)}
           onSettingsClick={() => setSettingsOpen(true)}
         />
         <NavigationPicker
@@ -150,7 +147,6 @@ export function HomePageClient() {
           }}
         />
         <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-        <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
       </div>
     </main>
   );

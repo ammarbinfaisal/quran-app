@@ -6,6 +6,8 @@ import {
   createWebSiteJsonLd,
   getSiteUrl,
 } from "@/lib/seo";
+import { RecitationProvider } from "@/components/recitation/useRecitationPlayer";
+import { RecitationContextProvider } from "@/components/recitation/RecitationContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -58,7 +60,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeInit />
-        {children}
+        <RecitationProvider>
+          <RecitationContextProvider>
+            {children}
+          </RecitationContextProvider>
+        </RecitationProvider>
         {isProd ? <ServiceWorkerRegistration /> : <ServiceWorkerDevCleanup />}
       </body>
     </html>
@@ -72,7 +78,10 @@ function ThemeInit() {
       var THEME_ACCENT = {
         "light-warm": "#8b6914",
         "dark-warm": "#c4a35a",
-        "white-green": "#2d6a4f"
+        "white-green": "#2d6a4f",
+        "classic-dark": "#5fa87f",
+        "blue-slate-dark": "#7aa2f7",
+        "blue-slate-light": "#345caa"
       };
 
       function applyThemeColor(theme) {

@@ -11,6 +11,7 @@ import { InlineVerseNotesToggle } from "@/components/settings/InlineVerseNotesTo
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
 import { DataUsageModePicker } from "@/components/settings/DataUsageModePicker";
 import { DataManagerSection } from "@/components/settings/DataManagerSection";
+import { DownloadsSection } from "@/components/settings/DownloadsSection";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useMountEffect } from "@/hooks/useMountEffect";
 
@@ -67,6 +68,7 @@ export function SettingsDrawer({
           <InlineVerseNotesToggle />
           <FontSizeControl />
           <DataUsageModePicker />
+          <DownloadsSection />
           <DataManagerSection />
 
           <section>

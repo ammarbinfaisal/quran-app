@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { createWebPageJsonLd } from "@/lib/seo";
-import { AYAH_RECITER_DISPLAY_NAMES, SUPPORTED_AYAH_RECITERS } from "@/lib/types";
 import { DATA_USAGE_MODES, DATA_USAGE_MODE_DETAILS } from "@/lib/dataUsage";
 import { DocsMobileNavigation, DocsSidebarNavigation } from "@/components/docs/DocsNavigation";
 
@@ -109,7 +108,6 @@ const DOCS_SECTIONS = [
   },
   { id: "sources-and-attribution", title: "Sources and attribution" },
   { id: "design-choices", title: "Design choices" },
-  { id: "ayah-playback", title: "Why these qurra' (reciters)" },
   { id: "ergonomics", title: "Ergonomics" },
 ] as const;
 
@@ -376,35 +374,6 @@ export default function DocsPage() {
                       Secondary tools live in sheets and drawers so the reading surface stays calm.
                     </p>
                   </div>
-                </article>
-              </section>
-
-              <section id="ayah-playback" className={SECTION_CLASS}>
-                <article className={SECTION_CARD_CLASS}>
-                  <h2 className="text-balance text-xl font-semibold">
-                    Why these qurra&apos; (reciters) for ayah playback
-                  </h2>
-                  <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    These qurra&apos; (reciters) were chosen for close ayah-by-ayah listening,
-                    repetition, and study.
-                  </p>
-                  <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    Some recitations lean further into melody and embellishment, and that can come with
-                    less precision in how consistently the tajwid (recitation rules) is carried through.
-                    The murattal (measured recitation) recordings included here do not make that
-                    tradeoff.
-                  </p>
-                  <p className="mt-3 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    The list is intentionally small because these are the murattal recordings in the
-                    current source data that best suit ayah-by-ayah listening, revision, and repetition.
-                  </p>
-                  <ul className="mt-4 space-y-2 text-pretty text-sm leading-7 text-[var(--color-muted)]">
-                    {SUPPORTED_AYAH_RECITERS.map((id) => (
-                      <li key={id} className="rounded-xl border border-[var(--color-muted)]/15 bg-[var(--color-bg)] px-4 py-3">
-                        {AYAH_RECITER_DISPLAY_NAMES[id]}
-                      </li>
-                    ))}
-                  </ul>
                 </article>
               </section>
 

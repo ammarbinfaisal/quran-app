@@ -11,7 +11,6 @@ import SwipeReader from "@/components/mushaf/SwipeReader";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
-import { DownloadManager } from "@/components/offline/DownloadManager";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -22,8 +21,9 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { useChapters } from "@/hooks/useChapters";
-import { pageToSurah } from "@/lib/navigation/maps";
+import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
 import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
+import { useRecitationContext } from "@/components/recitation/RecitationContext";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -45,16 +45,37 @@ export function Reader({ initialPage }: { initialPage: number }) {
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const mushafCode = prefs.mushafCode;
 
   const chapters = useChapters();
+  const { setContext } = useRecitationContext();
+
+  const surahId = useMemo(() => {
+    if (!chapters.length) return undefined;
+    return pageToSurah(page, chapters);
+  }, [page, chapters]);
+
+  const juzId = useMemo(() => pageToJuz(page), [page]);
+
   const surahName = useMemo(() => {
     if (!chapters.length) return String(page);
-    const surahId = pageToSurah(page, chapters);
     return chapters.find(c => c.id === surahId)?.nameSimple ?? String(page);
-  }, [page, chapters]);
+  }, [surahId, chapters, page]);
+
+  // Update recitation context when page changes
+  const prevPageRef = useRef(page);
+  if (prevPageRef.current !== page) {
+    prevPageRef.current = page;
+    queueMicrotask(() => {
+      setContext({ currentPage: page, currentSurahId: surahId, currentJuzId: juzId });
+    });
+  }
+
+  // Set initial context on mount
+  useMountEffect(() => {
+    setContext({ currentPage: page, currentSurahId: surahId, currentJuzId: juzId });
+  });
 
   // --- Track reading: initial + on page change ---
   useMountEffect(() => {
@@ -176,10 +197,6 @@ export function Reader({ initialPage }: { initialPage: number }) {
               showChrome();
             },
           }}
-          onDownloadsClick={() => {
-            setDownloadsOpen(true);
-            showChrome();
-          }}
           onSettingsClick={() => {
             setSettingsOpen(true);
             showChrome();
@@ -212,10 +229,6 @@ export function Reader({ initialPage }: { initialPage: number }) {
       <SettingsDrawer
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-      />
-      <DownloadManager
-        open={downloadsOpen}
-        onClose={() => setDownloadsOpen(false)}
       />
     </main>
   );

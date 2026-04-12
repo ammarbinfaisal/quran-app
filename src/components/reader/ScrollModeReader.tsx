@@ -10,7 +10,6 @@ import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { ScrollSubmodeToggle } from "@/components/navigation/ScrollSubmodeToggle";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
-import { DownloadManager } from "@/components/offline/DownloadManager";
 import ScrollReader from "@/components/mushaf/ScrollReader";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
@@ -41,7 +40,6 @@ export function ScrollModeReader({
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   const verseParam = searchParams.get("verse");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -167,10 +165,6 @@ export function ScrollModeReader({
             }}
           />
         )}
-        onDownloadsClick={() => {
-          setDownloadsOpen(true);
-          showChrome();
-        }}
         onSettingsClick={() => {
           setSettingsOpen(true);
           showChrome();
@@ -202,10 +196,6 @@ export function ScrollModeReader({
       <SettingsDrawer
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-      />
-      <DownloadManager
-        open={downloadsOpen}
-        onClose={() => setDownloadsOpen(false)}
       />
     </main>
   );

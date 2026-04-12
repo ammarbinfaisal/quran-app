@@ -104,6 +104,7 @@ export type ThemeId =
   | "light-warm"
   | "dark-warm"
   | "white-green"
+  | "classic-dark"
   | "blue-slate-dark"
   | "blue-slate-light";
 
@@ -115,26 +116,36 @@ export interface ThemeColors {
   muted: string;
 }
 
-export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors }> = {
+export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors; pair?: ThemeId }> = {
   "light-warm": {
-    label: "Light",
+    label: "Warm Light",
     colors: { bg: "#f7f1e4", text: "#2c2c2c", accent: "#8b6914", surface: "#efe8d6", muted: "#756548" },
+    pair: "dark-warm",
   },
   "dark-warm": {
-    label: "Dark",
+    label: "Warm Dark",
     colors: { bg: "#1a1410", text: "#e8dcc8", accent: "#c4a35a", surface: "#2a2218", muted: "#9b8b70" },
+    pair: "light-warm",
   },
   "white-green": {
-    label: "Classic",
+    label: "Classic Light",
     colors: { bg: "#ffffff", text: "#1a1a1a", accent: "#2d6a4f", surface: "#f0f5f0", muted: "#567362" },
+    pair: "classic-dark",
+  },
+  "classic-dark": {
+    label: "Classic Dark",
+    colors: { bg: "#0d1f17", text: "#e0ebe5", accent: "#5fa87f", surface: "#152b21", muted: "#7a9b8a" },
+    pair: "white-green",
   },
   "blue-slate-dark": {
     label: "Slate Dark",
     colors: { bg: "#0f1724", text: "#e6edf7", accent: "#7aa2f7", surface: "#1b2535", muted: "#93a2ba" },
+    pair: "blue-slate-light",
   },
   "blue-slate-light": {
     label: "Slate Light",
     colors: { bg: "#f4f7fb", text: "#1f2937", accent: "#345caa", surface: "#e7edf6", muted: "#586a84" },
+    pair: "blue-slate-dark",
   },
 };
 

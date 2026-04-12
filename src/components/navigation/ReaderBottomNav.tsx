@@ -2,9 +2,10 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Download, Home, Settings } from "lucide-react";
+import { Home, Settings } from "lucide-react";
 import { ModeToggle } from "@/components/navigation/ModeToggle";
 import { OfflineIndicator } from "@/components/offline/OfflineIndicator";
+import { RecitationButton } from "@/components/recitation/RecitationButton";
 import { cn } from "@/lib/utils";
 
 type LabelSize = "sm" | "md";
@@ -26,9 +27,8 @@ export function ReaderBottomNav({
   centerClassName,
   showModeToggle = true,
   showOfflineIndicator = true,
-  showDownloads = true,
+  showRecitation = true,
   showSettings = true,
-  onDownloadsClick,
   onSettingsClick,
 }: {
   visible?: boolean;
@@ -39,9 +39,8 @@ export function ReaderBottomNav({
   centerClassName?: string;
   showModeToggle?: boolean;
   showOfflineIndicator?: boolean;
-  showDownloads?: boolean;
+  showRecitation?: boolean;
   showSettings?: boolean;
-  onDownloadsClick?: () => void;
   onSettingsClick?: () => void;
 }) {
   const labelSize = centerLabel?.size ?? "md";
@@ -91,16 +90,7 @@ export function ReaderBottomNav({
       <div className="flex items-center">
         {showOfflineIndicator && <OfflineIndicator />}
 
-        {showDownloads && onDownloadsClick && (
-          <button
-            type="button"
-            onClick={onDownloadsClick}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-            aria-label="Manage downloads"
-          >
-            <Download className="h-5 w-5" />
-          </button>
-        )}
+        {showRecitation && <RecitationButton />}
 
         {showSettings && onSettingsClick && (
           <button

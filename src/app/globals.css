@@ -96,6 +96,32 @@
   --phrase-highlight-7: rgba(190, 18, 60, 0.14);
 }
 
+:root[data-theme="classic-dark"] {
+  --color-bg: #0d1f17;
+  --color-text: #e0ebe5;
+  --color-accent: #5fa87f;
+  --color-surface: #152b21;
+  --color-muted: #7a9b8a;
+  --color-annotation: #a3c4b3;
+
+  --pos-verb: #6ee7a8;
+  --pos-noun: #7cb3ff;
+  --pos-pronoun: #f0c078;
+  --pos-prep: #c4a0ff;
+  --pos-det: #a8b8c0;
+  --pos-adj: #5fd4c8;
+  --pos-conj: #f8a060;
+  --pos-propn: #ff8fa8;
+  --verse-highlight-bg: rgba(95, 168, 127, 0.2);
+  --phrase-highlight-1: rgba(95, 168, 127, 0.24);
+  --phrase-highlight-2: rgba(110, 231, 168, 0.2);
+  --phrase-highlight-3: rgba(124, 179, 255, 0.2);
+  --phrase-highlight-4: rgba(240, 192, 120, 0.2);
+  --phrase-highlight-5: rgba(196, 160, 255, 0.2);
+  --phrase-highlight-6: rgba(95, 212, 200, 0.2);
+  --phrase-highlight-7: rgba(255, 143, 168, 0.18);
+}
+
 :root[data-theme="blue-slate-dark"] {
   --color-bg: #0f1724;
   --color-text: #e6edf7;

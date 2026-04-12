@@ -9,7 +9,6 @@ import { VerseCard } from "@/components/lemma/VerseCard";
 import { fetchVersePages, type VersePageMap } from "@/lib/navigation/maps";
 import { dbGet, dbPut } from "@/lib/offline/storage";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
-import { DownloadManager } from "@/components/offline/DownloadManager";
 import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -72,7 +71,6 @@ export function OccurrenceViewer({
     const [loading, setLoading] = useState(true);
     const [versePages, setVersePages] = useState<VersePageMap | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [downloadsOpen, setDownloadsOpen] = useState(false);
     const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
     const { prefs } = usePreferences();
     useApplyPreferences();
@@ -290,7 +288,6 @@ export function OccurrenceViewer({
 
             <ReaderBottomNav
                 showModeToggle={showModeToggle}
-                onDownloadsClick={() => setDownloadsOpen(true)}
                 onSettingsClick={() => setSettingsOpen(true)}
             />
 
@@ -304,7 +301,6 @@ export function OccurrenceViewer({
             />
 
             <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-            <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
         </div>
     );
 }

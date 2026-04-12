@@ -11,7 +11,6 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { fetchVersePages, type VersePageMap } from "@/lib/navigation/maps";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
-import { DownloadManager } from "@/components/offline/DownloadManager";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import type { WordTapTarget, OnWordTap } from "@/lib/wordTap";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -31,7 +30,6 @@ export function SearchViewer() {
 
   const [input, setInput] = useState(urlQ);
   const [syncedUrlQ, setSyncedUrlQ] = useState(urlQ);
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
 
@@ -129,7 +127,6 @@ export function SearchViewer() {
 
       <ReaderBottomNav
         showModeToggle={false}
-        onDownloadsClick={() => setDownloadsOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
       />
 
@@ -143,7 +140,6 @@ export function SearchViewer() {
       />
 
       <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <DownloadManager open={downloadsOpen} onClose={() => setDownloadsOpen(false)} />
     </div>
   );
 }
