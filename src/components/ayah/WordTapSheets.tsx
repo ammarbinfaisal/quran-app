@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, BookOpen, Copy, FileText, Loader2, Pause, Play, Search, FastForward } from "lucide-react";
+import { ArrowLeftRight, BookOpen, Copy, FileText, Play, Search, CornerDownRight } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
@@ -13,11 +13,10 @@ import type { MushafCode, TranslationId, UserPreferences } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "@/lib/verseCopy";
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { useRecitationPlayer } from "@/components/recitation/useRecitationPlayer";
+import { showToast } from "@/lib/toast";
 
-type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | "play-options" | null;
-type AudioState = "idle" | "loading" | "playing";
+type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
 
 export function WordTapSheets({
   selectedTap,
@@ -35,7 +34,6 @@ export function WordTapSheets({
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
-  const [audioState, setAudioState] = useState<AudioState>("idle");
   const { prefs } = usePreferences();
   const recitation = useRecitationPlayer();
   const isRangePlaying = recitation.status !== "idle" && recitation.range !== null;
@@ -48,7 +46,6 @@ export function WordTapSheets({
   const prevTapRef = useRef(selectedTap);
   if (prevTapRef.current !== selectedTap) {
     prevTapRef.current = selectedTap;
-    setAudioState("idle");
 
     // Reset sheet/notes state and load data for new tap
     setActiveSheet(null);
@@ -71,21 +68,15 @@ export function WordTapSheets({
   const buttons = useMemo(() => {
     if (!selectedTap) return [];
 
-    // Determine play button behavior based on recitation state
-    const playIcon =
-      audioState === "loading" || recitation.status === "loading" ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : recitation.status === "playing" && recitation.currentVerse === selectedTap.verseKey ? (
-        <Pause className="h-4 w-4" />
-      ) : isRangePlaying ? (
-        <FastForward className="h-4 w-4" />
-      ) : (
-        <Play className="h-4 w-4" />
-      );
+    const playIcon = isRangePlaying ? (
+      <CornerDownRight className="h-4 w-4" />
+    ) : (
+      <Play className="h-4 w-4" />
+    );
 
     const playLabel = isRangePlaying
-      ? "Continue from this verse"
-      : "Play verse recitation";
+      ? "Jump recitation to this verse"
+      : "Play this verse";
 
     const items = [
       {
@@ -93,16 +84,24 @@ export function WordTapSheets({
         icon: playIcon,
         label: playLabel,
         onClick: () => {
+          const verseKey = selectedTap.verseKey;
           if (isRangePlaying) {
-            // Show options: play single or continue from here
-            setActiveSheet("play-options");
+            // Range is active — try to jump within the range.
+            const jumped = recitation.jumpToVerseInRange(verseKey);
+            if (jumped) {
+              showToast(`Jumped to ayah ${verseKey}`, "success");
+            } else {
+              showToast(
+                `Ayah ${verseKey} is outside the playing range. Open the player to change it.`,
+                "warning",
+              );
+            }
+            onClose();
           } else {
-            // Play single verse
-            void (async () => {
-              setAudioState("loading");
-              await recitation.playVerse(selectedTap.verseKey);
-              setAudioState("idle");
-            })();
+            // Single-verse playback — start audio and immediately close the
+            // floating menu so the user can scroll/tap freely.
+            void recitation.playVerse(verseKey);
+            onClose();
           }
         },
       },
@@ -167,7 +166,6 @@ export function WordTapSheets({
 
     return items;
   }, [
-    audioState,
     copyMode,
     copyTranslationIds,
     hasMutashabihat,
@@ -217,113 +215,6 @@ export function WordTapSheets({
         verseKey={selectedTap.verseKey}
         onClose={onClose}
       />
-
-      <PlayOptionsSheet
-        open={activeSheet === "play-options"}
-        verseKey={selectedTap.verseKey}
-        onClose={onClose}
-        onPlaySingle={() => {
-          void recitation.playVerse(selectedTap.verseKey);
-          onClose();
-        }}
-        onContinueFromHere={() => {
-          // Continue range from this verse
-          if (recitation.range) {
-            const verseIndex = recitation.range.verses.indexOf(selectedTap.verseKey);
-            if (verseIndex >= 0) {
-              // Create new range starting from this verse
-              const newRange = {
-                ...recitation.range,
-                verses: recitation.range.verses.slice(verseIndex),
-                startVerse: selectedTap.verseKey,
-              };
-              void recitation.playRange(newRange);
-            } else {
-              // Verse not in range, just play single
-              void recitation.playVerse(selectedTap.verseKey);
-            }
-          }
-          onClose();
-        }}
-      />
-    </>
-  );
-}
-
-function PlayOptionsSheet({
-  open,
-  verseKey,
-  onClose,
-  onPlaySingle,
-  onContinueFromHere,
-}: {
-  open: boolean;
-  verseKey: string;
-  onClose: () => void;
-  onPlaySingle: () => void;
-  onContinueFromHere: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div
-        className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md rounded-t-2xl bg-[var(--color-surface)] shadow-lg"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-      >
-        <div className="p-4">
-          <div className="sheet-handle" />
-          <h3 className="mt-2 text-center text-sm font-semibold text-[var(--color-text)]">
-            Play from Ayah {verseKey}
-          </h3>
-          <p className="mt-1 text-center text-xs text-[var(--color-muted)]">
-            A range is currently playing
-          </p>
-
-          <div className="mt-4 space-y-2">
-            <button
-              type="button"
-              onClick={onPlaySingle}
-              className="flex w-full items-center gap-3 rounded-lg border border-[var(--color-muted)]/20 px-4 py-3 text-left active:opacity-80"
-            >
-              <Play className="h-5 w-5 text-[var(--color-accent)]" />
-              <div>
-                <div className="text-sm font-medium text-[var(--color-text)]">
-                  Play this ayah only
-                </div>
-                <div className="text-xs text-[var(--color-muted)]">
-                  Stop the current range and play just this verse
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={onContinueFromHere}
-              className="flex w-full items-center gap-3 rounded-lg border border-[var(--color-muted)]/20 px-4 py-3 text-left active:opacity-80"
-            >
-              <FastForward className="h-5 w-5 text-[var(--color-accent)]" />
-              <div>
-                <div className="text-sm font-medium text-[var(--color-text)]">
-                  Continue from here
-                </div>
-                <div className="text-xs text-[var(--color-muted)]">
-                  Skip to this verse and continue the range
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-lg px-4 py-3 text-sm text-[var(--color-muted)] active:opacity-80"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
     </>
   );
 }

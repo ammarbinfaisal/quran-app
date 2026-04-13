@@ -8,6 +8,7 @@ import {
 } from "@/lib/seo";
 import { RecitationProvider } from "@/components/recitation/useRecitationPlayer";
 import { RecitationContextProvider } from "@/components/recitation/RecitationContext";
+import { Toaster } from "@/components/ui/Toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </RecitationContextProvider>
         </RecitationProvider>
+        <Toaster />
         {isProd ? <ServiceWorkerRegistration /> : <ServiceWorkerDevCleanup />}
       </body>
     </html>

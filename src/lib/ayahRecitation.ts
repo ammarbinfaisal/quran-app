@@ -139,11 +139,16 @@ export async function getAyahRecitation(
   const ayah = Number.parseInt(ayahStr, 10);
   if (!Number.isFinite(surah) || !Number.isFinite(ayah)) return null;
 
-  // For reciters with dataFile, try to get cached data with word timing
+  // For reciters with dataFile, try to get cached data with word timing.
+  // If loading fails (network error, missing file), fall through to CDN.
   if (reciter.dataFile) {
-    const data = await loadAyahRecitations(reciterId);
-    const entry = data[verseKey];
-    if (entry) return entry;
+    try {
+      const data = await loadAyahRecitations(reciterId);
+      const entry = data[verseKey];
+      if (entry) return entry;
+    } catch {
+      // ignore — fall back to CDN URL below
+    }
   }
 
   // Fall back to CDN URL (no word timing)

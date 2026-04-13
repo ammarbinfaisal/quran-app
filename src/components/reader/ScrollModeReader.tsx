@@ -21,8 +21,9 @@ import type { WordTapTarget } from "@/lib/wordTap";
 import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
 import { useDirectionalReaderKeyboardNav } from "@/hooks/useDirectionalReaderKeyboardNav";
 import { useChapters } from "@/hooks/useChapters";
-import { pageToSurah } from "@/lib/navigation/maps";
+import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
 import { JUZ_PAGE_RANGES } from "@/lib/juz";
+import { useRecitationContext } from "@/components/recitation/RecitationContext";
 
 export function ScrollModeReader({
   type,
@@ -96,6 +97,30 @@ export function ScrollModeReader({
     const surahId = pageToSurah(labelPage, chapters);
     return chapters.find((chapter) => chapter.id === surahId)?.nameSimple ?? String(id);
   }, [chapters, id, labelPage]);
+
+  // Keep the recitation player in sync with the current view so the range
+  // picker has sensible defaults when the player sheet opens.
+  const { setContext } = useRecitationContext();
+  const recitationContextSurahId = useMemo(() => {
+    if (!chapters.length || labelPage === null) return undefined;
+    return pageToSurah(labelPage, chapters);
+  }, [chapters, labelPage]);
+  const recitationContextJuzId = useMemo(() => {
+    if (labelPage === null) return undefined;
+    return pageToJuz(labelPage);
+  }, [labelPage]);
+  const lastRecitationContextRef = useRef<string>("");
+  const recitationKey = `${labelPage ?? ""}|${recitationContextSurahId ?? ""}|${recitationContextJuzId ?? ""}`;
+  if (lastRecitationContextRef.current !== recitationKey) {
+    lastRecitationContextRef.current = recitationKey;
+    queueMicrotask(() =>
+      setContext({
+        currentPage: labelPage ?? undefined,
+        currentSurahId: recitationContextSurahId,
+        currentJuzId: recitationContextJuzId,
+      }),
+    );
+  }
 
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">

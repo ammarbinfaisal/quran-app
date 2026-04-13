@@ -19,10 +19,9 @@ import {
 import type { AyahReciterId } from "@/lib/types";
 
 export type RecitationStatus = "idle" | "loading" | "playing" | "paused";
-export type RangeMode = "surah" | "juz" | "page" | "custom";
 
 export interface RecitationRange {
-  mode: RangeMode;
+  mode: "custom";
   startVerse: string;
   endVerse: string;
   verses: string[]; // List of verse keys in order
@@ -37,11 +36,9 @@ interface RecitationContextValue {
   repeat: boolean;
   syncWithRecitation: boolean;
   progress: number;
-  rangeMode: RangeMode;
   reciterId: AyahReciterId;
 
   // Setters
-  setRangeMode: (mode: RangeMode) => void;
   setRepeat: (repeat: boolean) => void;
   setSyncWithRecitation: (sync: boolean) => void;
   setReciterId: (id: AyahReciterId) => void;
@@ -50,6 +47,7 @@ interface RecitationContextValue {
   togglePlayPause: () => void;
   playVerse: (verseKey: string) => Promise<void>;
   playRange: (range: RecitationRange) => Promise<void>;
+  jumpToVerseInRange: (verseKey: string) => boolean;
   skipForward: () => void;
   skipBackward: () => void;
   stop: () => void;
@@ -79,7 +77,6 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   const [repeat, setRepeat] = useState(false);
   const [syncWithRecitation, setSyncWithRecitation] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [rangeMode, setRangeMode] = useState<RangeMode>("surah");
 
   const reciterId = prefs.ayahReciterId;
   const setReciterId = useCallback(
@@ -193,11 +190,15 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
     }
   }, [range, repeat, playVerseInternal]);
 
-  // Set up audio element event listeners
+  // Keep the latest handlers in refs so the audio element listeners (mounted once)
+  // always see the current state without re-binding.
+  const handleVerseEndedRef = useRef(handleVerseEnded);
+  handleVerseEndedRef.current = handleVerseEnded;
+
   useMountEffect(() => {
     const el = getAudioElement();
 
-    const onEnded = () => handleVerseEnded();
+    const onEnded = () => handleVerseEndedRef.current();
     const onError = () => {
       setStatus("idle");
       cancelAnimationFrame(rafRef.current);
@@ -211,17 +212,6 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
       el.removeEventListener("error", onError);
       cancelAnimationFrame(rafRef.current);
     };
-  });
-
-  // Update ended handler when dependencies change
-  const handleVerseEndedRef = useRef(handleVerseEnded);
-  handleVerseEndedRef.current = handleVerseEnded;
-
-  useMountEffect(() => {
-    const el = getAudioElement();
-    const handler = () => handleVerseEndedRef.current();
-    el.addEventListener("ended", handler);
-    return () => el.removeEventListener("ended", handler);
   });
 
   const togglePlayPause = useCallback(() => {
@@ -258,6 +248,18 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
       await playVerseInternal(newRange.verses[0]);
     },
     [playVerseInternal]
+  );
+
+  const jumpToVerseInRange = useCallback(
+    (verseKey: string): boolean => {
+      if (!range || !range.verses.length) return false;
+      const idx = range.verses.indexOf(verseKey);
+      if (idx < 0) return false;
+      verseIndexRef.current = idx;
+      void playVerseInternal(verseKey);
+      return true;
+    },
+    [range, playVerseInternal]
   );
 
   const skipForward = useCallback(() => {
@@ -319,15 +321,14 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
     repeat,
     syncWithRecitation,
     progress,
-    rangeMode,
     reciterId,
-    setRangeMode,
     setRepeat,
     setSyncWithRecitation,
     setReciterId,
     togglePlayPause,
     playVerse,
     playRange,
+    jumpToVerseInRange,
     skipForward,
     skipBackward,
     stop,
@@ -354,15 +355,14 @@ export function useRecitationPlayer(): RecitationContextValue {
       repeat: false,
       syncWithRecitation: true,
       progress: 0,
-      rangeMode: "surah",
       reciterId: DEFAULT_AYAH_RECITER,
-      setRangeMode: () => {},
       setRepeat: () => {},
       setSyncWithRecitation: () => {},
       setReciterId: () => {},
       togglePlayPause: () => {},
       playVerse: async () => {},
       playRange: async () => {},
+      jumpToVerseInRange: () => false,
       skipForward: () => {},
       skipBackward: () => {},
       stop: () => {},
