@@ -79,7 +79,7 @@ export function RecitationPlayerSheet({
     status,
     repeat,
     setRepeat,
-    progress,
+    rangeProgress,
     currentVerseLabel,
     rangeLabel,
     togglePlayPause,
@@ -241,7 +241,7 @@ export function RecitationPlayerSheet({
         <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]/15">
           <div
             className="h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-100"
-            style={{ width: `${progress * 100}%` }}
+            style={{ width: `${rangeProgress * 100}%` }}
           />
         </div>
 

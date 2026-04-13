@@ -8,7 +8,7 @@ import { useRecitationContext } from "@/components/recitation/RecitationContext"
 
 export function RecitationButton() {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { status, progress } = useRecitationPlayer();
+  const { status, rangeProgress } = useRecitationPlayer();
   const { currentPage, currentSurahId, currentJuzId } = useRecitationContext();
 
   const isPlaying = status === "playing";
@@ -16,7 +16,7 @@ export function RecitationButton() {
   const hasActivePlayback = status !== "idle";
 
   // Mini progress ring (shown when playing/paused with active range)
-  const progressDeg = progress * 360;
+  const progressDeg = rangeProgress * 360;
 
   return (
     <>

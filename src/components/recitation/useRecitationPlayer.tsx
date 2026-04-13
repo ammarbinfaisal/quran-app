@@ -36,6 +36,7 @@ interface RecitationContextValue {
   repeat: boolean;
   syncWithRecitation: boolean;
   progress: number;
+  rangeProgress: number;
   reciterId: AyahReciterId;
 
   // Setters
@@ -307,6 +308,15 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
 
   const currentVerseLabel = currentVerse ? `Ayah ${currentVerse}` : null;
 
+  // Range-level progress: position in range + how far through current ayah.
+  // Falls back to ayah progress for single-verse playback.
+  const rangeProgress = (() => {
+    if (!range || !range.verses.length) return progress;
+    const idx = currentVerse ? range.verses.indexOf(currentVerse) : -1;
+    if (idx < 0) return 0;
+    return (idx + progress) / range.verses.length;
+  })();
+
   const rangeLabel = range
     ? range.verses.length === 1
       ? `Ayah ${range.startVerse}`
@@ -321,6 +331,7 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
     repeat,
     syncWithRecitation,
     progress,
+    rangeProgress,
     reciterId,
     setRepeat,
     setSyncWithRecitation,
@@ -355,6 +366,7 @@ export function useRecitationPlayer(): RecitationContextValue {
       repeat: false,
       syncWithRecitation: true,
       progress: 0,
+      rangeProgress: 0,
       reciterId: DEFAULT_AYAH_RECITER,
       setRepeat: () => {},
       setSyncWithRecitation: () => {},
