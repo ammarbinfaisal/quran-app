@@ -8,7 +8,7 @@ import { useRecitationContext } from "@/components/recitation/RecitationContext"
 
 export function RecitationButton() {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { status, togglePlayPause, progress } = useRecitationPlayer();
+  const { status, progress } = useRecitationPlayer();
   const { currentPage, currentSurahId, currentJuzId } = useRecitationContext();
 
   const isPlaying = status === "playing";
@@ -22,15 +22,9 @@ export function RecitationButton() {
     <>
       <button
         type="button"
-        onClick={() => {
-          if (hasActivePlayback) {
-            togglePlayPause();
-          } else {
-            setSheetOpen(true);
-          }
-        }}
+        onClick={() => setSheetOpen(true)}
         className="relative flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-        aria-label={isPlaying ? "Pause recitation" : "Play recitation"}
+        aria-label={hasActivePlayback ? "Open recitation player" : "Play recitation"}
       >
         {/* Progress ring background */}
         {hasActivePlayback && (
