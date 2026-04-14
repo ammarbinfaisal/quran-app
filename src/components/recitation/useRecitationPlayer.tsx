@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   useCallback,
   useRef,
@@ -307,6 +308,29 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const currentVerseLabel = currentVerse ? `Ayah ${currentVerse}` : null;
+
+  // Follow-the-recitation: when enabled, mark the playing verse with a data
+  // attribute and scroll it into view. We use a global DOM lookup so any
+  // mounted reader/viewer that tags elements with data-verse-key participates
+  // automatically.
+  useEffect(() => {
+    if (!syncWithRecitation || !currentVerse) return;
+    const rafId = window.requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-verse-key="${currentVerse}"]`);
+      if (!(el instanceof HTMLElement)) return;
+      el.setAttribute("data-recitation-playing", "true");
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+      const prev = document.querySelector(
+        `[data-verse-key="${currentVerse}"][data-recitation-playing="true"]`,
+      );
+      if (prev instanceof HTMLElement) {
+        prev.removeAttribute("data-recitation-playing");
+      }
+    };
+  }, [syncWithRecitation, currentVerse]);
 
   // Range-level progress: position in range + how far through current ayah.
   // Falls back to ayah progress for single-verse playback.

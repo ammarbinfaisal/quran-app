@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { X, Play, Pause, SkipBack, SkipForward, Repeat, Loader2 } from "lucide-react";
+import { X, Play, Pause, SkipBack, SkipForward, Repeat, Loader2, Eye } from "lucide-react";
 import {
   useRecitationPlayer,
   type RecitationRange,
@@ -79,6 +79,8 @@ export function RecitationPlayerSheet({
     status,
     repeat,
     setRepeat,
+    syncWithRecitation,
+    setSyncWithRecitation,
     rangeProgress,
     currentVerseLabel,
     rangeLabel,
@@ -314,12 +316,21 @@ export function RecitationPlayerSheet({
         </div>
 
         {/* Repeat toggle */}
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
+        <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
           <div className="flex items-center gap-2.5">
             <Repeat className="h-4 w-4 text-[var(--color-muted)]" />
             <span className="text-sm text-[var(--color-text)]">Repeat range</span>
           </div>
           <ToggleSwitch checked={repeat} onChange={setRepeat} />
+        </div>
+
+        {/* Follow-along toggle */}
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
+          <div className="flex items-center gap-2.5">
+            <Eye className="h-4 w-4 text-[var(--color-muted)]" />
+            <span className="text-sm text-[var(--color-text)]">Follow recitation</span>
+          </div>
+          <ToggleSwitch checked={syncWithRecitation} onChange={setSyncWithRecitation} />
         </div>
 
         {isActive && (

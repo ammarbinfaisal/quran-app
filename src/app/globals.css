@@ -263,6 +263,13 @@ main {
   padding-block: 1px;
 }
 
+[data-recitation-playing="true"] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+  transition: outline-color 0.2s ease;
+}
+
 .mushaf-word {
   cursor: pointer;
   flex-shrink: 0;
