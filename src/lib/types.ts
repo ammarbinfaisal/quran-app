@@ -70,7 +70,7 @@ export type DataUsageMode = "low" | "balanced" | "high";
 
 export const TRANSLATION_DISPLAY_NAMES: Record<TranslationId, string> = {
   saheeh: "Saheeh International",
-  "hilali-khan": "Mohsin Khan and Taqi-ud-Din Hilali",
+  "hilali-khan": "Dr. Mohsin Khan and Shaykh Taqi-ud-Din al-Hilali",
   "abu-iyaad": "Shaykh Abu Iyaad",
 };
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { type TranslationId, TRANSLATION_DISPLAY_NAMES } from "@/lib/types";
+import { renderTranslationName } from "@/lib/translationDisplay";
 import type { TranslationSegment, FootnoteReference } from "@/lib/footnotes";
 import { FootnoteSheet } from "@/components/ayah/FootnoteSheet";
 
@@ -55,7 +56,7 @@ export function TranslationBlock({
                     ) : (
                         <Copy className="h-3 w-3 text-[var(--color-muted)] shrink-0" />
                     )}
-                    <span>{label}</span>
+                    <span>{renderTranslationName(id)}</span>
                 </button>
                 {id === "abu-iyaad" &&
                     Number.isFinite(surahNum) &&

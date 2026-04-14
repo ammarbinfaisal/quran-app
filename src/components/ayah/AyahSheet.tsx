@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Copy, X, Check, BookOpen, ExternalLink } from "lucide-react";
 import { TRANSLATION_DISPLAY_NAMES, type TranslationId } from "@/lib/types";
+import { renderTranslationName } from "@/lib/translationDisplay";
 import { useTranslations } from "@/hooks/useTranslations";
 import { fetchUthmaniText } from "@/lib/api";
 import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
@@ -145,6 +146,7 @@ export function AyahSheet({
             return (
               <TranslationRow
                 key={id}
+                id={id}
                 label={label}
                 showSkeleton={showSkeleton}
                 content={content}
@@ -176,6 +178,7 @@ export function AyahSheet({
 // ---------------------------------------------------------------------------
 
 function TranslationRow({
+  id,
   label,
   showSkeleton,
   content,
@@ -184,6 +187,7 @@ function TranslationRow({
   onViewAllFootnotes,
   onFootnoteClick,
 }: {
+  id: TranslationId;
   label: string;
   showSkeleton: boolean;
   content: import("@/lib/footnotes").TranslationContent | undefined;
@@ -219,7 +223,7 @@ function TranslationRow({
       {/* Header: label + actions */}
       <div className="mb-1 flex items-center justify-between gap-2">
         <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
-          {label}
+          {renderTranslationName(id)}
         </div>
         <div className="flex items-center gap-1">
           {hasFootnotes && (

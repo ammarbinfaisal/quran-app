@@ -1,10 +1,8 @@
 "use client";
 
 import { usePreferences } from "@/hooks/usePreferences";
-import {
-  TRANSLATION_DISPLAY_NAMES,
-  type TranslationId,
-} from "@/lib/types";
+import { type TranslationId } from "@/lib/types";
+import { renderTranslationName } from "@/lib/translationDisplay";
 import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
 const TRANSLATIONS: TranslationId[] = ["saheeh", "hilali-khan"];
@@ -46,7 +44,7 @@ export function TranslationPicker() {
               }}
             >
               <div className="text-sm font-medium text-[var(--color-text)]">
-                {TRANSLATION_DISPLAY_NAMES[id]}
+                {renderTranslationName(id)}
               </div>
               <SettingsSelectionIndicator active={active} />
             </button>

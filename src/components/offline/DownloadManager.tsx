@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, type ReactNode } from "react";
 import { Download, Trash2, Check, Loader2, X } from "lucide-react";
 import {
   type MushafCode,
@@ -10,6 +10,7 @@ import {
   MUSHAF_DISPLAY_NAMES,
   TRANSLATION_DISPLAY_NAMES,
 } from "@/lib/types";
+import { renderTranslationName } from "@/lib/translationDisplay";
 import {
   downloadMushaf,
   removeMushaf,
@@ -305,6 +306,7 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
                 <DownloadRow
                   key={id}
                   label={TRANSLATION_DISPLAY_NAMES[id]}
+                  displayLabel={renderTranslationName(id)}
                   isDownloaded={downloadedTranslations.includes(id)}
                   progress={activeDownloads[id]}
                   error={errors[id]}
@@ -343,6 +345,7 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
 
 function DownloadRow({
   label,
+  displayLabel,
   isDownloaded,
   progress,
   error,
@@ -350,6 +353,7 @@ function DownloadRow({
   onRemove,
 }: {
   label: string;
+  displayLabel?: ReactNode;
   isDownloaded: boolean;
   progress?: DownloadProgress;
   error?: string;
@@ -361,7 +365,7 @@ function DownloadRow({
   return (
     <li className="flex items-center justify-between rounded-lg border border-[var(--color-muted)]/20 px-3 py-3 min-h-12">
       <div className="flex-1 min-w-0">
-        <span className="text-sm text-[var(--color-text)]">{label}</span>
+        <span className="text-sm text-[var(--color-text)]">{displayLabel ?? label}</span>
         {isDownloading && progress && <ProgressBar progress={progress} />}
         {error && (
           <p className="mt-1 text-xs text-red-500">

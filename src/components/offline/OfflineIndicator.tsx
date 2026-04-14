@@ -3,7 +3,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { CloudOff } from "lucide-react";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
-import { MUSHAF_DISPLAY_NAMES, TRANSLATION_DISPLAY_NAMES } from "@/lib/types";
+import { MUSHAF_DISPLAY_NAMES } from "@/lib/types";
+import { renderTranslationName } from "@/lib/translationDisplay";
 import { useMountEffect } from "@/hooks/useMountEffect";
 
 export function OfflineIndicator() {
@@ -72,7 +73,7 @@ export function OfflineIndicator() {
               <ul className="space-y-0.5">
                 {status.downloadedTranslations.map((id) => (
                   <li key={id} className="text-sm text-[var(--color-text)]">
-                    {TRANSLATION_DISPLAY_NAMES[id]}
+                    {renderTranslationName(id)}
                   </li>
                 ))}
               </ul>
