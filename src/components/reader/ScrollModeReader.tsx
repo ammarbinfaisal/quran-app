@@ -56,6 +56,16 @@ export function ScrollModeReader({
   const highlightedVerse =
     verseParam && dismissedVerse === verseParam ? null : verseParam;
 
+  // Reset focusPage when navigating to a different scope so the recitation
+  // context (and any other labelPage consumers) immediately reflect the new
+  // view instead of holding the previously scrolled page.
+  const lastScopeRef = useRef(`${type}:${id}`);
+  const currentScopeKey = `${type}:${id}`;
+  if (lastScopeRef.current !== currentScopeKey) {
+    lastScopeRef.current = currentScopeKey;
+    queueMicrotask(() => setFocusPage(type === "p" ? id : null));
+  }
+
   // Save reading mode + submode preferences on mount
   useMountEffect(() => {
     setPreference("viewMode", "scroll");

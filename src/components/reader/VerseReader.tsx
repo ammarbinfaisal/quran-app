@@ -76,6 +76,16 @@ export function VerseReader({
   });
   const [focusPage, setFocusPage] = useState<number | null>(type === "p" ? id : null);
 
+  // Reset focusPage when navigating to a different scope so the recitation
+  // context (and any other labelPage consumers) immediately reflect the new
+  // view instead of holding the previously scrolled page.
+  const lastScopeRef = useRef(`${type}:${id}`);
+  const currentScopeKey = `${type}:${id}`;
+  if (lastScopeRef.current !== currentScopeKey) {
+    lastScopeRef.current = currentScopeKey;
+    queueMicrotask(() => setFocusPage(type === "p" ? id : null));
+  }
+
   const handleScrollFocusPage = useCallback(
     (nextPage: number | null) => {
       setFocusPage(nextPage);
