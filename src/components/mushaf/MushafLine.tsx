@@ -31,12 +31,16 @@ function MushafLineInner({
   verseWordOffsets,
 }: MushafLineProps) {
   const isUnicode = !(QCF_CODES as readonly string[]).includes(mushafCode);
-  const className = centered
+  // Only apply the centered class on genuinely short lines. Full-width lines
+  // (7+ words) look identical justified or centered, and the centered CSS
+  // disables flex-grow which causes visible shrinkage on long lines.
+  const effectivelyCentered = centered && line.words.length < 7;
+  const className = effectivelyCentered
     ? "mushaf-line mushaf-line-centered"
     : "mushaf-line";
 
   if (!fontReady) {
-    const lineSkeletonWidth = centered
+    const lineSkeletonWidth = effectivelyCentered
       ? "58%"
       : `${Math.max(52, Math.min(100, line.words.length * 7))}%`;
 
@@ -83,7 +87,7 @@ function MushafLineInner({
   // Unicode lines use text-align justify (browser handles inter-word spacing better
   // than flexbox space-between for real Arabic text).
   if (isUnicode) {
-    const unicodeClassName = centered
+    const unicodeClassName = effectivelyCentered
       ? "mushaf-line mushaf-line-unicode mushaf-line-centered"
       : "mushaf-line mushaf-line-unicode";
 
