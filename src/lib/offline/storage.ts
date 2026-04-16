@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------
 
 const DB_NAME = "quran-app";
-const DB_VERSION = 3;
-const STORE_NAMES = ["mushaf-pages", "translations", "mushaf-fonts", "morphology", "lemmas"] as const;
+const DB_VERSION = 4;
+const STORE_NAMES = ["mushaf-pages", "translations", "mushaf-fonts", "morphology", "lemmas", "recitation-audio"] as const;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 

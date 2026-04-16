@@ -1,8 +1,10 @@
 import {
   type MushafCode,
   type TranslationId,
+  type AyahReciterId,
   type OfflineStatus,
   MUSHAF_CODES,
+  SUPPORTED_AYAH_RECITERS,
 } from "@/lib/types";
 import { dbGet } from "@/lib/offline/storage";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
@@ -54,6 +56,19 @@ export async function isLemmasDownloaded(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function getDownloadedRecitations(): Promise<AyahReciterId[]> {
+  const downloaded: AyahReciterId[] = [];
+  for (const id of SUPPORTED_AYAH_RECITERS) {
+    try {
+      const value = await dbGet("recitation-audio", `${id}:complete`);
+      if (value) downloaded.push(id);
+    } catch {
+      // store may not exist yet
+    }
+  }
+  return downloaded;
 }
 
 // ---------------------------------------------------------------------------

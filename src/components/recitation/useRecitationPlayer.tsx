@@ -14,9 +14,12 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { getAudioElement, pauseAudio, playAudio } from "@/lib/audio";
 import {
   getAyahRecitation,
+  preloadAyahAudio,
   DEFAULT_AYAH_RECITER,
   type AyahRecitationEntry,
 } from "@/lib/ayahRecitation";
+import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
+import { getEffectiveDataMode } from "@/lib/prefetch/networkQuality";
 import type { AyahReciterId } from "@/lib/types";
 
 export type RecitationStatus = "idle" | "loading" | "playing" | "paused";
@@ -89,6 +92,10 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   const rafRef = useRef<number>(0);
   const currentRecitationRef = useRef<AyahRecitationEntry | null>(null);
   const verseIndexRef = useRef<number>(0);
+  const rangeRef = useRef<RecitationRange | null>(null);
+  rangeRef.current = range;
+  const dataUsageModeRef = useRef(prefs.dataUsageMode);
+  dataUsageModeRef.current = prefs.dataUsageMode;
 
   // Update word index based on current time and segments
   const updateWordIndex = useCallback(() => {
@@ -146,6 +153,20 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
 
         if (syncWithRecitation) {
           dispatchVerseChange(verseKey, null);
+        }
+
+        // Preload upcoming verse audio based on data usage mode
+        const currentRange = rangeRef.current;
+        if (currentRange && currentRange.verses.length > 0) {
+          const idx = currentRange.verses.indexOf(verseKey);
+          if (idx >= 0) {
+            const effectiveMode = getEffectiveDataMode(dataUsageModeRef.current);
+            const count = DATA_USAGE_POLICIES[effectiveMode].audioPreloadCount;
+            const upcoming = currentRange.verses.slice(idx + 1, idx + 1 + count);
+            if (upcoming.length > 0) {
+              preloadAyahAudio(reciterId, upcoming);
+            }
+          }
         }
 
         return true;

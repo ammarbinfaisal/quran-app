@@ -1,6 +1,9 @@
 import { dbGet, dbPut } from "@/lib/offline/storage";
 import type { AyahReciterId } from "@/lib/types";
 
+// Cache of blob URLs created from offline audio data to avoid repeated IDB reads.
+const offlineBlobUrlCache = new Map<string, string>();
+
 export type { AyahReciterId };
 
 const TARTEEL_CDN = "https://audio-cdn.tarteel.ai/quran";
@@ -112,6 +115,31 @@ export async function loadAyahRecitations(
 }
 
 /**
+ * Try to resolve audio from offline storage. Returns a blob URL if the verse
+ * audio has been downloaded, or null if not available offline.
+ */
+async function resolveOfflineAudioUrl(
+  reciterId: AyahReciterId,
+  verseKey: string,
+): Promise<string | null> {
+  const cacheKey = `${reciterId}:${verseKey}`;
+
+  // Check in-memory blob URL cache first
+  const cached = offlineBlobUrlCache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const buffer = await dbGet<ArrayBuffer>("recitation-audio", cacheKey);
+    if (!buffer || !(buffer instanceof ArrayBuffer)) return null;
+    const url = URL.createObjectURL(new Blob([buffer], { type: "audio/mpeg" }));
+    offlineBlobUrlCache.set(cacheKey, url);
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build CDN audio URL for a verse.
  */
 function buildCdnAudioUrl(cdnPath: string, verseKey: string): string {
@@ -141,24 +169,33 @@ export async function getAyahRecitation(
 
   // For reciters with dataFile, try to get cached data with word timing.
   // If loading fails (network error, missing file), fall through to CDN.
+  let entry: AyahRecitationEntry | null = null;
   if (reciter.dataFile) {
     try {
       const data = await loadAyahRecitations(reciterId);
-      const entry = data[verseKey];
-      if (entry) return entry;
+      entry = data[verseKey] ?? null;
     } catch {
       // ignore — fall back to CDN URL below
     }
   }
 
-  // Fall back to CDN URL (no word timing)
-  return {
-    surah_number: surah,
-    ayah_number: ayah,
-    audio_url: buildCdnAudioUrl(reciter.cdnPath, verseKey),
-    duration: null,
-    segments: [],
-  };
+  if (!entry) {
+    entry = {
+      surah_number: surah,
+      ayah_number: ayah,
+      audio_url: buildCdnAudioUrl(reciter.cdnPath, verseKey),
+      duration: null,
+      segments: [],
+    };
+  }
+
+  // If the recitation is downloaded offline, prefer the local blob URL.
+  const offlineUrl = await resolveOfflineAudioUrl(reciterId, verseKey);
+  if (offlineUrl) {
+    return { ...entry, audio_url: offlineUrl };
+  }
+
+  return entry;
 }
 
 /**
@@ -203,4 +240,30 @@ export async function getAyahRecitationsInRange(
  */
 export function preloadAyahRecitations(reciterId: AyahReciterId): void {
   loadAyahRecitations(reciterId).catch(() => {});
+}
+
+// Track in-flight preload fetches to avoid duplicate requests.
+const preloadingUrls = new Set<string>();
+
+/**
+ * Preload audio files for upcoming verses by issuing fetch requests.
+ * This warms the browser HTTP cache so playback starts instantly.
+ * Skips verses whose audio is already being fetched.
+ */
+export function preloadAyahAudio(
+  reciterId: AyahReciterId,
+  verseKeys: string[],
+): void {
+  const reciter = AYAH_RECITERS[reciterId];
+  if (!reciter) return;
+
+  for (const vk of verseKeys) {
+    const url = buildCdnAudioUrl(reciter.cdnPath, vk);
+    if (preloadingUrls.has(url)) continue;
+    preloadingUrls.add(url);
+
+    fetch(url, { mode: "cors" })
+      .catch(() => {})
+      .finally(() => preloadingUrls.delete(url));
+  }
 }

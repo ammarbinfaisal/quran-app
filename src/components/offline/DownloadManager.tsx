@@ -5,10 +5,13 @@ import { Download, Trash2, Check, Loader2, X } from "lucide-react";
 import {
   type MushafCode,
   type TranslationId,
+  type AyahReciterId,
   type DownloadProgress,
   MUSHAF_CODES,
   MUSHAF_DISPLAY_NAMES,
   TRANSLATION_DISPLAY_NAMES,
+  AYAH_RECITER_DISPLAY_NAMES,
+  SUPPORTED_AYAH_RECITERS,
 } from "@/lib/types";
 import { renderTranslationName } from "@/lib/translationDisplay";
 import {
@@ -20,12 +23,15 @@ import {
   removeMorphology,
   downloadLemmas,
   removeLemmas,
+  downloadRecitation,
+  removeRecitation,
 } from "@/lib/offline/download";
 import {
   getDownloadedMushafs,
   getDownloadedTranslations,
   isMorphologyDownloaded,
   isLemmasDownloaded,
+  getDownloadedRecitations,
 } from "@/lib/offline/status";
 
 /** Only these two are user-choosable. */
@@ -44,6 +50,7 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
   const [downloadedTranslations, setDownloadedTranslations] = useState<TranslationId[]>([]);
   const [morphologyDownloaded, setMorphologyDownloaded] = useState(false);
   const [lemmasDownloaded, setLemmasDownloaded] = useState(false);
+  const [downloadedRecitations, setDownloadedRecitations] = useState<AyahReciterId[]>([]);
 
   // Track active downloads by key (mushaf code or translation id)
   const [activeDownloads, setActiveDownloads] = useState<Record<string, DownloadProgress>>({});
@@ -51,16 +58,18 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
 
   const refreshStatus = useCallback(async () => {
     try {
-      const [mushafs, translations, morph, lem] = await Promise.all([
+      const [mushafs, translations, morph, lem, recitations] = await Promise.all([
         getDownloadedMushafs(),
         getDownloadedTranslations(),
         isMorphologyDownloaded(),
         isLemmasDownloaded(),
+        getDownloadedRecitations(),
       ]);
       setDownloadedMushafs(mushafs);
       setDownloadedTranslations(translations);
       setMorphologyDownloaded(morph);
       setLemmasDownloaded(lem);
+      setDownloadedRecitations(recitations);
     } catch {
       // IndexedDB may be unavailable
     }
@@ -247,6 +256,58 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
   }, [refreshStatus]);
 
   // -----------------------------------------------------------------------
+  // Recitation handlers
+  // -----------------------------------------------------------------------
+
+  const handleDownloadRecitation = useCallback(
+    async (id: AyahReciterId) => {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[`recitation:${id}`];
+        return next;
+      });
+
+      try {
+        await downloadRecitation(id, (progress) => {
+          setActiveDownloads((prev) => ({ ...prev, [`recitation:${id}`]: progress }));
+        });
+        setActiveDownloads((prev) => {
+          const next = { ...prev };
+          delete next[`recitation:${id}`];
+          return next;
+        });
+        await refreshStatus();
+      } catch (err) {
+        setActiveDownloads((prev) => {
+          const next = { ...prev };
+          delete next[`recitation:${id}`];
+          return next;
+        });
+        setErrors((prev) => ({
+          ...prev,
+          [`recitation:${id}`]: err instanceof Error ? err.message : "Download failed",
+        }));
+      }
+    },
+    [refreshStatus],
+  );
+
+  const handleRemoveRecitation = useCallback(
+    async (id: AyahReciterId) => {
+      try {
+        await removeRecitation(id);
+        await refreshStatus();
+      } catch (err) {
+        setErrors((prev) => ({
+          ...prev,
+          [`recitation:${id}`]: err instanceof Error ? err.message : "Remove failed",
+        }));
+      }
+    },
+    [refreshStatus],
+  );
+
+  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -331,6 +392,26 @@ export function DownloadManager({ open, onClose }: DownloadManagerProps) {
                 onDownload={handleDownloadMorphLexicon}
                 onRemove={handleRemoveMorphLexicon}
               />
+            </ul>
+          </section>
+
+          {/* Recitation audio section */}
+          <section>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+              Recitation Audio
+            </h3>
+            <ul className="space-y-2">
+              {SUPPORTED_AYAH_RECITERS.map((id) => (
+                <DownloadRow
+                  key={id}
+                  label={AYAH_RECITER_DISPLAY_NAMES[id]}
+                  isDownloaded={downloadedRecitations.includes(id)}
+                  progress={activeDownloads[`recitation:${id}`]}
+                  error={errors[`recitation:${id}`]}
+                  onDownload={() => handleDownloadRecitation(id)}
+                  onRemove={() => handleRemoveRecitation(id)}
+                />
+              ))}
             </ul>
           </section>
         </div>

@@ -27,6 +27,8 @@ export interface DataUsagePolicy {
   maxLemmaFilesPerPage: number;
   occurrenceBatchSize: number;
   prefetchLayers: ReadonlySet<PrefetchLayer>;
+  /** Number of upcoming verse audio files to preload during recitation. */
+  audioPreloadCount: number;
 }
 
 export const DATA_USAGE_MODES: DataUsageMode[] = ["low", "balanced", "high"];
@@ -66,6 +68,7 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
     maxLemmaFilesPerPage: 0,
     occurrenceBatchSize: 3,
     prefetchLayers: new Set<PrefetchLayer>(),
+    audioPreloadCount: 1,
   },
   balanced: {
     adjacentPageRadius: 2,
@@ -84,6 +87,7 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
       "L8_home_idle",
       "L9_nav_sheet",
     ]),
+    audioPreloadCount: 3,
   },
   high: {
     adjacentPageRadius: 4,
@@ -105,6 +109,7 @@ export const DATA_USAGE_POLICIES: Record<DataUsageMode, DataUsagePolicy> = {
       "L8_home_idle",
       "L9_nav_sheet",
     ]),
+    audioPreloadCount: 10,
   },
 };
 

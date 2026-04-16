@@ -4,10 +4,13 @@ import {
   type MushafCode,
   type TranslationId,
   type DownloadProgress,
+  type AyahReciterId,
   QCF_CODES,
   TRANSLATION_API_IDS,
 } from "@/lib/types";
 import { dbPut, dbPutMany, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
+import { getChapters } from "@/lib/chapters";
+import { AYAH_RECITERS } from "@/lib/ayahRecitation";
 import { getQcfFontUrl } from "@/lib/mushaf/fonts";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { ensureCurrentMushafAssetRevision } from "@/lib/offline/mushafRevision";
@@ -346,4 +349,83 @@ export async function downloadLemmas(
 
 export async function removeLemmas(): Promise<void> {
   await dbClear("lemmas");
+}
+
+// ---------------------------------------------------------------------------
+// Recitation audio download / remove
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the full list of verse keys (1:1, 1:2, ... 114:6) using chapter data.
+ */
+function allVerseKeys(): string[] {
+  const chapters = getChapters();
+  const keys: string[] = [];
+  for (const ch of chapters) {
+    for (let a = 1; a <= ch.versesCount; a++) {
+      keys.push(`${ch.id}:${a}`);
+    }
+  }
+  return keys;
+}
+
+export async function downloadRecitation(
+  reciterId: AyahReciterId,
+  onProgress: (p: DownloadProgress) => void,
+): Promise<void> {
+  const reciter = AYAH_RECITERS[reciterId];
+  if (!reciter) throw new Error(`Unknown reciter: ${reciterId}`);
+
+  const verses = allVerseKeys();
+  const total = verses.length;
+  let done = 0;
+
+  const report = () => {
+    onProgress({
+      total,
+      done,
+      label: `Downloading ${reciter.label} audio`,
+    });
+  };
+
+  report();
+
+  const tasks: (() => Promise<void>)[] = [];
+
+  for (const vk of verses) {
+    tasks.push(async () => {
+      const [surahStr, ayahStr] = vk.split(":");
+      const surah = Number.parseInt(surahStr, 10);
+      const ayah = Number.parseInt(ayahStr, 10);
+      const fileName = `${String(surah).padStart(3, "0")}${String(ayah).padStart(3, "0")}.mp3`;
+      const url = `${reciter.cdnPath}/${fileName}`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+      const buffer = await res.arrayBuffer();
+      await dbPut("recitation-audio", `${reciterId}:${vk}`, buffer);
+
+      done++;
+      if (done % 50 === 0 || done === total) report();
+    });
+  }
+
+  await runWithConcurrency(tasks, 6);
+
+  await dbPut("recitation-audio", `${reciterId}:complete`, true);
+  onProgress({
+    total,
+    done: total,
+    label: `${reciter.label} audio downloaded`,
+  });
+}
+
+export async function removeRecitation(reciterId: AyahReciterId): Promise<void> {
+  const prefix = `${reciterId}:`;
+  const keys = await dbGetAllKeys("recitation-audio");
+  for (const key of keys) {
+    if (key.startsWith(prefix)) {
+      await dbDelete("recitation-audio", key);
+    }
+  }
 }
