@@ -1,4 +1,4 @@
-import type { VbvSubmode } from "@/lib/types";
+import type { TafsirId, VbvSubmode } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -30,6 +30,10 @@ export function rootPath(buckwalterRoot: string): string {
   return `/r/${encodeURIComponent(buckwalterRoot)}`;
 }
 
+export function tafsirPath(tafsirId: TafsirId, surahId: number, ayahId: number): string {
+  return `/t/${tafsirId}/${surahId}/${ayahId}`;
+}
+
 // ---------------------------------------------------------------------------
 // Parsers
 // ---------------------------------------------------------------------------
@@ -56,4 +60,14 @@ export function isScrollPath(pathname: string): boolean {
 
 export function isMushafPath(pathname: string): boolean {
   return /^\/p\/[0-9]+/.test(pathname);
+}
+
+export function isTafsirPath(pathname: string): boolean {
+  return /^\/t\/[a-z-]+\/[0-9]+\/[0-9]+/.test(pathname);
+}
+
+export function parseTafsirPath(pathname: string): { tafsirId: string; surahId: number; ayahId: number } | null {
+  const match = pathname.match(/^\/t\/([a-z-]+)\/([0-9]+)\/([0-9]+)/);
+  if (!match) return null;
+  return { tafsirId: match[1], surahId: parseInt(match[2], 10), ayahId: parseInt(match[3], 10) };
 }

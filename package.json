@@ -20,6 +20,7 @@
     "generate:navigation-maps": "bun scripts/generate-navigation-maps.ts",
     "generate:mutashabihat": "bun scripts/generate-mutashabihat-data.ts",
     "scrape:translation-of-abu-iyaad": "bun scripts/scrape-translation-of-abu-iyaad.ts",
+    "scrape:tafsir": "bun scripts/scrape-tafsir.ts",
     "fetch:all-fonts": "bun scripts/fetch-all-fonts.ts",
     "split:morphology": "bun scripts/split-morphology.ts",
     "precompute:translations": "bun scripts/precompute-translations.ts"

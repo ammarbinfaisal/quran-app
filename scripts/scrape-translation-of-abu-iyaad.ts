@@ -20,6 +20,8 @@ interface AbuIyaadNote {
 
 const execFileAsync = promisify(execFile);
 
+const USER_AGENT = "quran.tarteel.tv (scraper)";
+
 // Slow by default to be respectful. Set SCRAPE_FAST=1 for no delays.
 const FAST_MODE = !!process.env.SCRAPE_FAST;
 const TRANSLATION_DELAY_MS = FAST_MODE ? 0 : 100_000;
@@ -256,6 +258,7 @@ async function run() {
           const html = await runCurlChrome(executable, cookieFile, url, [
             "accept: text/html, */*; q=0.01",
             "referer: https://www.thenoblequran.com/q/",
+            `user-agent: ${USER_AGENT}`,
           ]);
 
           if (html.trim().length === 0 || html.includes("No verses found")) {
@@ -315,6 +318,7 @@ async function run() {
           "accept: text/html, */*; q=0.01",
           "referer: https://www.thenoblequran.com/q/",
           "x-requested-with: XMLHttpRequest",
+          `user-agent: ${USER_AGENT}`,
         ]);
         const notes = parseNotesHtml(html);
         if (notes.length > 0) {

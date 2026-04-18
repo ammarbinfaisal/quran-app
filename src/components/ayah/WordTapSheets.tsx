@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, BookOpen, Copy, FileText, Play, Search, CornerDownRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeftRight, BookMarked, BookOpen, Copy, FileText, Play, Search, CornerDownRight } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
@@ -15,6 +16,7 @@ import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
 import { useRecitationPlayer } from "@/components/recitation/useRecitationPlayer";
 import { showToast } from "@/lib/toast";
+import { tafsirPath } from "@/lib/url";
 
 type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
 
@@ -31,6 +33,7 @@ export function WordTapSheets({
   onClose: () => void;
   onRetargetTap?: (target: WordTapTarget) => void;
 }) {
+  const router = useRouter();
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
@@ -146,6 +149,19 @@ export function WordTapSheets({
       onClick: () => setActiveSheet("translation"),
     });
 
+    {
+      const [s, a] = selectedTap.verseKey.split(":");
+      items.push({
+        id: "tafsir",
+        icon: <BookMarked className="h-4 w-4" />,
+        label: "Open tafsir",
+        onClick: () => {
+          onClose();
+          router.push(tafsirPath("ibn-katheer", parseInt(s, 10), parseInt(a, 10)));
+        },
+      });
+    }
+
     if (hasNotes) {
       items.push({
         id: "notes",
@@ -173,6 +189,7 @@ export function WordTapSheets({
     isRangePlaying,
     onClose,
     recitation,
+    router,
     selectedTap,
   ]);
 

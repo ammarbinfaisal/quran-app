@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { BaseSheet } from "@/components/ui/BaseSheet";
 import Link from "next/link";
 import { buckwalterToArabic } from "@/lib/transliteration";
 import { lemmaPath, rootPath } from "@/lib/url";
@@ -211,35 +212,9 @@ function MorphologySheetContent({
     const root = rootBuckwalter ? buckwalterToArabic(rootBuckwalter) : null;
 
     return (
-        <>
-            <div className="sheet-overlay" onClick={onClose} />
-            <div
-                className="sheet-content"
-                data-open="true"
-                role="dialog"
-                aria-label={title}
-            >
-                <div className="sheet-handle" />
-
-                {/* Header */}
-                <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="text-sm font-semibold text-[var(--color-text)]">
-                            {title}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:opacity-80 active:scale-[0.97] transition"
-                        aria-label="Close"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-
-                <div className="space-y-5 pb-8 overflow-y-auto max-h-[60vh]">
-                    {loading ? (
+        <BaseSheet open onClose={onClose} title={title} ariaLabel={title}>
+            <div className="space-y-5 pb-8 overflow-y-auto max-h-[60vh]">
+                {loading ? (
                         <div className="space-y-3">
                             <div className="h-10 w-3/4 mx-auto rounded bg-[var(--color-muted)]/15 animate-pulse" />
                             <div className="h-16 w-full rounded bg-[var(--color-muted)]/15 animate-pulse" />
@@ -316,8 +291,7 @@ function MorphologySheetContent({
                             No morphology data available for this word.
                         </div>
                     )}
-                </div>
             </div>
-        </>
+        </BaseSheet>
     );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { BaseSheet } from "@/components/ui/BaseSheet";
 import { useChapters } from "@/hooks/useChapters";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { NoteCard } from "@/components/ayah/NoteCard";
@@ -72,49 +72,23 @@ function NotesSheetContent({
   }, [chapters, verseKey]);
 
   return (
-    <>
-      <div className="sheet-overlay" onClick={onClose} />
-      <div className="sheet-content" data-open="true" role="dialog" aria-label={`Notes for ${verseKey}`}>
-        <div className="sheet-handle" />
-
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-[var(--color-text)]">
-              Notes
-            </div>
-            {subtitle && (
-              <div className="text-xs text-[var(--color-muted)]">
-                {subtitle}
-              </div>
-            )}
+    <BaseSheet open onClose={onClose} title="Notes" subtitle={subtitle} ariaLabel={`Notes for ${verseKey}`}>
+      <div className="max-h-[60vh] space-y-3 overflow-y-auto pb-8">
+        {loading ? (
+          <>
+            <div className="h-24 rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
+            <div className="h-24 rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
+          </>
+        ) : notes && notes.length > 0 ? (
+          notes.map((note) => (
+            <NoteCard key={`${note.noteId ?? "note"}:${note.number}`} note={note} />
+          ))
+        ) : (
+          <div className="rounded-xl border border-dashed border-[var(--color-muted)]/25 p-6 text-center text-sm text-[var(--color-muted)]">
+            No Shaykh Abu Iyaad notes were found for this verse.
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] transition active:scale-[0.97] active:opacity-80"
-            aria-label="Close notes"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto pb-8">
-          {loading ? (
-            <>
-              <div className="h-24 rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
-              <div className="h-24 rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
-            </>
-          ) : notes && notes.length > 0 ? (
-            notes.map((note) => (
-              <NoteCard key={`${note.noteId ?? "note"}:${note.number}`} note={note} />
-            ))
-          ) : (
-            <div className="rounded-xl border border-dashed border-[var(--color-muted)]/25 p-6 text-center text-sm text-[var(--color-muted)]">
-              No Shaykh Abu Iyaad notes were found for this verse.
-            </div>
-          )}
-        </div>
+        )}
       </div>
-    </>
+    </BaseSheet>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Copy, X, Check, BookOpen, ExternalLink } from "lucide-react";
+import { Copy, Check, BookOpen, ExternalLink } from "lucide-react";
+import { BaseSheet } from "@/components/ui/BaseSheet";
 import { TRANSLATION_DISPLAY_NAMES, type TranslationId } from "@/lib/types";
 import { renderTranslationName } from "@/lib/translationDisplay";
 import { useTranslations } from "@/hooks/useTranslations";
@@ -86,31 +87,7 @@ export function AyahSheet({
 
   return (
     <>
-      <div className="sheet-overlay" onClick={onClose} />
-      <div
-        className="sheet-content"
-        data-open="true"
-        role="dialog"
-        aria-label={title}
-      >
-        <div className="sheet-handle" />
-
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-[var(--color-text)]">
-              {title}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:opacity-80 active:scale-[0.97] transition"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
+      <BaseSheet open={open} onClose={onClose} title={title}>
         <div className="space-y-3 pb-8">
           {/* Wide Copy Arabic button */}
           <button
@@ -158,7 +135,7 @@ export function AyahSheet({
             );
           })}
         </div>
-      </div>
+      </BaseSheet>
 
       {/* Footnote sheet (2nd layer) */}
       {activeFootnotes && (

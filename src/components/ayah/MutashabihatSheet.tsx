@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeftRight, X } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
+import { BaseSheet } from "@/components/ui/BaseSheet";
 import Link from "next/link";
 import { ArabicVerseBlock, type PhraseHighlightRange } from "@/components/ayah/ArabicVerseBlock";
 import { useChapters } from "@/hooks/useChapters";
@@ -87,37 +88,14 @@ function MutashabihatSheetContent({
   const activeSurahName = chapters.find((chapter) => chapter.id === Number.parseInt(verseKey.split(":")[0] ?? "0", 10))?.nameSimple;
 
   return (
-    <>
-      <div className="sheet-overlay" onClick={onClose} />
-      <div className="sheet-content" data-open="true" role="dialog" aria-label={`Mutashabihat for ${verseKey}`}>
-        <div className="sheet-handle" />
-
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-[var(--color-text)]">
-              Similar Passages
-            </div>
-            <div className="text-xs text-[var(--color-muted)]">
-              {getSurahLabel(verseKey, activeSurahName)}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-[0.97] active:opacity-80"
-            aria-label="Close similarities"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto pb-8">
-          {loading ? (
-            <>
-              <div className="h-32 animate-pulse rounded-xl bg-[var(--color-muted)]/10" />
-              <div className="h-32 animate-pulse rounded-xl bg-[var(--color-muted)]/10" />
-            </>
-          ) : sortedGroups.length > 0 ? (
+    <BaseSheet open onClose={onClose} title="Similar Passages" subtitle={getSurahLabel(verseKey, activeSurahName)} ariaLabel={`Mutashabihat for ${verseKey}`}>
+      <div className="max-h-[60vh] space-y-4 overflow-y-auto pb-8">
+        {loading ? (
+          <>
+            <div className="h-32 animate-pulse rounded-xl bg-[var(--color-muted)]/10" />
+            <div className="h-32 animate-pulse rounded-xl bg-[var(--color-muted)]/10" />
+          </>
+        ) : sortedGroups.length > 0 ? (
             sortedGroups.map(({ id, group }, groupIndex) => {
               const colorIndex = (groupIndex % MAX_PHRASE_COLORS) + 1;
               const verseEntries = (Object.entries(group.ayah) as Array<[string, MutashabihatOccurrence[]]>)
@@ -194,8 +172,7 @@ function MutashabihatSheetContent({
               No mutashabihat grouping was found for this verse.
             </div>
           )}
-        </div>
       </div>
-    </>
+    </BaseSheet>
   );
 }

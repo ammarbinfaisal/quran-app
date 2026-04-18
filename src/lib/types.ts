@@ -104,6 +104,54 @@ export interface TranslationEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Tafsir
+// ---------------------------------------------------------------------------
+export type TafsirId =
+  | "ibn-katheer"
+  | "tabari"
+  | "qurtubi"
+  | "baghawi"
+  | "ibn-uthaymeen"
+  | "ibn-alqayyim";
+
+export const TAFSIR_IDS = [
+  "ibn-katheer",
+  "tabari",
+  "qurtubi",
+  "baghawi",
+  "ibn-uthaymeen",
+  "ibn-alqayyim",
+] as const satisfies readonly TafsirId[];
+
+export const TAFSIR_DISPLAY_NAMES: Record<TafsirId, string> = {
+  "ibn-katheer": "Tafsir Ibn Kathir",
+  tabari: "Tafsir al-Tabari",
+  qurtubi: "Tafsir al-Qurtubi",
+  baghawi: "Tafsir al-Baghawi",
+  "ibn-uthaymeen": "Tafsir Ibn Uthaymeen",
+  "ibn-alqayyim": "Tafsir Ibn al-Qayyim",
+};
+
+export const TAFSIR_ARABIC_NAMES: Record<TafsirId, string> = {
+  "ibn-katheer": "تفسير ابن كثير",
+  tabari: "تفسير الطبري",
+  qurtubi: "تفسير القرطبي",
+  baghawi: "تفسير البغوي",
+  "ibn-uthaymeen": "تفسير ابن عثيمين",
+  "ibn-alqayyim": "تفسير ابن القيم",
+};
+
+/** Whether the tafsir covers all 6236 ayaat (true) or only some (false) */
+export const TAFSIR_FULL_COVERAGE: Record<TafsirId, boolean> = {
+  "ibn-katheer": true,
+  tabari: true,
+  qurtubi: true,
+  baghawi: true,
+  "ibn-uthaymeen": false,
+  "ibn-alqayyim": false,
+};
+
+// ---------------------------------------------------------------------------
 // Themes
 // ---------------------------------------------------------------------------
 export type ThemeId =
