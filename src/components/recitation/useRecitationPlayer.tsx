@@ -21,6 +21,7 @@ import {
 import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
 import { getEffectiveDataMode } from "@/lib/prefetch/networkQuality";
 import type { AyahReciterId } from "@/lib/types";
+import { getChapters } from "@/lib/chapters";
 
 export type RecitationStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -137,6 +138,7 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setCurrentVerse(verseKey);
       setCurrentWordIndex(null);
+      setProgress(0);
 
       try {
         const recitation = await getAyahRecitation(reciterId, verseKey);
@@ -328,7 +330,7 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
     dispatchVerseChange(null, null);
   }, []);
 
-  const currentVerseLabel = currentVerse ? `Ayah ${currentVerse}` : null;
+  const currentVerseLabel = currentVerse ? formatVerseLabel(currentVerse) : null;
 
   // Follow-the-recitation: when enabled, mark the playing verse with a data
   // attribute and scroll it into view. We use a global DOM lookup so any
@@ -337,18 +339,23 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!syncWithRecitation || !currentVerse) return;
     const rafId = window.requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-verse-key="${currentVerse}"]`);
-      if (!(el instanceof HTMLElement)) return;
-      el.setAttribute("data-recitation-playing", "true");
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const els = document.querySelectorAll<HTMLElement>(
+        `[data-verse-key="${currentVerse}"]`,
+      );
+      if (!els.length) return;
+      for (const el of els) {
+        el.setAttribute("data-recitation-playing", "true");
+      }
+      // Scroll the first element into view
+      els[0].scrollIntoView({ behavior: "smooth", block: "center" });
     });
     return () => {
       cancelAnimationFrame(rafId);
-      const prev = document.querySelector(
+      const prevEls = document.querySelectorAll<HTMLElement>(
         `[data-verse-key="${currentVerse}"][data-recitation-playing="true"]`,
       );
-      if (prev instanceof HTMLElement) {
-        prev.removeAttribute("data-recitation-playing");
+      for (const el of prevEls) {
+        el.removeAttribute("data-recitation-playing");
       }
     };
   }, [syncWithRecitation, currentVerse]);
@@ -364,8 +371,8 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
 
   const rangeLabel = range
     ? range.verses.length === 1
-      ? `Ayah ${range.startVerse}`
-      : `${range.startVerse} - ${range.endVerse}`
+      ? formatVerseLabel(range.startVerse)
+      : `${formatVerseLabel(range.startVerse)} – ${formatVerseLabel(range.endVerse)}`
     : null;
 
   const value: RecitationContextValue = {
@@ -397,6 +404,12 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
       {children}
     </RecitationContext.Provider>
   );
+}
+
+function formatVerseLabel(verseKey: string): string {
+  const [s, a] = verseKey.split(":");
+  const ch = getChapters().find((c) => c.id === parseInt(s, 10));
+  return ch ? `${ch.nameSimple} ${s}:${a}` : `Ayah ${verseKey}`;
 }
 
 export function useRecitationPlayer(): RecitationContextValue {

@@ -101,8 +101,6 @@ export function VerseCard({
         <div
             className="border-b border-muted/1 px-4 py-8"
             style={{ contentVisibility: "auto", containIntrinsicBlockSize: "auto 200px" }}
-            data-highlighted={isHighlighted}
-            data-verse-key={verseKey}
         >
             {ayahNum === 1 && chapter && (
                 <div className="mb-10">
@@ -114,6 +112,8 @@ export function VerseCard({
                     />
                 </div>
             )}
+
+            <div data-verse-key={verseKey} data-highlighted={isHighlighted}>
 
             {showVerseLink && (
                 <div className="mb-3 flex items-center gap-1.5" dir="ltr">
@@ -188,6 +188,7 @@ export function VerseCard({
                 />,
                 document.body,
             )}
+            </div>
         </div>
     );
 }
