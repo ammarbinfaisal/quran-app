@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Home, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, Home, Settings } from "lucide-react";
 import { ModeToggle } from "@/components/navigation/ModeToggle";
 import { OfflineIndicator } from "@/components/offline/OfflineIndicator";
 import { RecitationButton } from "@/components/recitation/RecitationButton";
@@ -29,6 +30,7 @@ export function ReaderBottomNav({
   showOfflineIndicator = true,
   showRecitation = true,
   showSettings = true,
+  showBack = false,
   onSettingsClick,
 }: {
   visible?: boolean;
@@ -41,8 +43,10 @@ export function ReaderBottomNav({
   showOfflineIndicator?: boolean;
   showRecitation?: boolean;
   showSettings?: boolean;
+  showBack?: boolean;
   onSettingsClick?: () => void;
 }) {
+  const router = useRouter();
   const labelSize = centerLabel?.size ?? "md";
 
   return (
@@ -54,14 +58,26 @@ export function ReaderBottomNav({
       }}
     >
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-2">
-      <Link
-        href={homeHref}
-        className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-        aria-label="Home"
-        onClick={() => onHomeClick?.()}
-      >
-        <Home className="h-5 w-5" />
-      </Link>
+      <div className="flex items-center">
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-12 w-10 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        <Link
+          href={homeHref}
+          className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+          aria-label="Home"
+          onClick={() => onHomeClick?.()}
+        >
+          <Home className="h-5 w-5" />
+        </Link>
+      </div>
 
       <div className={cn("flex items-center", centerClassName ?? "gap-3")}>
         {centerLabel && (

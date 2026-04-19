@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { Home } from "lucide-react";
 import { arabicToBuckwalter } from "@/lib/transliteration";
 import { type MushafCode, type MushafWord as MushafWordType } from "@/lib/types";
 import { VerseCard } from "@/components/lemma/VerseCard";
@@ -224,34 +222,21 @@ export function OccurrenceViewer({
 
     return (
         <div className="flex h-full w-full flex-col bg-[var(--color-bg)]">
-            <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-4 py-3 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <Link
-                        href="/"
-                        className="rounded-full p-2 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-muted)]/10"
-                    >
-                        <Home className="h-5 w-5" />
-                    </Link>
-                    <div className="flex flex-col">
-                        <h1 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider">
-                            {subtitle}
-                        </h1>
-                        <h2 className="text-xl font-bold font-arabic text-[var(--color-accent)]">
-                            {displayArabic}
-                        </h2>
+            <main className="flex-1 overflow-y-auto pb-20">
+                <div className="mx-auto max-w-3xl px-4 pt-6 pb-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wider">{subtitle}</div>
+                            <div className="mt-1 font-arabic text-2xl font-bold text-[var(--color-accent)]" dir="rtl">{displayArabic}</div>
+                        </div>
+                        <div className="flex flex-col items-end text-sm text-[var(--color-muted)]">
+                            <span>{totalOccurrences} occurrences</span>
+                            {!loading && totalVerses > 0 && (
+                                <span className="text-xs opacity-70">{totalVerses} verses</span>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="flex flex-col items-end text-sm text-[var(--color-muted)]">
-                    <span>{totalOccurrences} occurrences</span>
-                    {!loading && totalVerses > 0 && (
-                        <span className="text-xs opacity-70">
-                            {totalVerses} verses
-                        </span>
-                    )}
-                </div>
-            </header>
-
-            <main className="flex-1 overflow-y-auto pb-20">
                 {isWaiting ? (
                     <div className="animate-pulse space-y-4 p-4">
                         {[1, 2, 3].map((i) => (
@@ -287,7 +272,14 @@ export function OccurrenceViewer({
             </main>
 
             <ReaderBottomNav
+                showBack
                 showModeToggle={showModeToggle}
+                centerLabel={{
+                    text: displayArabic,
+                    ariaLabel: `${subtitle}: ${displayArabic}`,
+                    onClick: () => {},
+                    size: "sm",
+                }}
                 onSettingsClick={() => setSettingsOpen(true)}
             />
 

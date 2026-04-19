@@ -190,6 +190,7 @@ export function TafsirReader({
 
       {/* Bottom nav with prev/next */}
       <ReaderBottomNav
+        showBack
         visible
         centerLabel={{
           text: verseKey,
