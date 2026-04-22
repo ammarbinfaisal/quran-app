@@ -1,21 +1,40 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Database } from "bun:sqlite";
-import { TOTAL_PAGES } from "../src/lib/constants";
+import { MUSHAF_TOTAL_PAGES } from "../src/lib/constants";
 import {
   encodeMushafPagePayload,
   type MushafPagePayload,
 } from "../src/lib/mushaf/proto";
+import type { MushafLineType } from "../src/lib/types";
 
-const DEFAULT_LAYOUT_ZIP = "qpc-v2-15-lines.db.zip";
-const DEFAULT_WORDS_ZIP = "qpc-v2.db.zip";
-const DEFAULT_FONTS_ZIP = "QPC V2 Font.woff2.bz2";
-const DEFAULT_CODE = "v2";
+type SupportedCode = "v2" | "i15";
 
-type SupportedCode = "v2";
+/** Per-code defaults: where the generator reads layout / words / fonts from. */
+const CODE_DEFAULTS: Record<SupportedCode, {
+  layoutZip: string;
+  wordsSource: { kind: "sqlite"; zip: string } | { kind: "json"; zip: string };
+  fontsZip: string;
+  fontOut: { kind: "per-page" } | { kind: "single"; filename: string };
+}> = {
+  v2: {
+    layoutZip: "qpc-v2-15-lines.db.zip",
+    wordsSource: { kind: "sqlite", zip: "qpc-v2.db.zip" },
+    fontsZip: "QPC V2 Font.woff2.bz2",
+    fontOut: { kind: "per-page" },
+  },
+  i15: {
+    layoutZip: "raw_data/qudratullah-indopak-15-lines.db.zip",
+    wordsSource: { kind: "json", zip: "raw_data/indopak-nastaleeq.json.zip" },
+    fontsZip: "raw_data/font.woff2.zip",
+    fontOut: { kind: "single", filename: "indopak-nastaleeq.woff2" },
+  },
+};
+
+const DEFAULT_CODE: SupportedCode = "v2";
 
 type LayoutInfoRow = {
   name: string;
@@ -109,22 +128,20 @@ function pad3(n: number): string {
 function ensureSupportedCodeOrExit(): SupportedCode {
   const codeArg = getArg("--code");
   const raw = (codeArg ?? DEFAULT_CODE).trim();
-  if (raw !== DEFAULT_CODE) {
-    usageAndExit(
-      `Unsupported code: ${raw}. Only '${DEFAULT_CODE}' is supported.`,
-    );
+  if (raw !== "v2" && raw !== "i15") {
+    usageAndExit(`Unsupported code: ${raw}. Supported: v2, i15.`);
   }
-  return DEFAULT_CODE;
+  return raw;
 }
 
-function parsePageSpec(spec: string): number[] {
+function parsePageSpec(spec: string, maxPages: number): number[] {
   const trimmed = spec.trim();
   if (!trimmed) usageAndExit("--pages cannot be empty.");
 
   const out = new Set<number>();
   const parts = trimmed
     .split(",")
-    .map((part) => part.trim())
+    .map((p) => p.trim())
     .filter(Boolean);
   for (const part of parts) {
     const rangeMatch = /^(\d+)-(\d+)$/.exec(part);
@@ -139,28 +156,28 @@ function parsePageSpec(spec: string): number[] {
       ) {
         usageAndExit(`Invalid page range: ${part}`);
       }
-      for (let page = start; page <= end; page++) {
-        if (page <= TOTAL_PAGES) out.add(page);
+      for (let pageNum = start; pageNum <= end; pageNum++) {
+        if (pageNum <= maxPages) out.add(pageNum);
       }
       continue;
     }
 
-    const page = Number(part);
-    if (!Number.isInteger(page) || page < 1 || page > TOTAL_PAGES) {
+    const pageNum = Number(part);
+    if (!Number.isInteger(pageNum) || pageNum < 1 || pageNum > maxPages) {
       usageAndExit(`Invalid page number: ${part}`);
     }
-    out.add(page);
+    out.add(pageNum);
   }
 
   return Array.from(out).sort((a, b) => a - b);
 }
 
-function resolveTargetPages(): number[] {
+function resolveTargetPages(maxPages: number): number[] {
   const pagesArg = getArg("--pages");
   const seedSample = hasFlag("--seed-sample");
 
   if (pagesArg) {
-    return parsePageSpec(pagesArg);
+    return parsePageSpec(pagesArg, maxPages);
   }
 
   if (seedSample) {
@@ -168,7 +185,7 @@ function resolveTargetPages(): number[] {
   }
 
   const pages: number[] = [];
-  for (let page = 1; page <= TOTAL_PAGES; page++) pages.push(page);
+  for (let pageNum = 1; pageNum <= maxPages; pageNum++) pages.push(pageNum);
   return pages;
 }
 
@@ -206,7 +223,7 @@ async function extractDbFromZip(
   };
 }
 
-async function resolveLayoutDb(): Promise<DbHandle> {
+async function resolveLayoutDb(code: SupportedCode): Promise<DbHandle> {
   const layoutDbArg = getArg("--layout-db");
   const layoutZipArg = getArg("--layout-zip");
 
@@ -216,11 +233,11 @@ async function resolveLayoutDb(): Promise<DbHandle> {
     return { dbPath, cleanup: async () => {} };
   }
 
-  const zipPath = path.resolve(layoutZipArg ?? DEFAULT_LAYOUT_ZIP);
+  const zipPath = path.resolve(layoutZipArg ?? CODE_DEFAULTS[code].layoutZip);
   return extractDbFromZip(zipPath, "layout");
 }
 
-async function resolveWordsDb(): Promise<DbHandle> {
+async function resolveWordsDb(code: SupportedCode): Promise<DbHandle> {
   const wordsDbArg = getArg("--words-db");
   const wordsZipArg = getArg("--words-zip");
 
@@ -230,8 +247,98 @@ async function resolveWordsDb(): Promise<DbHandle> {
     return { dbPath, cleanup: async () => {} };
   }
 
-  const zipPath = path.resolve(wordsZipArg ?? DEFAULT_WORDS_ZIP);
+  const defaults = CODE_DEFAULTS[code];
+  if (defaults.wordsSource.kind !== "sqlite") {
+    throw new Error(
+      `resolveWordsDb called for code ${code} which uses a JSON word source`,
+    );
+  }
+  const zipPath = path.resolve(wordsZipArg ?? defaults.wordsSource.zip);
   return extractDbFromZip(zipPath, "words");
+}
+
+type JsonWordRow = {
+  id: number;
+  location: string;
+  surah: number;
+  ayah: number;
+  word: number;
+  text: string;
+};
+
+type WordsJsonHandle = {
+  wordMap: Map<number, JsonWordRow>;
+  verseEndIds: Set<number>;
+  cleanup: () => Promise<void>;
+};
+
+/** Extract and load an Indopak-style JSON word dictionary. The JSON is a flat
+    object keyed by verseKey:word position (e.g. "1:1:1") with values
+    `{ id, location, surah, ayah, word, text }`. We build the same
+    (wordMap, verseEndIds) shape that loadWords produces for the sqlite path. */
+async function loadWordsFromJsonZip(zipPath: string): Promise<WordsJsonHandle> {
+  if (!existsSync(zipPath)) {
+    throw new Error(`Words JSON ZIP not found: ${zipPath}`);
+  }
+  const tempDir = await mkdtemp(path.join(tmpdir(), `qpc-words-json-`));
+  try {
+    execFileSync("unzip", ["-o", zipPath, "-d", tempDir], { encoding: "utf8" });
+    const entriesRaw = execFileSync("unzip", ["-Z1", zipPath], {
+      encoding: "utf8",
+    });
+    const jsonEntry = entriesRaw
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .find((e) => e.toLowerCase().endsWith(".json"));
+    if (!jsonEntry) throw new Error(`No .json in ${zipPath}`);
+    const filePath = path.join(tempDir, path.basename(jsonEntry));
+    const raw = readFileSync(filePath, "utf8");
+    const obj = JSON.parse(raw) as Record<
+      string,
+      {
+        id: number;
+        location: string;
+        surah: number | string;
+        ayah: number | string;
+        word: number | string;
+        text: string;
+      }
+    >;
+
+    const wordMap = new Map<number, JsonWordRow>();
+    const maxWordIdPerVerse = new Map<string, number>();
+    for (const entry of Object.values(obj)) {
+      const row: JsonWordRow = {
+        id: Number(entry.id),
+        location: entry.location,
+        surah: Number(entry.surah),
+        ayah: Number(entry.ayah),
+        word: Number(entry.word),
+        text: entry.text,
+      };
+      wordMap.set(row.id, row);
+      const verseKey = `${row.surah}:${row.ayah}`;
+      const existing = maxWordIdPerVerse.get(verseKey);
+      if (existing === undefined || row.id > existing) {
+        maxWordIdPerVerse.set(verseKey, row.id);
+      }
+    }
+    const verseEndIds = new Set(maxWordIdPerVerse.values());
+    console.log(
+      `Loaded ${wordMap.size} words from JSON, ${verseEndIds.size} verse-end markers`,
+    );
+    return {
+      wordMap,
+      verseEndIds,
+      cleanup: async () => {
+        await rm(tempDir, { recursive: true, force: true });
+      },
+    };
+  } catch (e) {
+    await rm(tempDir, { recursive: true, force: true });
+    throw e;
+  }
 }
 
 function queryLayout(dbPath: string): {
@@ -313,7 +420,7 @@ function generatePagePayload(options: {
   code: SupportedCode;
   page: number;
   layoutRows: LayoutPageRow[];
-  wordMap: Map<number, WordRow>;
+  wordMap: Map<number, WordRow | JsonWordRow>;
   verseEndIds: Set<number>;
   lineWarnings: Array<{ page: number; line: number; message: string }>;
   stats: GenerationStats;
@@ -324,7 +431,31 @@ function generatePagePayload(options: {
   const outLines: MushafPagePayload["lines"] = [];
 
   for (const row of layoutRows) {
-    if (row.line_type !== "ayah") {
+    const lineType: MushafLineType =
+      row.line_type === "surah_name"
+        ? "surah_name"
+        : row.line_type === "basmallah"
+          ? "basmallah"
+          : "ayah";
+
+    // For i15 (and any future layout) surah_name / basmallah rows carry the
+    // surah number in LayoutPageRow.surah_number and have no words. Emit them
+    // with empty words arrays so the renderer can slot headers/basmallah
+    // directly from the layout data instead of deriving them from chapters.
+    if (lineType !== "ayah") {
+      const line: MushafPagePayload["lines"][number] = {
+        lineNumber: row.line_number,
+        lineType,
+        words: [],
+      };
+      if (row.is_centered === 1) line.centered = true;
+      // surah_number column in the layout DB is typed loosely — NULL arrives
+      // as `null`, but empty rows can come through as `""`. Only accept real
+      // integers to satisfy the proto int32 field.
+      if (typeof row.surah_number === "number" && Number.isFinite(row.surah_number)) {
+        line.surahNumber = row.surah_number;
+      }
+      outLines.push(line);
       continue;
     }
 
@@ -347,7 +478,7 @@ function generatePagePayload(options: {
         lineWarnings.push({
           page,
           line: row.line_number,
-          message: `Word ID ${wid} not found in words DB.`,
+          message: `Word ID ${wid} not found in words source.`,
         });
         stats.lineWarnings++;
         continue;
@@ -363,11 +494,13 @@ function generatePagePayload(options: {
       idx++;
     }
 
-    outLines.push({
+    const ayahLine: MushafPagePayload["lines"][number] = {
       lineNumber: row.line_number,
-      centered: row.is_centered === 1,
+      lineType: "ayah",
       words,
-    });
+    };
+    if (row.is_centered === 1) ayahLine.centered = true;
+    outLines.push(ayahLine);
   }
 
   return {
@@ -377,38 +510,58 @@ function generatePagePayload(options: {
   };
 }
 
-async function extractFonts(fontsZipPath: string, outDir: string) {
+async function extractFonts(
+  code: SupportedCode,
+  fontsZipPath: string,
+  outDir: string,
+) {
   if (!existsSync(fontsZipPath)) {
     throw new Error(`Font archive not found: ${fontsZipPath}`);
   }
 
   await mkdir(outDir, { recursive: true });
 
-  const tempDir = await mkdtemp(path.join(tmpdir(), "qpc-fonts-"));
+  const tempDir = await mkdtemp(path.join(tmpdir(), `qpc-fonts-${code}-`));
+  const fontOut = CODE_DEFAULTS[code].fontOut;
 
   try {
-    // Extract all woff2 files from the zip
     execFileSync("unzip", ["-o", fontsZipPath, "-d", tempDir], {
       encoding: "utf8",
     });
 
-    let copied = 0;
-    for (let page = 1; page <= TOTAL_PAGES; page++) {
-      const srcName = `p${page}.woff2`;
-      const srcPath = path.join(tempDir, srcName);
-      const dstPath = path.join(outDir, `p${pad3(page)}.woff2`);
-
-      if (!existsSync(srcPath)) {
-        console.warn(`Font file not found: ${srcName}`);
-        continue;
+    if (fontOut.kind === "per-page") {
+      let copied = 0;
+      const maxPages = MUSHAF_TOTAL_PAGES[code];
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+        const srcName = `p${pageNum}.woff2`;
+        const srcPath = path.join(tempDir, srcName);
+        const dstPath = path.join(outDir, `p${pad3(pageNum)}.woff2`);
+        if (!existsSync(srcPath)) {
+          console.warn(`Font file not found: ${srcName}`);
+          continue;
+        }
+        const data = await Bun.file(srcPath).arrayBuffer();
+        await Bun.write(dstPath, data);
+        copied++;
       }
-
+      console.log(`Extracted ${copied} per-page font files to ${outDir}`);
+    } else {
+      // Single shared font: find the lone woff2 in the archive and copy it.
+      const entriesRaw = execFileSync("unzip", ["-Z1", fontsZipPath], {
+        encoding: "utf8",
+      });
+      const entry = entriesRaw
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .find((e) => e.toLowerCase().endsWith(".woff2"));
+      if (!entry) throw new Error(`No .woff2 in ${fontsZipPath}`);
+      const srcPath = path.join(tempDir, path.basename(entry));
+      const dstPath = path.join(outDir, fontOut.filename);
       const data = await Bun.file(srcPath).arrayBuffer();
       await Bun.write(dstPath, data);
-      copied++;
+      console.log(`Copied shared font to ${dstPath}`);
     }
-
-    console.log(`Extracted ${copied} font files to ${outDir}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -421,22 +574,26 @@ async function main() {
 
   const code = ensureSupportedCodeOrExit();
   const force = hasFlag("--force");
+  const defaults = CODE_DEFAULTS[code];
+  const maxPages = MUSHAF_TOTAL_PAGES[code];
 
   // Handle font extraction
   if (hasFlag("--extract-fonts")) {
-    const fontsZipPath = path.resolve(getArg("--fonts-zip") ?? DEFAULT_FONTS_ZIP);
+    const fontsZipPath = path.resolve(
+      getArg("--fonts-zip") ?? defaults.fontsZip,
+    );
     const fontsOutDir = path.resolve(
       getArg("--out-dir") ??
         path.join(process.cwd(), "public", "mushaf-fonts", code),
     );
-    await extractFonts(fontsZipPath, fontsOutDir);
+    await extractFonts(code, fontsZipPath, fontsOutDir);
     if (!hasFlag("--all") && !getArg("--pages") && !hasFlag("--seed-sample")) {
       // Only font extraction was requested
       return;
     }
   }
 
-  const pages = resolveTargetPages();
+  const pages = resolveTargetPages(maxPages);
   const outDir = path.resolve(
     getArg("--out-dir") ??
       path.join(process.cwd(), "public", "mushaf-data", code),
@@ -444,8 +601,28 @@ async function main() {
 
   await mkdir(outDir, { recursive: true });
 
-  const layoutHandle = await resolveLayoutDb();
-  const wordsHandle = await resolveWordsDb();
+  const layoutHandle = await resolveLayoutDb(code);
+
+  // Words source depends on code: v2 reads a SQLite table, i15 reads a JSON
+  // dictionary keyed by verseKey:word position.
+  let wordMap: Map<number, WordRow | JsonWordRow>;
+  let verseEndIds: Set<number>;
+  let wordsCleanup: () => Promise<void>;
+  if (defaults.wordsSource.kind === "sqlite") {
+    const wordsHandle = await resolveWordsDb(code);
+    const loaded = loadWords(wordsHandle.dbPath);
+    wordMap = loaded.wordMap;
+    verseEndIds = loaded.verseEndIds;
+    wordsCleanup = wordsHandle.cleanup;
+  } else {
+    const wordsZipArg = getArg("--words-zip");
+    const zipPath = path.resolve(wordsZipArg ?? defaults.wordsSource.zip);
+    const loaded = await loadWordsFromJsonZip(zipPath);
+    wordMap = loaded.wordMap;
+    verseEndIds = loaded.verseEndIds;
+    wordsCleanup = loaded.cleanup;
+  }
+
   const stats: GenerationStats = {
     generated: 0,
     skipped: 0,
@@ -457,11 +634,10 @@ async function main() {
 
   try {
     const { info, rows } = queryLayout(layoutHandle.dbPath);
-    const { wordMap, verseEndIds } = loadWords(wordsHandle.dbPath);
 
-    if (info.number_of_pages !== TOTAL_PAGES) {
+    if (info.number_of_pages !== maxPages) {
       console.warn(
-        `Layout reports ${info.number_of_pages} pages, while app expects ${TOTAL_PAGES}. Continuing with app page limits.`,
+        `Layout reports ${info.number_of_pages} pages, while app expects ${maxPages} for code ${code}. Continuing with app page limits.`,
       );
     }
 
@@ -474,12 +650,12 @@ async function main() {
 
     console.log(
       [
-        `Generating mushaf assets from DB sources...`,
+        `Generating mushaf assets...`,
         `code=${code}`,
         `pages=${pages.length}`,
         `force=${force}`,
         `layout=${layoutHandle.dbPath}`,
-        `words=${wordsHandle.dbPath}`,
+        `wordsSource=${defaults.wordsSource.kind}`,
         `outDir=${outDir}`,
         `layoutName=${info.name}`,
         `layoutFont=${info.font_name}`,
@@ -565,7 +741,7 @@ async function main() {
     }
   } finally {
     await layoutHandle.cleanup();
-    await wordsHandle.cleanup();
+    await wordsCleanup();
   }
 }
 
