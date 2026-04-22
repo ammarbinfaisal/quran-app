@@ -4,24 +4,12 @@ import { TAFSIR_IDS } from "@/lib/types";
 import { getChapters } from "@/lib/chapters";
 import { Suspense } from "react";
 
-export async function generateStaticParams() {
-  const chapters = getChapters();
-  const params = [];
-
-  for (const tafsirId of TAFSIR_IDS) {
-    for (const ch of chapters) {
-      for (let a = 1; a <= ch.versesCount; a++) {
-        params.push({
-          tafsirId,
-          surahId: String(ch.id),
-          ayahId: String(a),
-        });
-      }
-    }
-  }
-
-  return params;
-}
+// Tafsir pages are rendered on-demand. With 6 tafaseer × ~6200 ayaat ≈ 37k
+// static HTML files, prerendering exceeds Vercel's per-deployment file-count
+// limit and breaks deploys. Client fetches the tafsir JSON directly, so SSR
+// on-demand is fast enough without SSG.
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 
 export default async function TafsirRoute({
   params,
