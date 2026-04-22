@@ -296,12 +296,8 @@ main {
   padding: 0 1px;
 }
 
-/* QCF words stretch to fill the line like a printed mushaf */
-.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-word,
-.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-verse-group > .mushaf-word {
-  flex-grow: 1;
-  text-align: center;
-}
+/* QCF lines justify via space-between — words keep natural width,
+   free space is distributed as inter-word gaps (printed-mushaf behavior). */
 
 .mushaf-word[data-highlighted="true"] {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
