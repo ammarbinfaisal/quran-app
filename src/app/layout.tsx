@@ -78,12 +78,12 @@ function ThemeInit() {
   const script = `
     (function() {
       var THEME_ACCENT = {
-        "light-warm": "#8b6914",
-        "dark-warm": "#c4a35a",
+        "light-warm": "#8a5a14",
+        "dark-warm": "#d7a44c",
         "white-green": "#2d6a4f",
-        "classic-dark": "#5fa87f",
-        "blue-slate-dark": "#7aa2f7",
-        "blue-slate-light": "#345caa"
+        "classic-dark": "#6aad84",
+        "blue-slate-dark": "#5cb8b0",
+        "blue-slate-light": "#1f6e6b"
       };
 
       function applyThemeColor(theme) {

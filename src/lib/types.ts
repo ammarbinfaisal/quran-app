@@ -172,34 +172,34 @@ export interface ThemeColors {
 
 export const THEMES: Record<ThemeId, { label: string; colors: ThemeColors; pair?: ThemeId }> = {
   "light-warm": {
-    label: "Warm Light",
-    colors: { bg: "#f7f1e4", text: "#2c2c2c", accent: "#8b6914", surface: "#efe8d6", muted: "#756548" },
+    label: "Warm Parchment",
+    colors: { bg: "#f4ecd8", text: "#3c2e1c", accent: "#8a5a14", surface: "#eadfc3", muted: "#7e6947" },
     pair: "dark-warm",
   },
   "dark-warm": {
-    label: "Warm Dark",
-    colors: { bg: "#1a1410", text: "#e8dcc8", accent: "#c4a35a", surface: "#2a2218", muted: "#9b8b70" },
+    label: "Lamplit Amber",
+    colors: { bg: "#18120b", text: "#f0e0c2", accent: "#d7a44c", surface: "#261c11", muted: "#a08b65" },
     pair: "light-warm",
   },
   "white-green": {
-    label: "Classic Light",
-    colors: { bg: "#ffffff", text: "#1a1a1a", accent: "#2d6a4f", surface: "#f0f5f0", muted: "#567362" },
+    label: "Paper",
+    colors: { bg: "#fafaf7", text: "#1a1614", accent: "#2d6a4f", surface: "#f0f0ea", muted: "#5c5a54" },
     pair: "classic-dark",
   },
   "classic-dark": {
-    label: "Classic Dark",
-    colors: { bg: "#0d1f17", text: "#e0ebe5", accent: "#5fa87f", surface: "#152b21", muted: "#7a9b8a" },
+    label: "Ink",
+    colors: { bg: "#0d100e", text: "#e4e2db", accent: "#6aad84", surface: "#171a17", muted: "#86857c" },
     pair: "white-green",
   },
-  "blue-slate-dark": {
-    label: "Slate Dark",
-    colors: { bg: "#0f1724", text: "#e6edf7", accent: "#7aa2f7", surface: "#1b2535", muted: "#93a2ba" },
-    pair: "blue-slate-light",
-  },
   "blue-slate-light": {
-    label: "Slate Light",
-    colors: { bg: "#f4f7fb", text: "#1f2937", accent: "#345caa", surface: "#e7edf6", muted: "#586a84" },
+    label: "Cool Linen",
+    colors: { bg: "#eef2f6", text: "#1f2a36", accent: "#1f6e6b", surface: "#e2e8ee", muted: "#54677a" },
     pair: "blue-slate-dark",
+  },
+  "blue-slate-dark": {
+    label: "Deep Teal",
+    colors: { bg: "#0e1820", text: "#d9e4ef", accent: "#5cb8b0", surface: "#182430", muted: "#7a8fa5" },
+    pair: "blue-slate-light",
   },
 };
 

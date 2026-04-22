@@ -6,11 +6,11 @@ import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { SettingsSelectionIndicator } from "@/components/settings/SettingsSelectionIndicator";
 
-// Theme pairs for 2x2 grid display (light, dark)
-const THEME_PAIRS: [ThemeId, ThemeId][] = [
-  ["light-warm", "dark-warm"],
-  ["white-green", "classic-dark"],
-  ["blue-slate-light", "blue-slate-dark"],
+// Theme pairs for 2x2 grid display (light, dark, pair name)
+const THEME_PAIRS: { light: ThemeId; dark: ThemeId; name: string }[] = [
+  { light: "light-warm", dark: "dark-warm", name: "Warm" },
+  { light: "white-green", dark: "classic-dark", name: "Paper" },
+  { light: "blue-slate-light", dark: "blue-slate-dark", name: "Cool" },
 ];
 
 export function ThemePicker() {
@@ -28,32 +28,25 @@ export function ThemePicker() {
         Theme
       </h3>
       <div className="space-y-3">
-        {THEME_PAIRS.map(([lightId, darkId]) => {
-          const lightTheme = THEMES[lightId];
-          const darkTheme = THEMES[darkId];
-          // Extract pair name from label (e.g., "Warm Light" -> "Warm")
-          const pairName = lightTheme.label.replace(" Light", "");
-
-          return (
-            <div key={`${lightId}-${darkId}`}>
-              <div className="mb-1.5 text-xs text-[var(--color-muted)]">{pairName}</div>
-              <div className="grid grid-cols-2 gap-2">
-                <ThemeButton
-                  id={lightId}
-                  theme={lightTheme}
-                  active={prefs.theme === lightId}
-                  onSelect={setTheme}
-                />
-                <ThemeButton
-                  id={darkId}
-                  theme={darkTheme}
-                  active={prefs.theme === darkId}
-                  onSelect={setTheme}
-                />
-              </div>
+        {THEME_PAIRS.map(({ light, dark, name }) => (
+          <div key={`${light}-${dark}`}>
+            <div className="mb-1.5 text-xs text-[var(--color-muted)]">{name}</div>
+            <div className="grid grid-cols-2 gap-2">
+              <ThemeButton
+                id={light}
+                theme={THEMES[light]}
+                active={prefs.theme === light}
+                onSelect={setTheme}
+              />
+              <ThemeButton
+                id={dark}
+                theme={THEMES[dark]}
+                active={prefs.theme === dark}
+                onSelect={setTheme}
+              />
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -70,9 +63,6 @@ function ThemeButton({
   active: boolean;
   onSelect: (id: ThemeId) => void;
 }) {
-  // Show "Light" or "Dark" based on the theme label
-  const shortLabel = theme.label.includes("Light") ? "Light" : "Dark";
-
   return (
     <button
       type="button"
@@ -89,7 +79,7 @@ function ThemeButton({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold text-[var(--color-text)]">
-          {shortLabel}
+          {theme.label}
         </div>
         <SettingsSelectionIndicator active={active} />
       </div>

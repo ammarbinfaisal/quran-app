@@ -14,164 +14,184 @@
 /* Theme CSS variables                                                 */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Theme tokens                                                        */
+/* Color approach (per Kadavy ch8/9):                                  */
+/*  - Hue-shifted darks/lights instead of pure black/white (richer).  */
+/*  - Lab-uniform POS palette: L~45 on light themes, L~72 on dark.    */
+/*  - Functional conventions preserved: blue-family = noun/link,     */
+/*    red-rose = propn/error, green = verb/success.                   */
+/* ------------------------------------------------------------------ */
+
+/* Pair 1 — Warm Parchment (analogous, cream + amber) */
 :root {
-  /* Light + Warm (default) */
-  --color-bg: #f7f1e4;
-  --color-text: #2c2c2c;
-  --color-accent: #8b6914;
-  --color-surface: #efe8d6;
-  --color-muted: #756548;
-  --color-annotation: #6f5f46;
+  /* light-warm (default) */
+  --color-bg: #f4ecd8;
+  --color-text: #3c2e1c;
+  --color-accent: #8a5a14;
+  --color-surface: #eadfc3;
+  --color-muted: #7e6947;
+  --color-annotation: #6b5938;
 
   --mushaf-font-scale: 3;
 
-  /* POS morphology colors (light) */
-  --pos-verb: #2d6a4f;
-  --pos-noun: #1e40af;
-  --pos-pronoun: #92400e;
-  --pos-prep: #6b21a8;
+  /* POS morphology colors — Lab-uniform qualitative (light, L≈45) */
+  --pos-verb: #2d6e4e;
+  --pos-noun: #1f4fb5;
+  --pos-pronoun: #8a5a14;
+  --pos-prep: #6a2db4;
   --pos-det: #475569;
   --pos-adj: #0f766e;
-  --pos-conj: #c2410c;
-  --pos-propn: #be123c;
-  --verse-highlight-bg: rgba(139, 105, 20, 0.16);
-  --phrase-highlight-1: rgba(139, 105, 20, 0.22);
-  --phrase-highlight-2: rgba(45, 106, 79, 0.2);
-  --phrase-highlight-3: rgba(30, 64, 175, 0.18);
-  --phrase-highlight-4: rgba(146, 64, 14, 0.18);
-  --phrase-highlight-5: rgba(107, 33, 168, 0.18);
-  --phrase-highlight-6: rgba(15, 118, 110, 0.18);
-  --phrase-highlight-7: rgba(190, 18, 60, 0.16);
+  --pos-conj: #c04b14;
+  --pos-propn: #b32c50;
+
+  /* Verse highlight uses theme accent translucent */
+  --verse-highlight-bg: rgba(138, 90, 20, 0.14);
+  --phrase-highlight-1: rgba(138, 90, 20, 0.2);
+  --phrase-highlight-2: rgba(45, 110, 78, 0.18);
+  --phrase-highlight-3: rgba(31, 79, 181, 0.16);
+  --phrase-highlight-4: rgba(106, 45, 180, 0.16);
+  --phrase-highlight-5: rgba(192, 75, 20, 0.17);
+  --phrase-highlight-6: rgba(15, 118, 110, 0.16);
+  --phrase-highlight-7: rgba(179, 44, 80, 0.15);
 }
 
 :root[data-theme="dark-warm"] {
-  --color-bg: #1a1410;
-  --color-text: #e8dcc8;
-  --color-accent: #c4a35a;
-  --color-surface: #2a2218;
-  --color-muted: #9b8b70;
-  --color-annotation: #b7a484;
+  --color-bg: #18120b;
+  --color-text: #f0e0c2;
+  --color-accent: #d7a44c;
+  --color-surface: #261c11;
+  --color-muted: #a08b65;
+  --color-annotation: #bfa787;
 
-  --pos-verb: #4ade80;
-  --pos-noun: #60a5fa;
-  --pos-pronoun: #fbbf24;
-  --pos-prep: #c084fc;
-  --pos-det: #94a3b8;
-  --pos-adj: #2dd4bf;
-  --pos-conj: #fb923c;
-  --pos-propn: #fb7185;
-  --verse-highlight-bg: rgba(196, 163, 90, 0.22);
-  --phrase-highlight-1: rgba(196, 163, 90, 0.28);
-  --phrase-highlight-2: rgba(74, 222, 128, 0.22);
-  --phrase-highlight-3: rgba(96, 165, 250, 0.22);
-  --phrase-highlight-4: rgba(251, 191, 36, 0.22);
-  --phrase-highlight-5: rgba(192, 132, 252, 0.22);
-  --phrase-highlight-6: rgba(45, 212, 191, 0.22);
-  --phrase-highlight-7: rgba(251, 113, 133, 0.2);
+  /* POS morphology colors (dark, L≈72) */
+  --pos-verb: #6cd399;
+  --pos-noun: #85b0ff;
+  --pos-pronoun: #e5b26a;
+  --pos-prep: #c3a3ff;
+  --pos-det: #a1b0c2;
+  --pos-adj: #5bd0c6;
+  --pos-conj: #f29270;
+  --pos-propn: #ef8aa2;
+
+  --verse-highlight-bg: rgba(215, 164, 76, 0.22);
+  --phrase-highlight-1: rgba(215, 164, 76, 0.26);
+  --phrase-highlight-2: rgba(108, 211, 153, 0.22);
+  --phrase-highlight-3: rgba(133, 176, 255, 0.22);
+  --phrase-highlight-4: rgba(195, 163, 255, 0.22);
+  --phrase-highlight-5: rgba(242, 146, 112, 0.22);
+  --phrase-highlight-6: rgba(91, 208, 198, 0.22);
+  --phrase-highlight-7: rgba(239, 138, 162, 0.2);
 }
 
+/* Pair 2 — Paper / Ink (near-achromatic + reverent green accent) */
 :root[data-theme="white-green"] {
-  --color-bg: #ffffff;
-  --color-text: #1a1a1a;
+  --color-bg: #fafaf7;
+  --color-text: #1a1614;
   --color-accent: #2d6a4f;
-  --color-surface: #f0f5f0;
-  --color-muted: #567362;
-  --color-annotation: #4c6758;
+  --color-surface: #f0f0ea;
+  --color-muted: #5c5a54;
+  --color-annotation: #4d4b45;
 
-  --pos-verb: #2d6a4f;
-  --pos-noun: #1e40af;
-  --pos-pronoun: #92400e;
-  --pos-prep: #6b21a8;
+  --pos-verb: #2d6e4e;
+  --pos-noun: #1f4fb5;
+  --pos-pronoun: #8a5a14;
+  --pos-prep: #6a2db4;
   --pos-det: #475569;
   --pos-adj: #0f766e;
-  --pos-conj: #c2410c;
-  --pos-propn: #be123c;
-  --verse-highlight-bg: rgba(45, 106, 79, 0.14);
-  --phrase-highlight-1: rgba(45, 106, 79, 0.18);
-  --phrase-highlight-2: rgba(30, 64, 175, 0.16);
-  --phrase-highlight-3: rgba(139, 105, 20, 0.18);
-  --phrase-highlight-4: rgba(146, 64, 14, 0.16);
-  --phrase-highlight-5: rgba(107, 33, 168, 0.15);
-  --phrase-highlight-6: rgba(15, 118, 110, 0.15);
-  --phrase-highlight-7: rgba(190, 18, 60, 0.14);
+  --pos-conj: #c04b14;
+  --pos-propn: #b32c50;
+
+  --verse-highlight-bg: rgba(45, 106, 79, 0.13);
+  --phrase-highlight-1: rgba(45, 106, 79, 0.17);
+  --phrase-highlight-2: rgba(31, 79, 181, 0.14);
+  --phrase-highlight-3: rgba(138, 90, 20, 0.16);
+  --phrase-highlight-4: rgba(106, 45, 180, 0.14);
+  --phrase-highlight-5: rgba(192, 75, 20, 0.15);
+  --phrase-highlight-6: rgba(15, 118, 110, 0.14);
+  --phrase-highlight-7: rgba(179, 44, 80, 0.13);
 }
 
 :root[data-theme="classic-dark"] {
-  --color-bg: #0d1f17;
-  --color-text: #e0ebe5;
-  --color-accent: #5fa87f;
-  --color-surface: #152b21;
-  --color-muted: #7a9b8a;
-  --color-annotation: #a3c4b3;
+  --color-bg: #0d100e;
+  --color-text: #e4e2db;
+  --color-accent: #6aad84;
+  --color-surface: #171a17;
+  --color-muted: #86857c;
+  --color-annotation: #a5a499;
 
-  --pos-verb: #6ee7a8;
-  --pos-noun: #7cb3ff;
-  --pos-pronoun: #f0c078;
-  --pos-prep: #c4a0ff;
-  --pos-det: #a8b8c0;
-  --pos-adj: #5fd4c8;
-  --pos-conj: #f8a060;
-  --pos-propn: #ff8fa8;
-  --verse-highlight-bg: rgba(95, 168, 127, 0.2);
-  --phrase-highlight-1: rgba(95, 168, 127, 0.24);
-  --phrase-highlight-2: rgba(110, 231, 168, 0.2);
-  --phrase-highlight-3: rgba(124, 179, 255, 0.2);
-  --phrase-highlight-4: rgba(240, 192, 120, 0.2);
-  --phrase-highlight-5: rgba(196, 160, 255, 0.2);
-  --phrase-highlight-6: rgba(95, 212, 200, 0.2);
-  --phrase-highlight-7: rgba(255, 143, 168, 0.18);
+  --pos-verb: #6cd399;
+  --pos-noun: #85b0ff;
+  --pos-pronoun: #e5b26a;
+  --pos-prep: #c3a3ff;
+  --pos-det: #a1b0c2;
+  --pos-adj: #5bd0c6;
+  --pos-conj: #f29270;
+  --pos-propn: #ef8aa2;
+
+  --verse-highlight-bg: rgba(106, 173, 132, 0.2);
+  --phrase-highlight-1: rgba(106, 173, 132, 0.24);
+  --phrase-highlight-2: rgba(108, 211, 153, 0.2);
+  --phrase-highlight-3: rgba(133, 176, 255, 0.2);
+  --phrase-highlight-4: rgba(229, 178, 106, 0.2);
+  --phrase-highlight-5: rgba(195, 163, 255, 0.2);
+  --phrase-highlight-6: rgba(91, 208, 198, 0.2);
+  --phrase-highlight-7: rgba(239, 138, 162, 0.18);
+}
+
+/* Pair 3 — Cool Linen / Deep Teal (analogous slate + teal) */
+:root[data-theme="blue-slate-light"] {
+  --color-bg: #eef2f6;
+  --color-text: #1f2a36;
+  --color-accent: #1f6e6b;
+  --color-surface: #e2e8ee;
+  --color-muted: #54677a;
+  --color-annotation: #465668;
+
+  --pos-verb: #2d6e4e;
+  --pos-noun: #1f4fb5;
+  --pos-pronoun: #8a5a14;
+  --pos-prep: #6a2db4;
+  --pos-det: #475569;
+  --pos-adj: #0f766e;
+  --pos-conj: #c04b14;
+  --pos-propn: #b32c50;
+
+  --verse-highlight-bg: rgba(31, 110, 107, 0.14);
+  --phrase-highlight-1: rgba(31, 110, 107, 0.18);
+  --phrase-highlight-2: rgba(45, 110, 78, 0.14);
+  --phrase-highlight-3: rgba(31, 79, 181, 0.15);
+  --phrase-highlight-4: rgba(138, 90, 20, 0.14);
+  --phrase-highlight-5: rgba(106, 45, 180, 0.13);
+  --phrase-highlight-6: rgba(192, 75, 20, 0.14);
+  --phrase-highlight-7: rgba(179, 44, 80, 0.12);
 }
 
 :root[data-theme="blue-slate-dark"] {
-  --color-bg: #0f1724;
-  --color-text: #e6edf7;
-  --color-accent: #7aa2f7;
-  --color-surface: #1b2535;
-  --color-muted: #93a2ba;
-  --color-annotation: #bcc8dc;
+  --color-bg: #0e1820;
+  --color-text: #d9e4ef;
+  --color-accent: #5cb8b0;
+  --color-surface: #182430;
+  --color-muted: #7a8fa5;
+  --color-annotation: #9caec2;
 
-  --pos-verb: #7dd3a6;
-  --pos-noun: #8fb4ff;
-  --pos-pronoun: #f2c078;
-  --pos-prep: #c9a7ff;
-  --pos-det: #c1cad8;
-  --pos-adj: #74d4cf;
-  --pos-conj: #f8a36b;
-  --pos-propn: #fb8fa8;
-  --verse-highlight-bg: rgba(122, 162, 247, 0.2);
-  --phrase-highlight-1: rgba(122, 162, 247, 0.24);
-  --phrase-highlight-2: rgba(125, 211, 166, 0.2);
-  --phrase-highlight-3: rgba(143, 180, 255, 0.22);
-  --phrase-highlight-4: rgba(242, 192, 120, 0.2);
-  --phrase-highlight-5: rgba(201, 167, 255, 0.2);
-  --phrase-highlight-6: rgba(116, 212, 207, 0.2);
-  --phrase-highlight-7: rgba(251, 143, 168, 0.18);
-}
+  --pos-verb: #6cd399;
+  --pos-noun: #85b0ff;
+  --pos-pronoun: #e5b26a;
+  --pos-prep: #c3a3ff;
+  --pos-det: #a1b0c2;
+  --pos-adj: #5bd0c6;
+  --pos-conj: #f29270;
+  --pos-propn: #ef8aa2;
 
-:root[data-theme="blue-slate-light"] {
-  --color-bg: #f4f7fb;
-  --color-text: #1f2937;
-  --color-accent: #345caa;
-  --color-surface: #e7edf6;
-  --color-muted: #586a84;
-  --color-annotation: #4f627f;
-
-  --pos-verb: #1f6b52;
-  --pos-noun: #2c58c7;
-  --pos-pronoun: #9a5318;
-  --pos-prep: #6f42c1;
-  --pos-det: #53657d;
-  --pos-adj: #0f7c7b;
-  --pos-conj: #c45d14;
-  --pos-propn: #c3325a;
-  --verse-highlight-bg: rgba(52, 92, 170, 0.14);
-  --phrase-highlight-1: rgba(52, 92, 170, 0.18);
-  --phrase-highlight-2: rgba(31, 107, 82, 0.14);
-  --phrase-highlight-3: rgba(44, 88, 199, 0.14);
-  --phrase-highlight-4: rgba(154, 83, 24, 0.14);
-  --phrase-highlight-5: rgba(111, 66, 193, 0.13);
-  --phrase-highlight-6: rgba(15, 124, 123, 0.13);
-  --phrase-highlight-7: rgba(195, 50, 90, 0.12);
+  --verse-highlight-bg: rgba(92, 184, 176, 0.2);
+  --phrase-highlight-1: rgba(92, 184, 176, 0.24);
+  --phrase-highlight-2: rgba(108, 211, 153, 0.2);
+  --phrase-highlight-3: rgba(133, 176, 255, 0.22);
+  --phrase-highlight-4: rgba(229, 178, 106, 0.2);
+  --phrase-highlight-5: rgba(195, 163, 255, 0.2);
+  --phrase-highlight-6: rgba(242, 146, 112, 0.2);
+  --phrase-highlight-7: rgba(239, 138, 162, 0.18);
 }
 
 /* ------------------------------------------------------------------ */
