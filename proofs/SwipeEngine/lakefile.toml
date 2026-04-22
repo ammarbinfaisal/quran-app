@@ -1,0 +1,6 @@
+name = "SwipeEngine"
+version = "0.1.0"
+defaultTargets = ["SwipeEngine"]
+
+[[lean_lib]]
+name = "SwipeEngine"

@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { MushafCode, Chapter } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { useMushafPage } from "@/hooks/useMushafPage";
@@ -19,14 +18,20 @@ interface SwipeReaderProps {
   onInteractionStart?: () => void;
 }
 
-const SWIPE_COMMIT_RATIO = 0.16;
-const SWIPE_MIN_COMMIT_PX = 28;
-const SWIPE_MIN_FLICK_DISTANCE_PX = 12;
-const SWIPE_FLICK_VELOCITY = 0.35;
-const SWIPE_TRANSITION_MS = 140;
+// Commit spec (modern mobile UX):
+//   commit if drag distance ≥ max(28px, 16% of width)
+//         OR flick velocity ≥ 0.35 px/ms over ≥ 12px
+//   velocity is measured over the final ~60ms of the gesture.
+const COMMIT_RATIO = 0.16;
+const COMMIT_MIN_PX = 28;
+const FLICK_MIN_PX = 12;
+const FLICK_MIN_VELOCITY = 0.35;
+const TRANSITION_MS = 140;
+const VELOCITY_WINDOW_MS = 60;
+const TRANSITION_EASING = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 
 // ---------------------------------------------------------------------------
-// Single Page Slot
+// PageSlot — one of three rendered pages (prev, current, next)
 // ---------------------------------------------------------------------------
 function PageSlot({
   pageNumber,
@@ -48,16 +53,9 @@ function PageSlot({
   if (pageNumber < 1 || pageNumber > TOTAL_PAGES) {
     return <div className="swipe-page empty" />;
   }
-
-  // Still show full PageSkeleton if we don't have the basic data (JSON) yet
   if (loading || !pageData) {
-    return (
-      <div className="swipe-page">
-        <PageSkeleton />
-      </div>
-    );
+    return <div className="swipe-page"><PageSkeleton /></div>;
   }
-
   return (
     <div className="swipe-page">
       <MushafPage
@@ -75,7 +73,25 @@ function PageSlot({
 }
 
 // ---------------------------------------------------------------------------
-// Swipe Reader Engine
+// SwipeReader engine
+//
+// State machine (single writer; only touch handlers + settle callback mutate):
+//
+//   IDLE ──(touchstart, primary)──> DRAGGING
+//    ↑                                   │
+//    │                                   ├──(touchend, vertical)──> IDLE
+//    │                                   └──(touchend, horizontal)──> SETTLING
+//    │                                                                    │
+//    │ ┌──(touchstart: interrupt + inherit transform as new drag)── DRAGGING
+//    │ │
+//    └─┴──(transitionend or timeout fallback)──> IDLE
+//
+// Invariants:
+//  1. `stateRef` is only mutated inside touch handlers or the settle callback.
+//  2. On every IDLE entry the track transform is snapped to the middle slot.
+//  3. A touch arriving during SETTLING CANCELS the transition and inherits
+//     the current transform as the new drag origin (no lost input).
+//  4. Commit semantics: distance OR flick velocity; velocity over last 60ms.
 // ---------------------------------------------------------------------------
 export default function SwipeReader({
   currentPage,
@@ -89,231 +105,210 @@ export default function SwipeReader({
   const trackRef = useRef<HTMLDivElement>(null);
   const chapters = useChapters();
 
-  // State Machine Refs
-  const stateRef = useRef<"IDLE" | "DRAGGING" | "ANIMATING">("IDLE");
+  // --- engine refs ---
+  const stateRef = useRef<"IDLE" | "DRAGGING" | "SETTLING">("IDLE");
   const touchIdRef = useRef<number | null>(null);
   const startXRef = useRef(0);
   const startYRef = useRef(0);
+  const startOffsetRef = useRef(0); // track offset (px) at drag start; normally W, but mid-interrupt it's whatever the transition had reached
   const lastXRef = useRef(0);
-  const lastYRef = useRef(0);
-  const startTimeRef = useRef(0);
-  const isSwipeDecisionMadeRef = useRef(false);
-  const isHorizontalSwipeRef = useRef(false);
   const widthRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
-  const pendingDeltaXRef = useRef<number>(0);
-  const interactionStartedRef = useRef(false);
+  const pendingOffsetRef = useRef(0);
+  const horizontalDecidedRef = useRef<"unknown" | "yes" | "no">("unknown");
+  const samplesRef = useRef<{ x: number; t: number }[]>([]);
+  const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleHandlerRef = useRef<(() => void) | null>(null);
+
+  // --- props mirrored to refs (updated during render; no effect needed) ---
   const onPageChangeRef = useRef(onPageChange);
   const onInteractionStartRef = useRef(onInteractionStart);
   const currentPageRef = useRef(currentPage);
+  onPageChangeRef.current = onPageChange;
+  onInteractionStartRef.current = onInteractionStart;
+  currentPageRef.current = currentPage;
 
-  useLayoutEffect(() => {
-    onPageChangeRef.current = onPageChange;
-    onInteractionStartRef.current = onInteractionStart;
-    currentPageRef.current = currentPage;
-  });
-
-  // Track the pages we're currently rendering directly during component render
   const renderedPages = [currentPage - 1, currentPage, currentPage + 1];
 
-  // Synchronous React mounting to prevent any flicker
-  useLayoutEffect(() => {
-    if (containerRef.current && trackRef.current) {
-      const W = containerRef.current.clientWidth;
-      widthRef.current = W;
+  // ---------- helpers ----------
+  function anchorMiddleSync() {
+    const track = trackRef.current;
+    const container = containerRef.current;
+    if (!track || !container) return;
+    clearSettle();
+    const W = container.clientWidth;
+    widthRef.current = W;
+    track.style.transition = "none";
+    track.style.transform = `translate3d(${W}px, 0, 0)`;
+    stateRef.current = "IDLE";
+  }
 
-      // In RTL flex, Item 0 is offset 0, Item 1 is -W, Item 2 is -2W
-      // So pushing track right by `+W` perfectly centers Item 1
-      trackRef.current.style.transition = "none";
-      trackRef.current.style.transform = `translate3d(${W}px, 0, 0)`;
-      stateRef.current = "IDLE";
+  function readTrackOffset(): number {
+    const track = trackRef.current;
+    if (!track) return widthRef.current;
+    const m = getComputedStyle(track).transform.match(/matrix\(1, 0, 0, 1, (-?[\d.]+),/);
+    return m ? Number(m[1]) : widthRef.current;
+  }
+
+  function clearSettle() {
+    if (settleTimeoutRef.current !== null) {
+      clearTimeout(settleTimeoutRef.current);
+      settleTimeoutRef.current = null;
     }
-  }, [currentPage]);
+    const track = trackRef.current;
+    const h = settleHandlerRef.current;
+    if (track && h) track.removeEventListener("transitionend", h);
+    settleHandlerRef.current = null;
+  }
 
-  // Window resize handler
-  useMountEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current && trackRef.current && stateRef.current === "IDLE") {
-        const W = containerRef.current.clientWidth;
-        widthRef.current = W;
-        trackRef.current.style.transition = "none";
-        trackRef.current.style.transform = `translate3d(${W}px, 0, 0)`;
-      }
+  function commitExternal(target: number) {
+    const clamped = Math.max(1, Math.min(TOTAL_PAGES, target));
+    if (clamped !== currentPageRef.current) onPageChangeRef.current(clamped);
+  }
+
+  // --- resize + keyboard + wheel (mount-only DOM listeners) ---
+  useEffect(() => {
+    const onResize = () => {
+      if (stateRef.current === "IDLE") anchorMiddleSync();
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  });
-
-  useMountEffect(() => {
-    return () => {
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-    };
-  });
-
-  // Keyboard navigation & Mouse Wheel
-  useMountEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
         e.preventDefault();
         onInteractionStartRef.current?.();
-        if (currentPageRef.current < TOTAL_PAGES) {
-          onPageChangeRef.current(currentPageRef.current + 1);
-        }
+        commitExternal(currentPageRef.current + 1);
       } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
         e.preventDefault();
         onInteractionStartRef.current?.();
-        if (currentPageRef.current > 1) {
-          onPageChangeRef.current(currentPageRef.current - 1);
-        }
+        commitExternal(currentPageRef.current - 1);
       }
     };
-
-    const container = containerRef.current;
     let wheelLock = false;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (wheelLock) return;
-      if (Math.abs(e.deltaY) > 20) {
-        onInteractionStartRef.current?.();
-        if (e.deltaY > 0) {
-          if (currentPageRef.current < TOTAL_PAGES) {
-            onPageChangeRef.current(currentPageRef.current + 1);
-            wheelLock = true;
-            setTimeout(() => { wheelLock = false; }, 220);
-          }
-        } else {
-          if (currentPageRef.current > 1) {
-            onPageChangeRef.current(currentPageRef.current - 1);
-            wheelLock = true;
-            setTimeout(() => { wheelLock = false; }, 220);
-          }
-        }
-      }
+    const onWheel = (e: WheelEvent) => {
+      if (wheelLock || Math.abs(e.deltaY) <= 20) return;
+      onInteractionStartRef.current?.();
+      commitExternal(currentPageRef.current + (e.deltaY > 0 ? 1 : -1));
+      wheelLock = true;
+      setTimeout(() => { wheelLock = false; }, 220);
     };
-
-    document.addEventListener("keydown", handleKeyDown);
-    if (container) {
-      container.addEventListener("wheel", handleWheel, { passive: true });
-    }
-
+    const container = containerRef.current;
+    window.addEventListener("resize", onResize);
+    document.addEventListener("keydown", onKeyDown);
+    container?.addEventListener("wheel", onWheel, { passive: true });
+    // Set initial anchor on mount.
+    anchorMiddleSync();
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      if (container) {
-        container.removeEventListener("wheel", handleWheel);
-      }
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("keydown", onKeyDown);
+      container?.removeEventListener("wheel", onWheel);
+      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+      clearSettle();
     };
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ---------------------------------------------------------------------------
-  // Touch Handlers
-  // ---------------------------------------------------------------------------
+  // ---------- touch handlers ----------
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Once the finger lifts, the swipe intent is committed. Ignore new touches
-    // during the in-flight transition (user can swipe back right after).
-    if (stateRef.current === "ANIMATING") return;
     if (e.touches.length === 0) return;
+    const newTouch = e.changedTouches[e.changedTouches.length - 1] ?? e.touches[e.touches.length - 1];
+    const container = containerRef.current;
+    const track = trackRef.current;
+    if (!container || !track) return;
+    const W = container.clientWidth;
+    widthRef.current = W;
 
-    // Follow the *newest* touch that was just added to the screen
-    const newTouch = e.changedTouches[e.changedTouches.length - 1] || e.touches[e.touches.length - 1];
-
-    if (stateRef.current === "DRAGGING" && touchIdRef.current !== null) {
-      // Handoff to the new finger without jumping the track.
-      // We calculate how much we've already naturally moved...
-      const currentDeltaX = lastXRef.current - startXRef.current;
-      const currentDeltaY = lastYRef.current - startYRef.current;
-
-      // ...and anchor the new finger so the math maintains the current displacement perfectly.
-      startXRef.current = newTouch.clientX - currentDeltaX;
-      startYRef.current = newTouch.clientY - currentDeltaY;
-    } else {
-      // First finger down
-      interactionStartedRef.current = false;
+    if (stateRef.current === "SETTLING") {
+      // Interrupt: freeze the track at its current visual offset and treat
+      // this touch as the start of a new drag inheriting that displacement.
+      clearSettle();
+      const currentOffset = readTrackOffset();
+      track.style.transition = "none";
+      track.style.transform = `translate3d(${currentOffset}px, 0, 0)`;
+      startOffsetRef.current = currentOffset;
       startXRef.current = newTouch.clientX;
       startYRef.current = newTouch.clientY;
-      startTimeRef.current = Date.now();
-      isSwipeDecisionMadeRef.current = false;
-      isHorizontalSwipeRef.current = false;
-
-      if (containerRef.current) {
-        widthRef.current = containerRef.current.clientWidth;
-      }
+      horizontalDecidedRef.current = "yes"; // already past decision — we're mid-swipe
+      samplesRef.current = [{ x: newTouch.clientX, t: performance.now() }];
       stateRef.current = "DRAGGING";
-      if (trackRef.current) {
-        trackRef.current.style.transition = "none";
-      }
+    } else if (stateRef.current === "DRAGGING" && touchIdRef.current !== null) {
+      // Multi-touch finger handoff: preserve running displacement.
+      const runningDeltaX = lastXRef.current - startXRef.current;
+      startXRef.current = newTouch.clientX - runningDeltaX;
+    } else {
+      // Fresh gesture from IDLE.
+      track.style.transition = "none";
+      startOffsetRef.current = W;
+      startXRef.current = newTouch.clientX;
+      startYRef.current = newTouch.clientY;
+      horizontalDecidedRef.current = "unknown";
+      samplesRef.current = [{ x: newTouch.clientX, t: performance.now() }];
+      stateRef.current = "DRAGGING";
     }
 
     touchIdRef.current = newTouch.identifier;
     lastXRef.current = newTouch.clientX;
-    lastYRef.current = newTouch.clientY;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (stateRef.current !== "DRAGGING") return;
-    if (touchIdRef.current === null) return;
-
+    if (stateRef.current !== "DRAGGING" || touchIdRef.current === null) return;
     let touch: React.Touch | null = null;
     for (let i = 0; i < e.touches.length; i++) {
-      if (e.touches[i].identifier === touchIdRef.current) {
-        touch = e.touches[i];
-        break;
-      }
+      if (e.touches[i].identifier === touchIdRef.current) { touch = e.touches[i]; break; }
     }
     if (!touch) return;
 
-    const currentX = touch.clientX;
-    const currentY = touch.clientY;
-    let deltaX = currentX - startXRef.current;
+    const x = touch.clientX;
+    const y = touch.clientY;
+    let deltaX = x - startXRef.current;
+    lastXRef.current = x;
 
-    lastXRef.current = currentX;
-    lastYRef.current = currentY;
+    const now = performance.now();
+    const samples = samplesRef.current;
+    samples.push({ x, t: now });
+    const cutoff = now - VELOCITY_WINDOW_MS * 3;
+    while (samples.length > 2 && samples[0].t < cutoff) samples.shift();
 
-    if (!isSwipeDecisionMadeRef.current) {
+    if (horizontalDecidedRef.current === "unknown") {
       const absX = Math.abs(deltaX);
-      const absY = Math.abs(currentY - startYRef.current);
-
+      const absY = Math.abs(y - startYRef.current);
       if (absX > 5 || absY > 5) {
-        isSwipeDecisionMadeRef.current = true;
         if (absX > absY * 1.3) {
-          isHorizontalSwipeRef.current = true;
-          if (!interactionStartedRef.current) {
-            interactionStartedRef.current = true;
-            onInteractionStartRef.current?.();
-          }
+          horizontalDecidedRef.current = "yes";
+          onInteractionStartRef.current?.();
         } else {
-          // Vertical scroll detected, cancel our swipe
+          horizontalDecidedRef.current = "no";
           stateRef.current = "IDLE";
           touchIdRef.current = null;
           return;
         }
       }
     }
+    if (horizontalDecidedRef.current !== "yes") return;
 
-    if (isHorizontalSwipeRef.current) {
-      // Rubber banding at edges
-      if (currentPage === TOTAL_PAGES && deltaX > 0) {
-        deltaX = deltaX * 0.3;
-      } else if (currentPage === 1 && deltaX < 0) {
-        deltaX = deltaX * 0.3;
-      }
-
-      pendingDeltaXRef.current = deltaX;
-      if (rafIdRef.current === null) {
-        rafIdRef.current = requestAnimationFrame(() => {
-          rafIdRef.current = null;
-          if (!trackRef.current) return;
-          trackRef.current.style.transform = `translate3d(${widthRef.current + pendingDeltaXRef.current}px, 0, 0)`;
-        });
-      }
+    // Rubber-band at boundaries: attenuate overshoot in the direction with no page.
+    const page = currentPageRef.current;
+    const projectedOffset = startOffsetRef.current + deltaX;
+    const W = widthRef.current;
+    let targetOffset = projectedOffset;
+    if (page === 1 && projectedOffset > W) {
+      // dragging right past the middle slot but no page 0 → rubber-band
+      targetOffset = W + (projectedOffset - W) * 0.3;
+    } else if (page === TOTAL_PAGES && projectedOffset < W) {
+      targetOffset = W + (projectedOffset - W) * 0.3;
     }
-  }, [currentPage]);
+
+    pendingOffsetRef.current = targetOffset;
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (trackRef.current) {
+          trackRef.current.style.transform = `translate3d(${pendingOffsetRef.current}px, 0, 0)`;
+        }
+      });
+    }
+  }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (stateRef.current !== "DRAGGING") return;
-
-    // Check if the removed finger was the one we were tracking
     let trackingFingerLifted = false;
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === touchIdRef.current) {
@@ -321,85 +316,87 @@ export default function SwipeReader({
         break;
       }
     }
+    if (!trackingFingerLifted) return;
 
-    if (!trackingFingerLifted) {
-      // Some other finger lifted, keep dragging with our tracked finger
-      return;
-    }
-
-    // If it was just a tap or vertical scroll
-    if (!isHorizontalSwipeRef.current) {
+    if (horizontalDecidedRef.current !== "yes") {
       stateRef.current = "IDLE";
       touchIdRef.current = null;
       return;
     }
 
-    // Process the swipe finish
-    stateRef.current = "ANIMATING";
-    const W = widthRef.current;
+    // Cancel any pending RAF so our touchend-driven transition isn't overwritten.
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
-      if (trackRef.current) {
-        trackRef.current.style.transform = `translate3d(${W + pendingDeltaXRef.current}px, 0, 0)`;
-      }
     }
 
+    const W = widthRef.current;
     const deltaX = lastXRef.current - startXRef.current;
-    const timeDelta = Date.now() - startTimeRef.current;
-    const velocity = timeDelta > 0 ? deltaX / timeDelta : 0; // px/ms
-
-    const distanceThreshold = Math.max(SWIPE_MIN_COMMIT_PX, W * SWIPE_COMMIT_RATIO);
-    let targetPage = currentPage;
-    let targetOffset = W;
-
     const absDeltaX = Math.abs(deltaX);
-    const absVelocity = Math.abs(velocity);
-    const hasDistanceIntent = absDeltaX >= distanceThreshold;
-    const hasFlickIntent = absDeltaX >= SWIPE_MIN_FLICK_DISTANCE_PX && absVelocity >= SWIPE_FLICK_VELOCITY;
-    const shouldCommit = hasDistanceIntent || hasFlickIntent;
 
-    if (shouldCommit) {
-      // Drag left -> Go to Page-1 (Offset: 0)
-      if (deltaX < 0 && currentPage > 1) {
-        targetPage = currentPage - 1;
-        targetOffset = 0;
+    // Velocity over the final ~60ms of movement.
+    let velocity = 0;
+    const samples = samplesRef.current;
+    if (samples.length >= 2) {
+      const end = samples[samples.length - 1];
+      let windowStart = samples[0];
+      for (let i = samples.length - 2; i >= 0; i--) {
+        windowStart = samples[i];
+        if (samples[i].t <= end.t - VELOCITY_WINDOW_MS) break;
       }
-      // Drag right -> Go to Page+1 (Offset: 2W)
-      else if (deltaX > 0 && currentPage < TOTAL_PAGES) {
-        targetPage = currentPage + 1;
+      const dt = end.t - windowStart.t;
+      if (dt > 0) velocity = (end.x - windowStart.x) / dt;
+    }
+    const absVelocity = Math.abs(velocity);
+
+    const distanceThreshold = Math.max(COMMIT_MIN_PX, W * COMMIT_RATIO);
+    const shouldCommit =
+      absDeltaX >= distanceThreshold ||
+      (absDeltaX >= FLICK_MIN_PX && absVelocity >= FLICK_MIN_VELOCITY);
+
+    const page = currentPageRef.current;
+    let targetPage = page;
+    let targetOffset = W;
+    if (shouldCommit) {
+      if (deltaX < 0 && page > 1) {
+        targetPage = page - 1;
+        targetOffset = 0;
+      } else if (deltaX > 0 && page < TOTAL_PAGES) {
+        targetPage = page + 1;
         targetOffset = 2 * W;
       }
     }
 
-    if (trackRef.current) {
-      trackRef.current.style.transition = `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 0.8, 0.3, 1)`;
-      trackRef.current.style.transform = `translate3d(${targetOffset}px, 0, 0)`;
-
-      // If we snapped back to the same page, reset IDLE here.
-      // If we changed page, the `useLayoutEffect` on `currentPage` change will reset IDLE.
-      let done = false;
-      const transitionCb = () => {
-        if (done) return;
-        done = true;
-        if (targetPage !== currentPage) {
-          onPageChangeRef.current(targetPage);
-        } else {
-          stateRef.current = "IDLE";
-        }
-        if (trackRef.current) {
-          trackRef.current.removeEventListener("transitionend", transitionCb);
-        }
-      };
-
-      trackRef.current.addEventListener("transitionend", transitionCb);
-      setTimeout(() => {
-        if (stateRef.current === "ANIMATING") transitionCb();
-      }, SWIPE_TRANSITION_MS + 40);
-    }
-
     touchIdRef.current = null;
-  }, [currentPage]);
+    stateRef.current = "SETTLING";
+
+    const track = trackRef.current;
+    if (!track) {
+      stateRef.current = "IDLE";
+      return;
+    }
+    track.style.transition = `transform ${TRANSITION_MS}ms ${TRANSITION_EASING}`;
+    track.style.transform = `translate3d(${targetOffset}px, 0, 0)`;
+
+    const onDone = () => {
+      if (stateRef.current !== "SETTLING") return; // already interrupted
+      clearSettle();
+      stateRef.current = "IDLE";
+      // Snap the track back to the middle slot BEFORE committing the page
+      // change. React batches the setPage update so by the time the new
+      // child order (prev, target, next) is committed, the transform is
+      // already at W — the new currentPage sits in the middle slot with no
+      // visual jump.
+      track.style.transition = "none";
+      track.style.transform = `translate3d(${W}px, 0, 0)`;
+      if (targetPage !== currentPageRef.current) {
+        onPageChangeRef.current(targetPage);
+      }
+    };
+    settleHandlerRef.current = onDone;
+    track.addEventListener("transitionend", onDone);
+    settleTimeoutRef.current = setTimeout(onDone, TRANSITION_MS + 40);
+  }, []);
 
   return (
     <div
