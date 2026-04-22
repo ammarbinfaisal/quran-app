@@ -247,13 +247,15 @@ main {
   unicode-bidi: normal;
 }
 
+/* QCF lines are inline text containers: the per-page KFGQPC font pre-kerns the
+   glyphs so a line's intrinsic width equals --mushaf-line-width at the matching
+   font-size. No flex — the browser lays out words as RTL inline text and the
+   font's own metrics produce printed-mushaf spacing. */
 .mushaf-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   direction: rtl;
-  width: 100%;
+  text-align: center;
   line-height: 1;
+  width: 100%;
   min-width: 0;
 }
 
@@ -261,46 +263,23 @@ main {
   max-height: 100%;
 }
 
+/* Centered lines (Al-Fatiha, opening verses, bismillah slot) render identically
+   to normal lines — the font glyphs already fill the width. Kept as a hook for
+   future overrides. */
 .mushaf-line-centered {
-  justify-content: center;
-}
-
-.mushaf-verse-group {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.mushaf-line:not(.mushaf-line-centered) > .mushaf-verse-group {
-  flex: var(--verse-word-count, 1) 1 0%;
-}
-
-.mushaf-verse-group[data-highlighted="true"] {
-  background-color: var(--verse-highlight-bg);
-  border-radius: 6px;
-  padding-inline: 3px;
-  padding-block: 1px;
+  text-align: center;
 }
 
 [data-recitation-playing="true"] {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
   border-radius: 8px;
-  transition: outline-color 0.2s ease;
 }
 
 .mushaf-word {
   cursor: pointer;
-  flex-shrink: 0;
-  padding: 0 1px;
-}
-
-/* QCF words stretch to fill the line like a printed mushaf */
-.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-word,
-.mushaf-line:not(.mushaf-line-unicode):not(.mushaf-line-centered) > .mushaf-verse-group > .mushaf-word {
-  flex-grow: 1;
-  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .mushaf-word[data-highlighted="true"] {

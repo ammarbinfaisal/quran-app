@@ -43,7 +43,7 @@ function MushafLineInner({
     return (
       <div className={className} aria-hidden="true">
         <span
-          className={`block h-[0.72em] rounded-sm bg-[color-mix(in_srgb,var(--color-muted)_20%,transparent)] ${showFontSkeleton ? "animate-pulse" : ""}`}
+          className={`inline-block h-[0.72em] rounded-sm bg-[color-mix(in_srgb,var(--color-muted)_20%,transparent)] ${showFontSkeleton ? "animate-pulse" : ""}`}
           style={{ width: lineSkeletonWidth }}
         />
       </div>
