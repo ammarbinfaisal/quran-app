@@ -8,6 +8,9 @@
 # Testing
 /coverage
 
+# Worktrees
+/.worktrees
+
 # Scraper logs
 /logs
 
