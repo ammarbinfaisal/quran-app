@@ -71,18 +71,16 @@ function MushafLineInner({
     }
   }
 
-  // Stop propagation when the click lands on the line container itself (i.e. the
-  // flex gaps between words), but allow clicks on mushaf-word spans to bubble
-  // normally — those already call stopPropagation themselves.
+  // Stop propagation when the click lands on the line container itself (i.e.
+  // the residual slack between --mushaf-line-width and the slot), but allow
+  // clicks on mushaf-word spans to bubble normally — those already call
+  // stopPropagation themselves.
   function handleLineClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!(e.target as HTMLElement).classList.contains("mushaf-word")) {
       e.stopPropagation();
     }
   }
 
-  // Render whitespace text nodes between word spans so `text-align: justify`
-  // has flexible gaps to stretch. Without this, adjacent spans touch and the
-  // browser has nothing to justify.
   const renderWord = (word: typeof line.words[number], idx: number) => (
     <MushafWord
       key={`${word.verseKey}-${idx}`}
@@ -97,16 +95,22 @@ function MushafLineInner({
     />
   );
 
-  const children: React.ReactNode[] = [];
-  line.words.forEach((word, idx) => {
-    if (idx > 0) children.push(" ");
-    children.push(renderWord(word, idx));
-  });
-
+  // QCF: words render adjacent; the per-page font's intrinsic glyph advance
+  // fills --mushaf-line-width exactly, `text-align: center` absorbs any
+  // residual slack. No whitespace between spans.
+  //
+  // Unicode (Indopak): insert literal whitespace between spans so
+  // `text-align: justify` has inter-word break opportunities to stretch.
   if (isUnicode) {
     const unicodeClassName = centered
       ? "mushaf-line mushaf-line-unicode mushaf-line-centered"
       : "mushaf-line mushaf-line-unicode";
+
+    const children: React.ReactNode[] = [];
+    line.words.forEach((word, idx) => {
+      if (idx > 0) children.push(" ");
+      children.push(renderWord(word, idx));
+    });
 
     return (
       <div className={unicodeClassName} onClick={handleLineClick}>
@@ -117,7 +121,7 @@ function MushafLineInner({
 
   return (
     <div className={className} onClick={handleLineClick}>
-      {children}
+      {line.words.map((word, idx) => renderWord(word, idx))}
     </div>
   );
 }

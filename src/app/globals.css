@@ -247,27 +247,39 @@ main {
   unicode-bidi: normal;
 }
 
-/* QCF lines are inline text containers laid out as RTL justified text. A
-   single whitespace text node rendered between each word span gives the
-   browser a flexible gap to stretch; `text-align-last: justify` extends the
-   justification to the only line (normal `justify` ignores the last line). */
+/* QCF lines use the quran.com-frontend-next pattern: the container's
+   inline-size is set to the font's calibrated line width (--mushaf-line-width)
+   and content is centered. The per-page QCF glyphs are width-calibrated, so
+   the rendered line fills the container naturally. No `text-align: justify` —
+   justify + nowrap is a spec-level no-op (nowrap removes the break
+   opportunities justify would stretch), and with `direction: rtl` the
+   fallback is right-alignment, not center. */
 .mushaf-line {
   direction: rtl;
-  text-align: justify;
-  text-align-last: justify;
+  text-align: center;
   white-space: nowrap;
   line-height: 1;
-  width: 100%;
+  inline-size: var(--mushaf-line-width);
+  margin-inline: auto;
   min-width: 0;
 }
 
+/* Indopak (real Unicode Arabic) DOES justify correctly because its spaces
+   between words are valid break opportunities the browser can stretch.
+   Explicit `text-justify: inter-word` guards Firefox which ignores the
+   default on some versions. Nowrap is intentionally NOT set — soft-wrap
+   points are what justify stretches. */
 .mushaf-line-unicode {
+  text-align: justify;
+  text-align-last: justify;
+  text-justify: inter-word;
+  white-space: normal;
   max-height: 100%;
 }
 
-/* Surah-header / bismillah / Al-Fatiha rows and any row flagged `centered` in
-   the layout metadata should NOT stretch to the edges — the printed mushaf
-   centers them. Override both justify properties explicitly. */
+/* Surah-header / bismillah / Al-Fatiha rows: the printed mushaf centers
+   them regardless of mushaf code. Override the Unicode justify rules
+   when the `centered` flag is set on the line. */
 .mushaf-line-centered {
   text-align: center;
   text-align-last: center;
