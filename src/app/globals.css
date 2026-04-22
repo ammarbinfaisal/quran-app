@@ -247,13 +247,14 @@ main {
   unicode-bidi: normal;
 }
 
-/* QCF lines are inline text containers: the per-page KFGQPC font pre-kerns the
-   glyphs so a line's intrinsic width equals --mushaf-line-width at the matching
-   font-size. No flex — the browser lays out words as RTL inline text and the
-   font's own metrics produce printed-mushaf spacing. */
+/* QCF lines are inline text containers laid out as RTL justified text. A
+   single whitespace text node rendered between each word span gives the
+   browser a flexible gap to stretch; `text-align-last: justify` extends the
+   justification to the only line (normal `justify` ignores the last line). */
 .mushaf-line {
   direction: rtl;
-  text-align: center;
+  text-align: justify;
+  text-align-last: justify;
   line-height: 1;
   width: 100%;
   min-width: 0;
@@ -263,11 +264,12 @@ main {
   max-height: 100%;
 }
 
-/* Centered lines (Al-Fatiha, opening verses, bismillah slot) render identically
-   to normal lines — the font glyphs already fill the width. Kept as a hook for
-   future overrides. */
+/* Surah-header / bismillah / Al-Fatiha rows and any row flagged `centered` in
+   the layout metadata should NOT stretch to the edges — the printed mushaf
+   centers them. Override both justify properties explicitly. */
 .mushaf-line-centered {
   text-align: center;
+  text-align-last: center;
 }
 
 [data-recitation-playing="true"] {

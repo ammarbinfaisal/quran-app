@@ -80,8 +80,29 @@ function MushafLineInner({
     }
   }
 
-  // Unicode lines use text-align justify (browser handles inter-word spacing better
-  // than flexbox space-between for real Arabic text).
+  // Render whitespace text nodes between word spans so `text-align: justify`
+  // has flexible gaps to stretch. Without this, adjacent spans touch and the
+  // browser has nothing to justify.
+  const renderWord = (word: typeof line.words[number], idx: number) => (
+    <MushafWord
+      key={`${word.verseKey}-${idx}`}
+      word={word}
+      wordIndex={morphIndices[idx]}
+      mushafCode={mushafCode}
+      pageNum={pageNum}
+      onTap={onWordTap}
+      highlighted={highlightedVerse === word.verseKey}
+      fontReady={fontReady}
+      showFontSkeleton={showFontSkeleton}
+    />
+  );
+
+  const children: React.ReactNode[] = [];
+  line.words.forEach((word, idx) => {
+    if (idx > 0) children.push(" ");
+    children.push(renderWord(word, idx));
+  });
+
   if (isUnicode) {
     const unicodeClassName = centered
       ? "mushaf-line mushaf-line-unicode mushaf-line-centered"
@@ -89,39 +110,14 @@ function MushafLineInner({
 
     return (
       <div className={unicodeClassName} onClick={handleLineClick}>
-        {line.words.map((word, idx) => (
-          <MushafWord
-            key={`${word.verseKey}-${idx}`}
-            word={word}
-            wordIndex={morphIndices[idx]}
-            mushafCode={mushafCode}
-            pageNum={pageNum}
-            onTap={onWordTap}
-            highlighted={highlightedVerse === word.verseKey}
-            fontReady={fontReady}
-            showFontSkeleton={showFontSkeleton}
-          />
-        ))}
+        {children}
       </div>
     );
   }
 
-  // QCF lines: flexbox with space-between; each word is flex-shrink: 0
   return (
     <div className={className} onClick={handleLineClick}>
-      {line.words.map((word, idx) => (
-        <MushafWord
-          key={`${word.verseKey}-${idx}`}
-          word={word}
-          wordIndex={morphIndices[idx]}
-          mushafCode={mushafCode}
-          pageNum={pageNum}
-          onTap={onWordTap}
-          highlighted={highlightedVerse === word.verseKey}
-          fontReady={fontReady}
-          showFontSkeleton={showFontSkeleton}
-        />
-      ))}
+      {children}
     </div>
   );
 }
