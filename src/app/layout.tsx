@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
   SITE_DESCRIPTION,
@@ -10,6 +11,12 @@ import { RecitationProvider } from "@/components/recitation/useRecitationPlayer"
 import { RecitationContextProvider } from "@/components/recitation/RecitationContext";
 import { Toaster } from "@/components/ui/Toaster";
 import "./globals.css";
+
+const uiFont = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-ui",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -44,16 +51,14 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#111827",
+  themeColor: "#f4ecd8",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const isProd = process.env.NODE_ENV === "production";
 
   return (
-    <html lang="ar" dir="ltr" suppressHydrationWarning>
+    <html lang="en" dir="ltr" suppressHydrationWarning className={uiFont.variable}>
       <head>
         <link rel="dns-prefetch" href="https://api.quran.com" />
         <link rel="preconnect" href="https://api.quran.com" crossOrigin="anonymous" />

@@ -86,8 +86,7 @@ function SurahRow({
           </div>
         </div>
         <span
-          className="shrink-0 leading-none text-[var(--color-text)]"
-          style={{ fontFamily: "surahnames", fontSize: "1.8rem" }}
+          className="shrink-0 text-[1.8rem] leading-none text-[var(--color-text)] [font-family:surahnames]"
           translate="no"
         >
           {String(ch.id).padStart(3, "0")}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BookOpen } from "lucide-react";
+import { SITE_NAME } from "@/lib/seo";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { usePageNavigation } from "@/hooks/usePageNavigation";
 import { QuickNavigation } from "@/components/home/QuickNavigation";
@@ -59,11 +60,11 @@ export function HomePageClient() {
   return (
     <main className="h-full w-full overflow-hidden">
       <div className="mx-auto flex h-full max-w-xl flex-col">
-        <header className="flex items-center justify-between px-4 py-4">
-          <h1 className="text-lg font-semibold tracking-tight">Quran</h1>
+        <header className="flex items-center justify-between px-4 pb-2 pt-5">
+          <h1 className="text-2xl font-semibold tracking-tight capitalize">{SITE_NAME}</h1>
         </header>
 
-        <div className="px-4">
+        <div className="px-4 pt-2">
           <button
             type="button"
             onClick={() => {
@@ -73,10 +74,10 @@ export function HomePageClient() {
                 goToPage(1);
               }
             }}
-            className="w-full rounded-lg bg-[var(--color-accent)] px-4 py-3 text-left text-[var(--color-bg)]"
+            className="w-full rounded-xl bg-[var(--color-accent)] px-4 py-4 text-left text-[var(--color-bg)] active:opacity-80"
           >
-            <div className="text-sm font-semibold">Continue reading</div>
-            <div className="mt-0.5 text-xs opacity-90">
+            <div className="text-base font-semibold">Continue reading</div>
+            <div className="mt-1 text-xs opacity-90">
               {continueEntry
                 ? `${continueEntry.chapterName} · page ${continueEntry.pageNumber}`
                 : "Start at page 1"}
@@ -107,7 +108,7 @@ export function HomePageClient() {
                       onClick={() =>
                         goToPage(entry.pageNumber, undefined, entry.verseKey)
                       }
-                      className="flex w-full items-center justify-between px-4 py-3 min-h-12 text-left active:scale-[0.99] active:opacity-80 transition"
+                      className="flex w-full items-center justify-between px-4 py-3 min-h-12 text-left active:opacity-70"
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-[var(--color-text)]">

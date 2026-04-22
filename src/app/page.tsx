@@ -1,6 +1,6 @@
 import { HomePageClient } from "@/components/home/HomePageClient";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { createWebPageJsonLd } from "@/lib/seo";
+import { createWebPageJsonLd, SITE_DESCRIPTION, SITE_NAME } from "@/lib/seo";
 
 export default function HomePage() {
   return (
@@ -9,8 +9,8 @@ export default function HomePage() {
         id="home-page-jsonld"
         data={createWebPageJsonLd({
           path: "/",
-          title: "quran",
-          description: "quran app",
+          title: SITE_NAME,
+          description: SITE_DESCRIPTION,
         })}
       />
       <HomePageClient />
