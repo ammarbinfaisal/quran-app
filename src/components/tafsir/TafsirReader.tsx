@@ -260,7 +260,7 @@ export function TafsirReader({
             {loading ? (
               <TafsirSkeleton />
             ) : tafsirEntry?.text ? (
-              <TafsirContent html={tafsirEntry.text} />
+              <TafsirContent html={tafsirEntry.text} fontScale={prefs.fontScale ?? 1} />
             ) : (
               <p className="py-4 text-center text-sm text-[var(--color-muted)]">
                 No tafsir available for this ayah.
@@ -352,18 +352,227 @@ function TafsirSkeleton() {
   );
 }
 
-/**
- * Renders tafsir HTML content. The HTML comes from our own scraped JSON files
- * in public/data/tafsir/ — first-party content from tafsir.app, not user input.
- */
-function TafsirContent({ html }: { html: string }) {
+// ---------------------------------------------------------------------------
+// Tafsir content parser + renderer
+//
+// Our scraped tafsir JSON follows tafsir.app conventions (plain text, no tags).
+// We replicate their client-side rendering rules:
+//   [[...]]                -> numbered superscript; body collected as footnote
+//   ﴿...﴾ / «...» / {...}  -> Quran/hadith quote, accented
+//   [سورة: N]              -> verse reference chip
+//   * line                 -> subheading (bold)
+//   ؎ line                 -> poetry line
+//   ⁕ / * only             -> decorative separator
+//   (p-N)                  -> manuscript page marker, stripped
+// ---------------------------------------------------------------------------
+
+type InlineSegment =
+  | { kind: "text"; value: string }
+  | { kind: "quote"; value: string }
+  | { kind: "ref"; value: string }
+  | { kind: "footnote"; n: number };
+
+type Block =
+  | { kind: "heading"; segments: InlineSegment[] }
+  | { kind: "poetry"; segments: InlineSegment[] }
+  | { kind: "separator"; value: string }
+  | { kind: "paragraph"; segments: InlineSegment[] };
+
+interface ParsedTafsir {
+  blocks: Block[];
+  footnotes: InlineSegment[][];
+}
+
+const INLINE_RE =
+  /(﴿[\s\S]*?﴾)|(«[\s\S]*?»)|(\{[\s\S]*?\})|(\[[ء-ْ ]{1,11}:\s*[\d٠-٩،\s-]+\])|␞(\d+)␟/g;
+const FOOTNOTE_EXTRACT_RE = /\s?\[\[([\s\S]*?\]*)\]\]/g;
+const PAGE_MARKER_RE = /\(p-[\d٠-٩]+\)/g;
+const SEPARATOR_RE = /^[⁕*\s]+$/;
+
+function toArabicNum(n: number): string {
+  return String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[+d]);
+}
+
+function parseInline(s: string): InlineSegment[] {
+  const out: InlineSegment[] = [];
+  let last = 0;
+  for (const m of s.matchAll(INLINE_RE)) {
+    const idx = m.index ?? 0;
+    if (idx > last) out.push({ kind: "text", value: s.slice(last, idx) });
+    if (m[1] || m[2] || m[3]) {
+      out.push({ kind: "quote", value: m[1] ?? m[2] ?? m[3] });
+    } else if (m[4]) {
+      out.push({ kind: "ref", value: m[4] });
+    } else if (m[5]) {
+      out.push({ kind: "footnote", n: parseInt(m[5], 10) });
+    }
+    last = idx + m[0].length;
+  }
+  if (last < s.length) out.push({ kind: "text", value: s.slice(last) });
+  return out;
+}
+
+function parseTafsir(raw: string): ParsedTafsir {
+  const footnoteSrc: string[] = [];
+  let text = raw.replace(FOOTNOTE_EXTRACT_RE, (_, body) => {
+    const idx = footnoteSrc.length;
+    footnoteSrc.push(String(body).trim());
+    return `␞${idx}␟`;
+  });
+  text = text.replace(PAGE_MARKER_RE, "");
+
+  const blocks: Block[] = [];
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (SEPARATOR_RE.test(line) && /[⁕*]/.test(line)) {
+      blocks.push({ kind: "separator", value: line });
+      continue;
+    }
+    if (line.startsWith("*")) {
+      blocks.push({ kind: "heading", segments: parseInline(line.replace(/^\*\s*/, "")) });
+      continue;
+    }
+    if (line.startsWith("؎")) {
+      blocks.push({ kind: "poetry", segments: parseInline(line.replace(/^؎\s*/, "")) });
+      continue;
+    }
+    blocks.push({ kind: "paragraph", segments: parseInline(line) });
+  }
+
+  return { blocks, footnotes: footnoteSrc.map(parseInline) };
+}
+
+function InlineSegments({
+  segments,
+  onFootnoteClick,
+}: {
+  segments: InlineSegment[];
+  onFootnoteClick?: (n: number) => void;
+}) {
+  return (
+    <>
+      {segments.map((seg, i) => {
+        if (seg.kind === "quote") {
+          return (
+            <span key={i} className="text-[var(--color-accent)] font-medium">
+              {seg.value}
+            </span>
+          );
+        }
+        if (seg.kind === "ref") {
+          return (
+            <span
+              key={i}
+              className="mx-0.5 inline-block rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[0.78em] text-[var(--color-muted)] align-baseline tabular-nums"
+            >
+              {seg.value}
+            </span>
+          );
+        }
+        if (seg.kind === "footnote") {
+          const label = toArabicNum(seg.n + 1);
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onFootnoteClick?.(seg.n)}
+              className="mx-0.5 align-super text-[0.7em] font-semibold text-[var(--color-accent)] hover:underline tabular-nums"
+              aria-label={`حاشية ${label}`}
+            >
+              ({label})
+            </button>
+          );
+        }
+        return <span key={i}>{seg.value}</span>;
+      })}
+    </>
+  );
+}
+
+function TafsirContent({ html, fontScale }: { html: string; fontScale: number }) {
+  const { blocks, footnotes } = useMemo(() => parseTafsir(html), [html]);
+  const fontSize = `clamp(1.05rem, ${fontScale * 0.09 + 1}rem, 1.7rem)`;
+
+  const scrollToFootnote = useCallback((n: number) => {
+    const el = document.getElementById(`fn-${n}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-[var(--color-accent)]");
+    window.setTimeout(
+      () => el.classList.remove("ring-2", "ring-[var(--color-accent)]"),
+      1400,
+    );
+  }, []);
+
   return (
     <div
-      className="font-arabic text-base leading-[2] text-[var(--color-text)] whitespace-pre-line"
+      className="font-arabic leading-[2] text-[var(--color-text)] space-y-3"
       dir="rtl"
-      // Content is from our own static JSON files (scraped from tafsir.app).
-      // Not user-generated — safe to render as HTML.
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+      style={{ fontSize }}
+    >
+      {blocks.map((block, i) => {
+        if (block.kind === "separator") {
+          return (
+            <div
+              key={i}
+              className="my-4 flex items-center justify-center text-[var(--color-muted)]/60 select-none"
+              aria-hidden
+            >
+              {block.value}
+            </div>
+          );
+        }
+        if (block.kind === "heading") {
+          return (
+            <h3
+              key={i}
+              className="pt-2 first:pt-0 font-semibold text-[var(--color-accent)]"
+            >
+              <InlineSegments segments={block.segments} onFootnoteClick={scrollToFootnote} />
+            </h3>
+          );
+        }
+        if (block.kind === "poetry") {
+          return (
+            <p
+              key={i}
+              className="mx-auto max-w-[32em] text-center italic text-[var(--color-text)]/90"
+            >
+              <InlineSegments segments={block.segments} onFootnoteClick={scrollToFootnote} />
+            </p>
+          );
+        }
+        return (
+          <p key={i}>
+            <InlineSegments segments={block.segments} onFootnoteClick={scrollToFootnote} />
+          </p>
+        );
+      })}
+
+      {footnotes.length > 0 && (
+        <div className="mt-6 border-t border-[var(--color-muted)]/20 pt-4">
+          <ol
+            className="space-y-2 list-none text-[var(--color-muted)]"
+            style={{ fontSize: `clamp(0.85rem, ${fontScale * 0.07 + 0.82}rem, 1.3rem)` }}
+          >
+            {footnotes.map((segments, n) => (
+              <li
+                id={`fn-${n}`}
+                key={n}
+                className="flex gap-2 items-baseline rounded-md p-1 transition-[box-shadow]"
+              >
+                <span className="shrink-0 font-semibold tabular-nums text-[var(--color-accent)]">
+                  ({toArabicNum(n + 1)})
+                </span>
+                <span className="flex-1 leading-[1.8]">
+                  <InlineSegments segments={segments} onFootnoteClick={scrollToFootnote} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
   );
 }
