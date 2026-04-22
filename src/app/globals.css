@@ -327,9 +327,15 @@ main {
 /* ------------------------------------------------------------------ */
 
 .mushaf-page {
+  /* Shared width expression so font-size can reference the same value the
+     browser will resolve for `width`. Driving font-size off container width
+     (instead of viewport height as before) makes the QCF glyphs — which are
+     width-calibrated per page — render at their designed edge-to-edge size. */
+  --mushaf-page-width: min(95vw, calc(90vh / 1.6));
+
   aspect-ratio: 1 / 1.6;
   height: 90vh;
-  width: min(95vw, calc(90vh / 1.6));
+  width: var(--mushaf-page-width);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -341,10 +347,11 @@ main {
   border: 1px solid color-mix(in srgb, var(--color-muted) 15%, transparent);
   overflow: hidden;
 
-  /* Base font size: responsive to page height.
-     90vh / 15 lines * 0.42 factor ensures 15 lines fit the page. */
-  --mushaf-base-size: calc(90vh / 15 * 0.42);
-  font-size: var(--mushaf-base-size);
+  /* Empirical factor: at 1em font-size, a KFGQPC v2 mushaf line is ~20em wide,
+     so font-size / page-width ≈ 0.05. 0.048 leaves a slim buffer for padding
+     and prevents overflow. Tunable per-scale in Phase 4. */
+  --mushaf-font-factor: 0.048;
+  font-size: calc(var(--mushaf-page-width) * var(--mushaf-font-factor));
 }
 
 
