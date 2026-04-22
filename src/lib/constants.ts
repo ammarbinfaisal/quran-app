@@ -1,7 +1,16 @@
+/** Default mushaf (KFGQPC V2) total pages. Use MUSHAF_TOTAL_PAGES[code] when
+    the active mushaf matters; this constant is kept for legacy call sites
+    that operate on the default v2 mushaf. */
 export const TOTAL_PAGES = 604;
 export const TOTAL_CHAPTERS = 114;
 export const LINES_PER_PAGE = 15;
 export const LINES_PER_PAGE_16 = 16;
+
+/** Page-count by mushaf code. v2 = 604 KFGQPC, i15 = 610 Qudratullah Indopak. */
+export const MUSHAF_TOTAL_PAGES = {
+  v2: 604,
+  i15: 610,
+} as const;
 
 export const API_BASE = "https://api.quran.com/api/v4";
 export const FONT_CDN = "https://static.qurancdn.com/fonts/quran/hafs";

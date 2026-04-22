@@ -22,6 +22,9 @@ const root = protobuf.Root.fromJSON({
         lineNumber: { type: "int32", id: 1 },
         words: { rule: "repeated", type: "MushafWord", id: 2 },
         centered: { type: "bool", id: 3 },
+        /** "ayah" | "surah_name" | "basmallah" — absent on legacy v2 payloads */
+        lineType: { type: "string", id: 4 },
+        surahNumber: { type: "int32", id: 5 },
       },
     },
     MushafPagePayload: {
