@@ -247,14 +247,23 @@ main {
   unicode-bidi: normal;
 }
 
+/* QCF lines lay out as RTL inline text. The per-page KFGQPC font is
+   pre-kerned so a line's natural sum-of-word-widths (at --mushaf-base-size)
+   matches --mushaf-line-width — words sit flush at both edges with no
+   inter-word slack to redistribute. */
 .mushaf-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: block;
   direction: rtl;
-  width: 100%;
+  text-align: center;
+  inline-size: var(--mushaf-line-width);
+  margin-inline: auto;
   line-height: 1;
-  min-width: 0;
+  /* Defense in depth: the divisor in --mushaf-base-size already keeps every
+     measured line ≤ inline-size. nowrap+clip ensures any sub-pixel rounding
+     overshoot is clipped into the gutter rather than wrapping to a new
+     visual line. This case should never fire if the divisor is correct. */
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .mushaf-line-unicode {
@@ -262,18 +271,11 @@ main {
 }
 
 .mushaf-line-centered {
-  justify-content: center;
+  text-align: center;
 }
 
 .mushaf-verse-group {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.mushaf-line:not(.mushaf-line-centered) > .mushaf-verse-group {
-  flex: var(--verse-word-count, 1) 1 0%;
+  display: inline;
 }
 
 .mushaf-verse-group[data-highlighted="true"] {
@@ -291,13 +293,10 @@ main {
 }
 
 .mushaf-word {
+  display: inline-block;
   cursor: pointer;
-  flex-shrink: 0;
-  padding: 0 1px;
+  white-space: nowrap;
 }
-
-/* QCF lines justify via space-between — words keep natural width,
-   free space is distributed as inter-word gaps (printed-mushaf behavior). */
 
 .mushaf-word[data-highlighted="true"] {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
@@ -344,23 +343,38 @@ main {
 /* ------------------------------------------------------------------ */
 
 .mushaf-page {
+  /* Page width = whichever is smaller: 95% of viewport width, or the width
+     a 1:1.6 portrait page would have at 90% viewport height. The page-width
+     drives EVERYTHING below (line-width, font-size, padding) so that the
+     full layout scales with a single dimension. */
+  --mushaf-page-width: min(95vw, calc(90vh / 1.6));
+
+  /* Line container is 92% of page width — leaves 4% gutter on each side.
+     Padding is computed from this so percent-of-parent vs percent-of-self
+     ambiguity does not leak in. */
+  --mushaf-line-width: calc(var(--mushaf-page-width) * 0.92);
+
+  /* Font-size paired with line-width. The divisor is the tightest measured
+     sumW/fontPx ratio across all 604 v2 pages (binding lines on p254/p255)
+     under the live inline-block layout, plus a 0.5% safety margin for
+     sub-pixel rounding amplification at small font-sizes (~13px). The
+     longest natural line on every page is guaranteed ≤ --mushaf-line-width. */
+  --mushaf-base-size: calc(var(--mushaf-line-width) / 16.32);
+
   aspect-ratio: 1 / 1.6;
-  height: 90vh;
-  width: min(95vw, calc(90vh / 1.6));
+  width: var(--mushaf-page-width);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 2.5% 4%;
+  padding-inline: calc((var(--mushaf-page-width) - var(--mushaf-line-width)) / 2);
+  padding-block: calc(var(--mushaf-page-width) * 0.04);
   position: relative;
   background: var(--color-surface);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid color-mix(in srgb, var(--color-muted) 15%, transparent);
   overflow: hidden;
 
-  /* Base font size: responsive to page height.
-     90vh / 15 lines * 0.42 factor ensures 15 lines fit the page. */
-  --mushaf-base-size: calc(90vh / 15 * 0.42);
   font-size: var(--mushaf-base-size);
 }
 
