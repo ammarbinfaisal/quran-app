@@ -252,18 +252,28 @@ main {
    matches --mushaf-line-width — words sit flush at both edges with no
    inter-word slack to redistribute. */
 .mushaf-line {
-  display: block;
+  /* Flex with space-between distributes words edge-to-edge (matches quran.com
+     and printed mushaf justification). Each word is the natural QCF-kerned
+     width; the small remaining slack (~10% of line) is divided as inter-word
+     gaps. Without this the words clump and one edge has dead space. */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   direction: rtl;
   text-align: center;
   inline-size: var(--mushaf-line-width);
   margin-inline: auto;
-  line-height: 1;
+  /* 1.35 matches quran.com and printed mushafs — leaves ~25% leading above
+     the ink so descenders/marks of one line don't kiss the ascenders of the
+     next. line-height: 1 made the slot exactly the font-size, producing the
+     "matted" stack visible at all viewports. */
+  line-height: 1.35;
   /* Defense in depth: the divisor in --mushaf-base-size already keeps every
-     measured line ≤ inline-size. nowrap+clip ensures any sub-pixel rounding
-     overshoot is clipped into the gutter rather than wrapping to a new
-     visual line. This case should never fire if the divisor is correct. */
+     measured line ≤ inline-size. nowrap prevents any sub-pixel rounding
+     overshoot from wrapping to a new visual line. We must NOT set
+     overflow:hidden here — QCF glyph ink extends slightly above/below/past
+     the line box (descenders, marks, ligature tails) and would be clipped. */
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .mushaf-line-unicode {
@@ -271,7 +281,11 @@ main {
 }
 
 .mushaf-line-centered {
-  text-align: center;
+  /* Override flex space-between: centered lines (bismillah, surah headers,
+     short final ayat) cluster the words in the middle instead of stretching
+     to both edges. */
+  justify-content: center;
+  gap: 0.4em;
 }
 
 .mushaf-verse-group {
@@ -343,41 +357,46 @@ main {
 /* ------------------------------------------------------------------ */
 
 .mushaf-page {
-  /* Page width = whichever is smaller: 95% of viewport width, or the width
-     a 1:1.6 portrait page would have at 90% viewport height. The page-width
-     drives EVERYTHING below (line-width, font-size, padding) so that the
-     full layout scales with a single dimension. */
-  --mushaf-page-width: min(95vw, calc(90vh / 1.6));
+  /* Page fills 95% of viewport width on every device. Vertical sizing is
+     content-driven: the wrapping .swipe-page scrolls if the rendered page
+     is taller than the viewport. This matches the printed-mushaf reading
+     experience (page width fills the hands; you scan vertically) and avoids
+     the prior height-clamp branch (min(95vw, 90vh/1.6)) which collapsed the
+     page to ~46% of viewport on short/landscape windows. */
+  --mushaf-page-width: 95vw;
 
-  /* Line container is 92% of page width — leaves 4% gutter on each side.
-     Padding is computed from this so percent-of-parent vs percent-of-self
-     ambiguity does not leak in. */
-  --mushaf-line-width: calc(var(--mushaf-page-width) * 0.92);
+  /* Line container is 95% of page width — leaves 2.5% gutter on each side. */
+  --mushaf-line-width: calc(var(--mushaf-page-width) * 0.95);
 
-  /* Font-size paired with line-width. The divisor is the tightest measured
-     sumW/fontPx ratio across all 604 v2 pages (binding lines on p254/p255)
-     under the live inline-block layout, plus a 0.5% safety margin for
-     sub-pixel rounding amplification at small font-sizes (~13px). The
-     longest natural line on every page is guaranteed ≤ --mushaf-line-width. */
-  --mushaf-base-size: calc(var(--mushaf-line-width) / 16.32);
+  /* Font-size: divisor 17.6 deliberately undersizes the font (vs the
+     natural-fit calibrated divisor of 16.32) so words occupy ~92% of the
+     line; the remaining 8% slack distributes via flex space-between as
+     inter-word gaps (~6px on iPhone-class viewports). Combined with slot
+     height 0.108×pageWidth, slot/font ≈ 2.0 (half ink, half leading per
+     line) and ink-area aspect ≈ 1.7 (more elongated than printed mushaf;
+     the trade-off chosen to keep generous per-line leading with a larger
+     font for readability). */
+  --mushaf-base-size: calc(var(--mushaf-line-width) / 17.6);
 
-  aspect-ratio: 1 / 1.6;
   width: var(--mushaf-page-width);
-  margin: 0 auto;
+  /* margin: auto centers the page in .swipe-page when content is shorter
+     than the viewport, and lets it sit at the top with overflow when taller. */
+  margin: auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  /* Uniform gutter all around — same horizontal and vertical, derived from
+     the line-width so the ink area is a single percentage offset from the
+     page edge. */
   padding-inline: calc((var(--mushaf-page-width) - var(--mushaf-line-width)) / 2);
-  padding-block: calc(var(--mushaf-page-width) * 0.04);
+  padding-block: calc((var(--mushaf-page-width) - var(--mushaf-line-width)) / 2);
   position: relative;
   background: var(--color-surface);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid color-mix(in srgb, var(--color-muted) 15%, transparent);
-  overflow: hidden;
 
   font-size: var(--mushaf-base-size);
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Swipe reader                                                        */
@@ -409,10 +428,14 @@ main {
   width: 100%;
   min-width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
+  /* Grid centering with safe-overflow: when the rendered .mushaf-page is
+     taller than the slot, "safe center" falls back to start-alignment so
+     the top of the page stays reachable via scroll. When the page is
+     shorter, it centers vertically. */
+  display: grid;
+  place-content: safe center;
+  overflow-y: auto;
+  padding: 2px;
 }
 
 /* ------------------------------------------------------------------ */

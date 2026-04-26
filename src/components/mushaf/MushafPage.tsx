@@ -173,9 +173,15 @@ function MushafPageInner({
     }
   }
 
+  // Slot height is 10.8% of --mushaf-page-width — chosen so slot/font
+  // works out to exactly 2.0 (half ink, half leading per line) given the
+  // font divisor 17.6 and line-width 0.95×pageWidth. 15 stacked slots form
+  // an ink-area of aspect ≈ 1.70 — more elongated than printed-mushaf 1.5,
+  // a trade-off chosen to keep generous per-line leading with a larger,
+  // more readable font.
   const slotClass = isSpecialPage
     ? "flex items-center justify-center shrink-0 h-[calc(100%/15)]"
-    : "flex-1 flex items-center justify-center";
+    : "flex items-center justify-center shrink-0 h-[calc(var(--mushaf-page-width)*0.108)]";
 
   for (let i = 1; i <= maxLines; i++) {
     const textLine = linesByNumber.get(i);
@@ -221,14 +227,14 @@ function MushafPageInner({
           );
         }
       } else if (!isSpecialPage) {
-        renderedChildren.push(<div key={`empty-${i}`} className="flex-1" onClick={(e) => e.stopPropagation()} />);
+        renderedChildren.push(<div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()} />);
       }
     }
   }
 
   return (
     <div
-      className="mushaf-page relative w-full h-full flex flex-col justify-between"
+      className="mushaf-page relative flex flex-col justify-between"
       style={isSpecialPage ? { justifyContent: 'center' } : undefined}
     >
       {renderedChildren}
