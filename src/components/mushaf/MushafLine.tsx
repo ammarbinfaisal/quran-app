@@ -36,9 +36,11 @@ function MushafLineInner({
     : "mushaf-line";
 
   if (!fontReady) {
-    const lineSkeletonWidth = centered
-      ? "58%"
-      : `${Math.max(52, Math.min(100, line.words.length * 7))}%`;
+    // Non-centered lines render at 100% width because flex space-between
+    // justifies real content edge-to-edge — using a shorter skeleton bar
+    // creates a layout shift when the font swap happens. Centered lines
+    // (bismillah, surah headers) keep a shorter bar to read as "centered".
+    const lineSkeletonWidth = centered ? "58%" : "100%";
 
     return (
       <div className={className} aria-hidden="true">
