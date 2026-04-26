@@ -178,10 +178,11 @@ function MushafPageInner({
   // font divisor 17.6 and line-width 0.95×pageWidth. 15 stacked slots form
   // an ink-area of aspect ≈ 1.70 — more elongated than printed-mushaf 1.5,
   // a trade-off chosen to keep generous per-line leading with a larger,
-  // more readable font.
-  const slotClass = isSpecialPage
-    ? "flex items-center justify-center shrink-0 h-[calc(100%/15)]"
-    : "flex items-center justify-center shrink-0 h-[calc(var(--mushaf-page-width)*0.108)]";
+  // more readable font. Special pages (1, 2) use the same slot height so
+  // the page renders at the standard mushaf height; their fewer-than-15
+  // content lines render vertically centered via the parent's
+  // justifyContent: center.
+  const slotClass = "flex items-center justify-center shrink-0 h-[calc(var(--mushaf-page-width)*0.108)]";
 
   for (let i = 1; i <= maxLines; i++) {
     const textLine = linesByNumber.get(i);
@@ -226,7 +227,11 @@ function MushafPageInner({
             </div>
           );
         }
-      } else if (!isSpecialPage) {
+      } else {
+        // Empty filler slot — preserves the standard 15-slot page height,
+        // including on pages 1 & 2 (Al-Fatihah / start of Al-Baqarah) which
+        // have fewer real lines. justifyContent: center on the page then
+        // centers the actual content vertically within the standard height.
         renderedChildren.push(<div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()} />);
       }
     }
