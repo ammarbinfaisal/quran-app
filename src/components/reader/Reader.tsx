@@ -92,7 +92,13 @@ export function Reader({ initialPage }: { initialPage: number }) {
 
       if (replaceTimer.current) clearTimeout(replaceTimer.current);
       replaceTimer.current = setTimeout(() => {
-        router.replace(mushafPath(p, null), { scroll: false });
+        // Pure address-bar update: window.history.replaceState swaps the URL
+        // without re-running the App Router segment, so the swipe (which has
+        // ALREADY rendered the new page from prefetched data) is not undone
+        // by a full route navigation that would refetch and re-render.
+        // router.replace was triggering an unnecessary segment refresh on
+        // every swipe, causing visible re-mount and a brief skeleton flash.
+        window.history.replaceState(null, "", mushafPath(p, null));
       }, 150);
     },
     [router],
