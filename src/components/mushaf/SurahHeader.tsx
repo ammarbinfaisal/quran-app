@@ -37,8 +37,12 @@ export function SurahHeader({
                 className={cn(
                     "rounded-2xl border bg-[var(--color-surface)] shadow-sm",
                     "border-[var(--color-muted)]/15",
+                    /* mushaf variant: sized to fit within one mushaf line-slot
+                       (0.108×pageWidth tall). Inner content uses em units so it
+                       scales with the page font-size — keeping visual harmony
+                       with surrounding mushaf lines at every viewport. */
                     variant === "mushaf"
-                        ? "w-full px-2 py-0.5"
+                        ? "h-full w-full px-[0.4em] flex items-center justify-center"
                         : "px-4 py-3",
                     className
                 )}
@@ -47,7 +51,7 @@ export function SurahHeader({
                     className={cn(
                         "flex items-center justify-center",
                         variant === "mushaf"
-                            ? "flex-col gap-0"
+                            ? "flex-col gap-[0.05em] leading-none"
                             : "flex-row gap-3"
                     )}
                 >
@@ -55,7 +59,7 @@ export function SurahHeader({
                         translate="no"
                         className={cn(
                             "select-none leading-none text-[var(--color-text)] font-normal",
-                            variant === "mushaf" ? "text-[1.55rem]" : "text-[2.25rem]"
+                            variant === "mushaf" ? "text-[1.1em]" : "text-[2.25rem]"
                         )}
                         style={{ fontFamily: "surahnames" }}
                         aria-label={`Surah ${surahNumber}`}
@@ -72,15 +76,10 @@ export function SurahHeader({
                         <div
                             className={cn(
                                 "font-semibold text-[var(--color-text)]",
-                                variant === "mushaf" ? "text-[0.55rem]" : "text-lg"
+                                variant === "mushaf" ? "text-[0.4em]" : "text-lg"
                             )}
                         >
                             {surahNumber}. {nameSimple}
-                            {variant === "mushaf" && translatedName && (
-                                <span className="ml-1 opacity-70 font-normal text-[0.9em]">
-                                    ({translatedName})
-                                </span>
-                            )}
                         </div>
 
                         {variant === "viewer" && translatedName && (
