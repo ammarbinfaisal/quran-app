@@ -184,11 +184,19 @@ function MushafPageInner({
   // justifyContent: center.
   const slotClass = "flex items-center justify-center shrink-0 h-[calc(var(--mushaf-page-width)*0.108)]";
 
+  // Build the per-slot output in the natural i = 1..maxLines order.
+  // For special pages (1 & 2) we count the real content slots and pad
+  // with equal empty slots above and below so the content sits visually
+  // centered between same-size blank lines top and bottom — flex
+  // justify-content: center cannot do this on its own because the 15
+  // explicit-height slots already fill the page exactly.
+  const contentChildren: React.ReactNode[] = [];
+
   for (let i = 1; i <= maxLines; i++) {
     const textLine = linesByNumber.get(i);
 
     if (textLine) {
-      renderedChildren.push(
+      contentChildren.push(
         <div key={`line-${i}`} className={slotClass}>
           <MushafLine
             line={textLine}
@@ -208,40 +216,48 @@ function MushafPageInner({
         (s) => s.headerLineTarget === i || s.bismillahLineTarget === i
       );
 
-      if (targetSurah) {
-        if (targetSurah.headerLineTarget === i) {
-          renderedChildren.push(
-            <div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()}>
-              <SurahHeader
-                nameSimple={targetSurah.chapter.nameSimple}
-                surahNumber={targetSurah.chapter.id}
-                variant="mushaf"
-                showBismillah={false}
-              />
-            </div>
-          );
-        } else if (targetSurah.bismillahLineTarget === i) {
-          renderedChildren.push(
-            <div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()}>
-              <Bismillah className="h-4/6 w-auto max-w-[70vw] text-[var(--color-text)] opacity-90 mx-auto" />
-            </div>
-          );
-        }
-      } else {
-        // Empty filler slot — preserves the standard 15-slot page height,
-        // including on pages 1 & 2 (Al-Fatihah / start of Al-Baqarah) which
-        // have fewer real lines. justifyContent: center on the page then
-        // centers the actual content vertically within the standard height.
-        renderedChildren.push(<div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()} />);
+      if (targetSurah?.headerLineTarget === i) {
+        contentChildren.push(
+          <div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()}>
+            <SurahHeader
+              nameSimple={targetSurah.chapter.nameSimple}
+              surahNumber={targetSurah.chapter.id}
+              variant="mushaf"
+              showBismillah={false}
+            />
+          </div>
+        );
+      } else if (targetSurah?.bismillahLineTarget === i) {
+        contentChildren.push(
+          <div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()}>
+            <Bismillah className="h-4/6 w-auto max-w-[70vw] text-[var(--color-text)] opacity-90 mx-auto" />
+          </div>
+        );
+      } else if (!isSpecialPage) {
+        // Regular pages: empty filler slot in the natural i position.
+        contentChildren.push(<div key={`empty-${i}`} className={slotClass} onClick={(e) => e.stopPropagation()} />);
       }
+      // Special pages: SKIP empty slot — we'll append balanced padding below.
     }
   }
 
+  if (isSpecialPage) {
+    const emptyCount = maxLines - contentChildren.length;
+    const padTop = Math.floor(emptyCount / 2);
+    const padBottom = emptyCount - padTop;
+    const padTopSlots = Array.from({ length: padTop }, (_, k) => (
+      <div key={`pad-top-${k}`} className={slotClass} aria-hidden="true" />
+    ));
+    const padBottomSlots = Array.from({ length: padBottom }, (_, k) => (
+      <div key={`pad-bottom-${k}`} className={slotClass} aria-hidden="true" />
+    ));
+    renderedChildren.push(...padTopSlots, ...contentChildren, ...padBottomSlots);
+  } else {
+    renderedChildren.push(...contentChildren);
+  }
+
   return (
-    <div
-      className="mushaf-page relative flex flex-col justify-between"
-      style={isSpecialPage ? { justifyContent: 'center' } : undefined}
-    >
+    <div className="mushaf-page relative flex flex-col justify-between">
       {renderedChildren}
       <div className="page-number flex-shrink-0 h-4">{pageData.page}</div>
     </div>
