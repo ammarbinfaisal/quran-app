@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import type { MushafCode, Chapter } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { useMushafPage } from "@/hooks/useMushafPage";
@@ -383,14 +384,16 @@ export default function SwipeReader({
       clearSettle();
       stateRef.current = "IDLE";
       // Snap the track back to the middle slot BEFORE committing the page
-      // change. React batches the setPage update so by the time the new
-      // child order (prev, target, next) is committed, the transform is
-      // already at W — the new currentPage sits in the middle slot with no
-      // visual jump.
+      // change, then flushSync the commit so React paints the new
+      // renderedPages in the SAME frame as the snap. transitionend is not a
+      // React event so React's automatic batching does not apply — without
+      // flushSync, the browser can paint between the snap (transform=W,
+      // showing the OLD middle page) and React committing the new
+      // renderedPages array, producing a visible x → x+1 → x → x+1 flicker.
       track.style.transition = "none";
       track.style.transform = `translate3d(${W}px, 0, 0)`;
       if (targetPage !== currentPageRef.current) {
-        onPageChangeRef.current(targetPage);
+        flushSync(() => onPageChangeRef.current(targetPage));
       }
     };
     settleHandlerRef.current = onDone;
