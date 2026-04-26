@@ -31,7 +31,13 @@
 import { test, expect, type Page } from "@playwright/test";
 
 const SPEC = {
-    pageWidthOfViewport: 0.95,           // --mushaf-page-width = 95vw
+    // --mushaf-page-width = min(95vw, 95vh / 1.7). On phone-class portrait
+    // viewports the width branch wins (page fills hands, scrolls vertically).
+    // On desktop / tall-wide windows the height branch wins so the full page
+    // fits without scrolling. Both branches are tested below by computing the
+    // expected min and asserting against it.
+    pageWidthOfViewport: 0.95,
+    pageHeightDivisor: 1.7,              // matches the ink-area aspect ~1.71
     lineWidthOfPage: 0.95,               // --mushaf-line-width = 0.95 × pageWidth (target before border clamp)
     fontDivisor: 17.6,                    // --mushaf-base-size = lineWidth / 17.6
     slotHeightOfPage: 0.108,              // slot height = 0.108 × pageWidth
@@ -181,11 +187,15 @@ test.describe("Mushaf layout invariants", () => {
                         expect(m.lineJustify, "centered line justify-content").toBe("center");
                     }
 
-                    // (2) page width = 95% of viewport width (within 1.5%).
-                    const expectedPageW = m.viewport.vw * SPEC.pageWidthOfViewport;
+                    // (2) page width = min(95% × vw, 95% × vh / 1.7). The min picks
+                    //     the width-driven branch on phones and the height-driven
+                    //     branch on tall-wide viewports so the full page fits desktop.
+                    const widthBranch = m.viewport.vw * SPEC.pageWidthOfViewport;
+                    const heightBranch = (m.viewport.vh * SPEC.pageWidthOfViewport) / SPEC.pageHeightDivisor;
+                    const expectedPageW = Math.min(widthBranch, heightBranch);
                     expect(
                         approxEqualRel(m.pageWidthPx, expectedPageW, TOL.relPct),
-                        `pageWidth ${m.pageWidthPx.toFixed(1)} vs expected ${expectedPageW.toFixed(1)} (95% of vw ${m.viewport.vw})`
+                        `pageWidth ${m.pageWidthPx.toFixed(1)} vs expected ${expectedPageW.toFixed(1)} (min of ${widthBranch.toFixed(1)}=95vw, ${heightBranch.toFixed(1)}=95vh/1.7)`
                     ).toBe(true);
 
                     // (3) line fills the page content-box exactly. The CSS sets

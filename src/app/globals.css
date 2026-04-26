@@ -357,13 +357,14 @@ main {
 /* ------------------------------------------------------------------ */
 
 .mushaf-page {
-  /* Page fills 95% of viewport width on every device. Vertical sizing is
-     content-driven: the wrapping .swipe-page scrolls if the rendered page
-     is taller than the viewport. This matches the printed-mushaf reading
-     experience (page width fills the hands; you scan vertically) and avoids
-     the prior height-clamp branch (min(95vw, 90vh/1.6)) which collapsed the
-     page to ~46% of viewport on short/landscape windows. */
-  --mushaf-page-width: 95vw;
+  /* Page width = whichever is smaller: 95% of viewport width, or the width
+     a page would have at 95% of viewport height (using our ink-area aspect
+     ratio of ~1.7). On phones the width branch wins (page fills hands,
+     scrolls vertically). On desktop / tall+wide windows the height branch
+     wins so the full page fits without scrolling — restoring the
+     pre-content-driven behaviour at desktop. The constant 1.7 must track
+     the slot-height factor in MushafPage.tsx (15 × 0.108 / 0.95 ≈ 1.71). */
+  --mushaf-page-width: min(95vw, calc(95vh / 1.7));
 
   /* Line container is 95% of page width — leaves 2.5% gutter on each side. */
   --mushaf-line-width: calc(var(--mushaf-page-width) * 0.95);
