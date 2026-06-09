@@ -113,7 +113,7 @@ export function VerseCard({
                 </div>
             )}
 
-            <div data-verse-key={verseKey} data-highlighted={isHighlighted}>
+            <div data-verse-key={verseKey} data-recitation-verse-key={verseKey} data-highlighted={isHighlighted}>
 
             {showVerseLink && (
                 <div className="mb-3 flex items-center gap-1.5" dir="ltr">

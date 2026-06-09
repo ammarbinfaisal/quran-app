@@ -72,3 +72,27 @@ export function surahBounds(surahId: number, chapters: Chapter[]): RangeBounds |
     endVerse: `${surahId}:${chapter.versesCount}`,
   };
 }
+
+export function formatVerseReference(verseKey: string, chapters: Chapter[]): string {
+  const ref = parseVerseKey(verseKey);
+  if (!ref) return verseKey;
+  const ch = chapters.find((c) => c.id === ref.surah);
+  const name = ch ? ch.nameSimple : `${ref.surah}`;
+  return `${name} : ${ref.ayah}`;
+}
+
+export function formatVerseRangeReference(startVerse: string, endVerse: string, chapters: Chapter[]): string {
+  const start = parseVerseKey(startVerse);
+  const end = parseVerseKey(endVerse);
+  if (!start || !end) return `${startVerse} - ${endVerse}`;
+  if (start.surah === end.surah) {
+    const ch = chapters.find((c) => c.id === start.surah);
+    const name = ch ? ch.nameSimple : `${start.surah}`;
+    return start.ayah === end.ayah
+      ? `${name} : ${start.ayah}`
+      : `${name} : ${start.ayah}-${end.ayah}`;
+  }
+  const startLabel = formatVerseReference(startVerse, chapters);
+  const endLabel = formatVerseReference(endVerse, chapters);
+  return `${startLabel} - ${endLabel}`;
+}

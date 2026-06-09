@@ -141,6 +141,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
     scopeType: "p",
     focusPage: page,
     scopePages: [page],
+    tafsirOrder: prefs.tafsirOrder,
   });
 
   const handleWordTap = useCallback(

@@ -9,6 +9,7 @@ import type { Chapter, MushafCode } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { fetchVersePages, pageToSurah, type VersePageMap } from "@/lib/navigation/maps";
 import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
+import { BaseSheet } from "@/components/ui/BaseSheet";
 
 interface NavigationPickerProps {
   open: boolean;
@@ -225,9 +226,13 @@ function NavigationPickerContent({
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={handleClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[70vh] w-full max-w-xl flex-col rounded-t-2xl bg-[var(--color-surface)] shadow-lg">
+    <BaseSheet
+      open
+      onClose={handleClose}
+      ariaLabel="Navigate to surah, ayah, or page"
+      contentClassName="!max-w-xl !max-h-[70vh] !p-0 !overflow-hidden flex flex-col"
+      contentStyle={{ height: "70vh" }}
+      header={
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-muted)]/20 px-4 py-3">
           <div className="relative flex-1">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -260,117 +265,117 @@ function NavigationPickerContent({
             <X className="h-5 w-5" />
           </button>
         </div>
-
-        <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--color-bg)]/30">
-          <div className="flex-1 overflow-y-auto border-r border-[var(--color-muted)]/10">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)] px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)]">
-              <span>Surah</span>
-              {hasSurahFilter && (
-                <span className="text-[10px] normal-case tracking-normal">
-                  {filteredChapters.length} result{filteredChapters.length === 1 ? "" : "s"}
-                </span>
-              )}
-            </div>
-            <div ref={surahListRef} className="space-y-1 p-2">
-              {filteredChapters.length === 0 ? (
-                <div className="px-3 py-8 text-center text-xs text-[var(--color-muted)]">
-                  No surahs match{" "}
-                  <span className="font-medium text-[var(--color-text)]">
-                    {surahFilter.trim()}
-                  </span>
-                  .
-                </div>
-              ) : (
-                filteredChapters.map((chapter) => {
-                  const isActive = selectedSurahId === chapter.id;
-                  return (
-                    <button
-                      key={chapter.id}
-                      ref={register(chapter.pages[0])}
-                      onClick={() => handleSurahClick(chapter)}
-                      data-nav-selected={isActive ? "true" : undefined}
-                      className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                        isActive
-                          ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
-                          : "text-[var(--color-text)] active:bg-black/5"
-                      }`}
-                    >
-                      <span>
-                        {chapter.id}. {chapter.nameSimple}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+      }
+    >
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--color-bg)]/30">
+        <div className="flex-1 overflow-y-auto border-r border-[var(--color-muted)]/10">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)] px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)]">
+            <span>Surah</span>
+            {hasSurahFilter && (
+              <span className="text-[10px] normal-case tracking-normal">
+                {filteredChapters.length} result{filteredChapters.length === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
-
-          <div className="w-[28%] overflow-y-auto border-r border-[var(--color-muted)]/10 bg-[var(--color-bg)]/50">
-            <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
-              Ayah
-            </div>
-            <div ref={ayahListRef} className="space-y-1 p-2">
-              {selectedSurah ? (
-                Array.from({ length: selectedSurah.versesCount }, (_, index) => index + 1).map((ayahNum) => (
+          <div ref={surahListRef} className="space-y-1 p-2">
+            {filteredChapters.length === 0 ? (
+              <div className="px-3 py-8 text-center text-xs text-[var(--color-muted)]">
+                No surahs match{" "}
+                <span className="font-medium text-[var(--color-text)]">
+                  {surahFilter.trim()}
+                </span>
+                .
+              </div>
+            ) : (
+              filteredChapters.map((chapter) => {
+                const isActive = selectedSurahId === chapter.id;
+                return (
                   <button
-                    key={ayahNum}
-                    onClick={() => handleAyahClick(ayahNum)}
-                    data-nav-selected={selectedAyah === ayahNum ? "true" : undefined}
-                    className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
-                      selectedAyah === ayahNum
+                    key={chapter.id}
+                    ref={register(chapter.pages[0])}
+                    onClick={() => handleSurahClick(chapter)}
+                    data-nav-selected={isActive ? "true" : undefined}
+                    className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                      isActive
                         ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
                         : "text-[var(--color-text)] active:bg-black/5"
                     }`}
                   >
-                    {ayahNum}
+                    <span>
+                      {chapter.id}. {chapter.nameSimple}
+                    </span>
                   </button>
-                ))
-              ) : (
-                <div className="px-4 py-8 text-center text-xs text-[var(--color-muted)]">
-                  Select Surah
-                </div>
-              )}
-            </div>
+                );
+              })
+            )}
           </div>
+        </div>
 
-          <div className="w-[28%] overflow-y-auto bg-[var(--color-bg)]/50">
-            <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
-              Page
-            </div>
-            <div ref={pageListRef} className="space-y-1 p-2">
-              {allPages.map((page) => (
+        <div className="w-[28%] overflow-y-auto border-r border-[var(--color-muted)]/10 bg-[var(--color-bg)]/50">
+          <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
+            Ayah
+          </div>
+          <div ref={ayahListRef} className="space-y-1 p-2">
+            {selectedSurah ? (
+              Array.from({ length: selectedSurah.versesCount }, (_, index) => index + 1).map((ayahNum) => (
                 <button
-                  key={page}
-                  ref={register(page)}
-                  onClick={() => handlePageClick(page)}
-                  data-nav-selected={selectedPage === page ? "true" : undefined}
+                  key={ayahNum}
+                  onClick={() => handleAyahClick(ayahNum)}
+                  data-nav-selected={selectedAyah === ayahNum ? "true" : undefined}
                   className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
-                    selectedPage === page
+                    selectedAyah === ayahNum
                       ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
                       : "text-[var(--color-text)] active:bg-black/5"
                   }`}
                 >
-                  {page}
+                  {ayahNum}
                 </button>
-              ))}
-            </div>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-xs text-[var(--color-muted)]">
+                Select Surah
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-[var(--color-muted)]/20 px-4 py-3">
-          <button
-            onClick={handleGo}
-            disabled={selectedPage === null}
-            className="w-full rounded-xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-white transition-opacity active:scale-[0.98] disabled:opacity-40"
-          >
-            {selectedSurah && selectedAyah
-              ? `Go to ${selectedSurah.nameSimple} ${selectedAyah} (p. ${selectedPage})`
-              : selectedPage !== null
-                ? `Go to Page ${selectedPage}`
-                : "Select a destination"}
-          </button>
+        <div className="w-[28%] overflow-y-auto bg-[var(--color-bg)]/50">
+          <div className="sticky top-0 z-10 border-b border-[var(--color-muted)]/10 bg-[var(--color-surface)]/95 px-3 py-2 text-xs font-semibold uppercase text-[var(--color-muted)] backdrop-blur">
+            Page
+          </div>
+          <div ref={pageListRef} className="space-y-1 p-2">
+            {allPages.map((page) => (
+              <button
+                key={page}
+                ref={register(page)}
+                onClick={() => handlePageClick(page)}
+                data-nav-selected={selectedPage === page ? "true" : undefined}
+                className={`w-full rounded-md px-1 py-2 text-center text-sm tabular-nums transition-colors ${
+                  selectedPage === page
+                    ? "bg-[var(--color-accent)]/10 font-medium text-[var(--color-accent)]"
+                    : "text-[var(--color-text)] active:bg-black/5"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </>
+
+      <div className="shrink-0 border-t border-[var(--color-muted)]/20 px-4 py-3">
+        <button
+          onClick={handleGo}
+          disabled={selectedPage === null}
+          className="w-full rounded-xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-white transition-opacity active:scale-[0.98] disabled:opacity-40"
+        >
+          {selectedSurah && selectedAyah
+            ? `Go to ${selectedSurah.nameSimple} ${selectedAyah} (p. ${selectedPage})`
+            : selectedPage !== null
+              ? `Go to Page ${selectedPage}`
+              : "Select a destination"}
+        </button>
+      </div>
+    </BaseSheet>
   );
 }

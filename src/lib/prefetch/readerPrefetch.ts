@@ -6,8 +6,17 @@ import { loadMushafPage } from "@/lib/mushaf/loader";
 import { isQcfCode, loadQcfFont } from "@/lib/mushaf/fonts";
 import { fetchVersePages, pageToJuz } from "@/lib/navigation/maps";
 import { dbGet, dbPut } from "@/lib/offline/storage";
-import type { DataUsageMode, MushafCode, TranslationId } from "@/lib/types";
+import type { DataUsageMode, MushafCode, TranslationId, TafsirId } from "@/lib/types";
 import { getChapters } from "@/lib/chapters";
+import {
+  getTafsirAvailabilitySync,
+  isTafsirAvailable,
+  isTafsirSurahCached,
+  loadTafsirAvailability,
+  prefetchTafsirSurah,
+  type TafsirAvailability,
+} from "@/lib/tafsir/loader";
+import { normalizeTafsirOrder } from "@/lib/tafsir/order";
 
 type MorphologyChunk = Record<string, MorphologyEntry[]>;
 
@@ -29,6 +38,7 @@ export interface ReaderPrefetchRequest {
   scopeType: "p" | "s" | "j";
   focusPage: number | null;
   scopePages: number[];
+  tafsirOrder?: readonly TafsirId[];
 }
 
 const PREFETCH_CONCURRENCY = 2;
@@ -279,6 +289,83 @@ async function prefetchPageDetails(
   await Promise.all(lemmaKeys.map((lemmaKey) => prefetchLemmaFile(lemmaKey)));
 }
 
+function parseVerseKey(verseKey: string): { surah: number; ayah: number } | null {
+  const [surahPart, ayahPart] = verseKey.split(":");
+  const surah = Number.parseInt(surahPart, 10);
+  const ayah = Number.parseInt(ayahPart, 10);
+  if (!Number.isFinite(surah) || !Number.isFinite(ayah)) return null;
+  return { surah, ayah };
+}
+
+function collectPageAyahsBySurah(verseKeys: string[]): Map<number, Set<number>> {
+  const ayahsBySurah = new Map<number, Set<number>>();
+  for (const verseKey of verseKeys) {
+    const parsed = parseVerseKey(verseKey);
+    if (!parsed) continue;
+    const existing = ayahsBySurah.get(parsed.surah);
+    if (existing) {
+      existing.add(parsed.ayah);
+    } else {
+      ayahsBySurah.set(parsed.surah, new Set([parsed.ayah]));
+    }
+  }
+  return ayahsBySurah;
+}
+
+function hasManifestEntries(manifest: TafsirAvailability | null): manifest is TafsirAvailability {
+  return !!manifest && Object.keys(manifest).length > 0;
+}
+
+async function loadTafsirManifestForPrefetch(): Promise<TafsirAvailability | null> {
+  const loaded = await loadTafsirAvailability().catch(() => null);
+  if (hasManifestEntries(loaded)) return loaded;
+  const cached = getTafsirAvailabilitySync();
+  return hasManifestEntries(cached) ? cached : null;
+}
+
+function hasAnyPageVerseAvailable(
+  manifest: TafsirAvailability | null,
+  tafsirId: TafsirId,
+  surah: number,
+  ayahs: Iterable<number>,
+): boolean {
+  if (!manifest) return true;
+  for (const ayah of ayahs) {
+    if (isTafsirAvailable(manifest, tafsirId, surah, ayah) === true) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function scheduleHighDataTafsirPrefetch(
+  mushafCode: MushafCode,
+  page: number,
+  tafsirOrder: readonly TafsirId[] | undefined,
+): void {
+  if (!Number.isFinite(page) || page < 1 || page > 604) return;
+
+  const ordered = normalizeTafsirOrder(tafsirOrder);
+  const orderKey = ordered.join(",");
+  scheduleTask(`tafsir-page:${mushafCode}:${page}:${orderKey}`, async () => {
+    const [pageData, manifest] = await Promise.all([
+      loadMushafPage(mushafCode, page),
+      loadTafsirManifestForPrefetch(),
+    ]);
+    const ayahsBySurah = collectPageAyahsBySurah(extractVerseKeysFromPage(pageData));
+
+    for (const [surah, ayahs] of ayahsBySurah) {
+      for (const id of ordered) {
+        if (isTafsirSurahCached(id, surah)) continue;
+        if (!hasAnyPageVerseAvailable(manifest, id, surah, ayahs)) continue;
+        scheduleTask(`tafsir-surah:${id}:${surah}`, () =>
+          prefetchTafsirSurah(id, surah),
+        );
+      }
+    }
+  });
+}
+
 export function scheduleReaderPrefetch(request: ReaderPrefetchRequest): void {
   const effectiveMode = getEffectiveDataMode(request.dataUsageMode);
   if (effectiveMode === "low") return;
@@ -303,6 +390,17 @@ export function scheduleReaderPrefetch(request: ReaderPrefetchRequest): void {
     for (const page of detailPages) {
       scheduleTask(`page-details:${request.mushafCode}:${page}`, () =>
         prefetchPageDetails(request.mushafCode, page, policy.maxLemmaFilesPerPage),
+      );
+    }
+  }
+
+  if (effectiveMode === "high") {
+    const tafsirPage = request.focusPage ?? request.scopePages[0] ?? null;
+    if (tafsirPage !== null) {
+      scheduleHighDataTafsirPrefetch(
+        request.mushafCode,
+        tafsirPage,
+        request.tafsirOrder,
       );
     }
   }

@@ -1,12 +1,13 @@
 import type { DataUsageMode, TafsirId } from "@/lib/types";
-import { TAFSIR_IDS } from "@/lib/types";
 import { getEffectiveDataMode } from "@/lib/prefetch/networkQuality";
 import {
   getTafsirAvailabilitySync,
   isTafsirAvailable,
   isTafsirSurahCached,
+  loadTafsirAvailability,
   prefetchTafsirSurah,
 } from "./loader";
+import { normalizeTafsirOrder } from "./order";
 
 type IdleScheduler = (cb: () => void) => void;
 
@@ -28,36 +29,19 @@ export interface TafsirPrefetchRequest {
   activeTafsirId: TafsirId;
   surahId: number;
   ayahId: number;
-  /** Total ayahs in the current surah, for boundary detection. */
   surahAyahCount: number;
+  tafsirOrder?: readonly TafsirId[];
 }
 
-/**
- * Warms the surah-level tafsir caches so switching tafsir tabs or stepping
- * to an adjacent ayah feels instant. Strategy scales with the user's data
- * mode:
- *
- * - **low**: no prefetch — we only ever fetch what the current view renders.
- * - **balanced**: prefetch the other 5 tafsirs' surah files for the current
- *   surah (tab switches become instant).
- * - **high**: also prefetch adjacent surahs' files for every tafsir the user
- *   is likely to cross into via prev/next navigation.
- *
- * Network-quality downgrades (`getEffectiveDataMode`) are honored so mobile
- * on a slow connection won't aggressively prefetch even if the user picked
- * "high".
- */
 export function scheduleTafsirPrefetch(request: TafsirPrefetchRequest): void {
   const effectiveMode = getEffectiveDataMode(request.dataUsageMode);
   if (effectiveMode === "low") return;
 
-  const { activeTafsirId, surahId, ayahId, surahAyahCount } = request;
+  const { surahId, ayahId, surahAyahCount, tafsirOrder } = request;
+  const ordered = normalizeTafsirOrder(tafsirOrder);
 
   scheduleIdle(() => {
-    // Always prefetch the other tafsirs for the current surah so the switcher
-    // responds instantly.
-    for (const id of TAFSIR_IDS) {
-      if (id === activeTafsirId) continue;
+    for (const id of ordered) {
       if (isTafsirSurahCached(id, surahId)) continue;
       if (!hasAnyData(id, surahId)) continue;
       void prefetchTafsirSurah(id, surahId);
@@ -70,49 +54,85 @@ export function scheduleTafsirPrefetch(request: TafsirPrefetchRequest): void {
       const atStart = ayahId <= 1;
 
       if (atEnd && surahId < SURAH_COUNT) {
-        warmSurah(surahId + 1);
+        warmSurah(surahId + 1, tafsirOrder);
       }
       if (atStart && surahId > 1) {
-        warmSurah(surahId - 1);
+        warmSurah(surahId - 1, tafsirOrder);
       }
     });
   }
 }
 
-function warmSurah(surah: number): void {
-  for (const id of TAFSIR_IDS) {
+function warmSurah(surah: number, tafsirOrder: readonly TafsirId[] | undefined): void {
+  for (const id of normalizeTafsirOrder(tafsirOrder)) {
     if (isTafsirSurahCached(id, surah)) continue;
     if (!hasAnyData(id, surah)) continue;
     void prefetchTafsirSurah(id, surah);
   }
 }
 
-/**
- * Skip surahs a tafsir has no coverage of so we don't spend network on files
- * we already know are empty.
- */
 function hasAnyData(tafsirId: TafsirId, surah: number): boolean {
   const manifest = getTafsirAvailabilitySync();
-  if (!manifest) return true; // no manifest yet — be optimistic
+  if (!manifest) return true;
   const bitmap = manifest[tafsirId]?.[String(surah)];
-  if (bitmap === undefined) return true; // unknown surah in manifest — try anyway
+  if (bitmap === undefined) return true;
   return bitmap.includes("1");
 }
 
-/**
- * Returns the first tafsir that has data for the requested ayah. Falls back
- * to the requested tafsir when availability is unknown.
- */
 export function pickAvailableTafsirId(
   requested: TafsirId,
   surah: number,
   ayah: number,
+  tafsirOrder?: readonly TafsirId[],
 ): TafsirId {
   const manifest = getTafsirAvailabilitySync();
   if (!manifest) return requested;
   if (isTafsirAvailable(manifest, requested, surah, ayah) === true) return requested;
-  for (const id of TAFSIR_IDS) {
+  const ordered = normalizeTafsirOrder(tafsirOrder).filter((id) => id !== requested);
+  for (const id of ordered) {
     if (isTafsirAvailable(manifest, id, surah, ayah) === true) return id;
   }
   return requested;
+}
+
+export function pickPreferredAvailableTafsirId(
+  surah: number,
+  ayah: number,
+  tafsirOrder?: readonly TafsirId[],
+): TafsirId {
+  const ordered = normalizeTafsirOrder(tafsirOrder);
+  const manifest = getTafsirAvailabilitySync();
+  if (!manifest) return ordered[0];
+  return (
+    ordered.find((id) => isTafsirAvailable(manifest, id, surah, ayah) === true) ??
+    ordered[0]
+  );
+}
+
+function hasAyahData(tafsirId: TafsirId, surah: number, ayah: number): boolean {
+  const manifest = getTafsirAvailabilitySync();
+  if (!manifest) return true;
+  return isTafsirAvailable(manifest, tafsirId, surah, ayah) === true;
+}
+
+export function scheduleWordTapTafsirPrefetch(
+  surah: number,
+  ayah: number,
+  dataUsageMode: DataUsageMode,
+  tafsirOrder?: readonly TafsirId[],
+): void {
+  const effectiveMode = getEffectiveDataMode(dataUsageMode);
+  if (effectiveMode === "low") return;
+
+  scheduleIdle(() => {
+    void loadTafsirAvailability()
+      .catch(() => null)
+      .then(() => {
+        for (const id of normalizeTafsirOrder(tafsirOrder)) {
+          if (isTafsirSurahCached(id, surah)) continue;
+          if (!hasAyahData(id, surah, ayah)) continue;
+          void prefetchTafsirSurah(id, surah);
+        }
+      });
+  });
 }

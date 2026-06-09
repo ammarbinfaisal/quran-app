@@ -3,25 +3,24 @@
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface BaseSheetProps {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
-  /** Renders standard title header. Omit to use `header` prop for custom headers. */
   title?: string;
-  /** Subtitle below the title */
   subtitle?: ReactNode;
-  /** aria-label for the dialog. Falls back to title. */
   ariaLabel?: string;
-  /** Custom header ReactNode, replacing the default title/subtitle/close row. Consumer must include their own close button. */
   header?: ReactNode;
-  /** z-index layer: 1 = default (overlay z-40, content z-50), 2 = stacked sheet (z-60/z-70). Default 1. */
   layer?: 1 | 2;
-  /** Override max-height. Only applied when non-default. CSS default is 60vh. */
   maxHeight?: string;
-  /** Render via createPortal to document.body. Use for layer-2 sheets. Default false. */
   portal?: boolean;
+  contentClassName?: string;
+  overlayClassName?: string;
+  handleClassName?: string;
+  /** Extra inline styles for the content wrapper. */
+  contentStyle?: React.CSSProperties;
 }
 
 export function BaseSheet({
@@ -35,6 +34,10 @@ export function BaseSheet({
   layer = 1,
   maxHeight,
   portal = false,
+  contentClassName,
+  overlayClassName,
+  handleClassName,
+  contentStyle,
 }: BaseSheetProps) {
   if (!open) return null;
 
@@ -42,24 +45,28 @@ export function BaseSheet({
   const contentZ = layer > 1 ? 70 : undefined;
 
   const overlayStyle = overlayZ !== undefined ? { zIndex: overlayZ } : undefined;
-  const contentStyle: React.CSSProperties | undefined =
-    contentZ !== undefined
-      ? { zIndex: contentZ, ...(maxHeight ? { maxHeight } : {}) }
-      : maxHeight
-        ? { maxHeight }
-        : undefined;
+  const resolvedContentStyle: React.CSSProperties | undefined = {
+    ...(contentZ !== undefined ? { zIndex: contentZ } : {}),
+    ...(maxHeight ? { maxHeight } : {}),
+    ...contentStyle,
+  };
+  const hasContentStyle = Object.keys(resolvedContentStyle).length > 0;
 
   const node = (
     <>
-      <div className="sheet-overlay" style={overlayStyle} onClick={onClose} />
       <div
-        className="sheet-content"
-        style={contentStyle}
+        className={cn("sheet-overlay", overlayClassName)}
+        style={overlayStyle}
+        onClick={onClose}
+      />
+      <div
+        className={cn("sheet-content", contentClassName)}
+        style={hasContentStyle ? resolvedContentStyle : undefined}
         data-open="true"
         role="dialog"
         aria-label={ariaLabel ?? title}
       >
-        <div className="sheet-handle" />
+        <div className={cn("sheet-handle", handleClassName)} />
 
         {header ? (
           header

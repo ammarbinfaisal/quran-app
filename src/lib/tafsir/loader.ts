@@ -1,4 +1,5 @@
 import { TAFSIR_IDS, type TafsirId } from "@/lib/types";
+import { dbGet, dbPut } from "@/lib/offline/storage";
 
 export interface TafsirEntry {
   text: string;
@@ -15,6 +16,10 @@ function cacheKey(tafsirId: TafsirId, surah: number): string {
   return `${tafsirId}:${surah}`;
 }
 
+function idbKey(tafsirId: TafsirId, surah: number): string {
+  return `v1:${tafsirId}:${surah}`;
+}
+
 async function fetchSurahData(tafsirId: TafsirId, surah: number): Promise<SurahData> {
   const key = cacheKey(tafsirId, surah);
   const cached = cache.get(key);
@@ -25,10 +30,23 @@ async function fetchSurahData(tafsirId: TafsirId, surah: number): Promise<SurahD
 
   const request = (async () => {
     try {
+      const idbResult = await dbGet<SurahData | undefined>(
+        "tafsir-surahs",
+        idbKey(tafsirId, surah),
+      ).catch(() => undefined);
+      if (idbResult) {
+        cache.set(key, idbResult);
+        return idbResult;
+      }
+
       const res = await fetch(`/data/tafsir/${tafsirId}/${surah}.json`);
-      if (!res.ok) return {};
+      if (!res.ok) {
+        cache.set(key, {});
+        return {};
+      }
       const data: SurahData = await res.json();
       cache.set(key, data);
+      dbPut("tafsir-surahs", idbKey(tafsirId, surah), data).catch(() => {});
       return data;
     } catch {
       return {};
@@ -41,10 +59,6 @@ async function fetchSurahData(tafsirId: TafsirId, surah: number): Promise<SurahD
   return request;
 }
 
-/**
- * Warm the in-memory cache for a tafsir's surah file without consuming the
- * result. Subsequent `loadTafsirEntry` calls resolve from memory.
- */
 export function prefetchTafsirSurah(tafsirId: TafsirId, surah: number): Promise<void> {
   return fetchSurahData(tafsirId, surah).then(() => {});
 }
@@ -53,10 +67,6 @@ export function isTafsirSurahCached(tafsirId: TafsirId, surah: number): boolean 
   return cache.has(cacheKey(tafsirId, surah));
 }
 
-/**
- * Load tafsir text for a specific ayah. Resolves grouped entries —
- * if the ayah is covered by a group, returns the group's text.
- */
 export async function loadTafsirEntry(
   tafsirId: TafsirId,
   surah: number,
@@ -70,7 +80,6 @@ function resolveEntry(data: SurahData, ayah: number): TafsirEntry | null {
   const direct = data[String(ayah)];
   if (direct !== undefined && direct !== null) return direct;
 
-  // Ayah is null or missing: look for an explicit grouped entry that covers it.
   for (const entry of Object.values(data)) {
     if (
       entry &&
@@ -86,9 +95,6 @@ function resolveEntry(data: SurahData, ayah: number): TafsirEntry | null {
   return null;
 }
 
-/**
- * Load i'raab SVG for a specific ayah.
- */
 export async function loadIraabSvg(surah: number, ayah: number): Promise<string | null> {
   try {
     const res = await fetch(`/data/iraab/${surah}.json`);
@@ -100,14 +106,17 @@ export async function loadIraabSvg(surah: number, ayah: number): Promise<string 
   }
 }
 
+export function clearTafsirRuntimeCache(): void {
+  cache.clear();
+  inflight.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Availability manifest
 // ---------------------------------------------------------------------------
 
-/** Bitmap string indexed by ayah-1; '1' = covered, '0' = no data. */
 type SurahBitmap = string;
 
-/** `{ [tafsirId]: { [surahId: string]: bitmap } }`. */
 export type TafsirAvailability = Partial<Record<TafsirId, Record<string, SurahBitmap>>>;
 
 let availabilityPromise: Promise<TafsirAvailability> | null = null;
@@ -133,11 +142,6 @@ export function getTafsirAvailabilitySync(): TafsirAvailability | null {
   return availabilitySync;
 }
 
-/**
- * `true` when the given (tafsir, surah, ayah) has data according to the
- * manifest. Returns `null` if the manifest hasn't loaded yet so callers can
- * distinguish "unknown" from "known-absent" and show an optimistic UI.
- */
 export function isTafsirAvailable(
   manifest: TafsirAvailability | null,
   tafsirId: TafsirId,
@@ -152,10 +156,6 @@ export function isTafsirAvailable(
   return ch === "1";
 }
 
-/**
- * Which of the 6 tafsirs have data for the given ayah. Returns `null` when
- * the manifest hasn't loaded (caller should treat as "all might be available").
- */
 export function getAvailableTafsirIds(
   manifest: TafsirAvailability | null,
   surah: number,

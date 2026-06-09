@@ -15,6 +15,7 @@ import {
 } from "@/lib/offline/status";
 import { dbClear, dbDelete, dbGetAllKeys } from "@/lib/offline/storage";
 import { resetReaderPrefetchState } from "@/lib/prefetch/readerPrefetch";
+import { clearTafsirRuntimeCache } from "@/lib/tafsir/loader";
 import { clearTranslationRuntimeCache } from "@/lib/translations/runtimeCache";
 
 export interface DataManagerStatus {
@@ -45,6 +46,7 @@ async function clearCacheStorage(): Promise<void> {
 
 function resetRuntimeCaches() {
   clearMushafPageMemoryCache();
+  clearTafsirRuntimeCache();
   clearTranslationRuntimeCache();
   resetReaderPrefetchState();
 }
@@ -95,6 +97,7 @@ export async function purgeTransientData(): Promise<void> {
       "translations",
       (key) => !translationPrefixesToKeep.some((prefix) => key.startsWith(prefix)),
     ),
+    dbClear("tafsir-surahs"),
     status.morphologyDownloaded ? Promise.resolve() : dbClear("morphology"),
     status.lemmasDownloaded ? Promise.resolve() : dbClear("lemmas"),
   ]);

@@ -26,8 +26,11 @@ import {
 import { scheduleTafsirPrefetch } from "@/lib/tafsir/prefetch";
 import {
   TAFSIR_DISPLAY_NAMES,
+  TAFSIR_IDS,
   type TafsirId,
 } from "@/lib/types";
+import { formatVerseRangeReference } from "@/lib/recitationRange";
+import { sortTafsirIdsByPreference } from "@/lib/tafsir/order";
 import { tafsirPath, vbvPath } from "@/lib/url";
 import type { WordTapTarget } from "@/lib/wordTap";
 
@@ -81,6 +84,7 @@ export function TafsirReader({
           surahId,
           ayahId,
           surahAyahCount: chapter.versesCount,
+          tafsirOrder: prefs.tafsirOrder,
         });
       }
     })();
@@ -133,9 +137,12 @@ export function TafsirReader({
     return () => window.removeEventListener("keydown", handler);
   });
 
-  const availableIds = useMemo<readonly TafsirId[] | null>(
-    () => getAvailableTafsirIds(availability, surahId, ayahId),
-    [availability, surahId, ayahId],
+  const availableIds = useMemo<readonly TafsirId[]>(
+    () => {
+      const ids = getAvailableTafsirIds(availability, surahId, ayahId);
+      return sortTafsirIdsByPreference(ids ?? TAFSIR_IDS, prefs.tafsirOrder);
+    },
+    [availability, prefs.tafsirOrder, surahId, ayahId],
   );
 
   const handleTafsirSwitch = useCallback(
@@ -161,10 +168,11 @@ export function TafsirReader({
           surahId,
           ayahId,
           surahAyahCount: chapter.versesCount,
+          tafsirOrder: prefs.tafsirOrder,
         });
       }
     },
-    [activeTafsir, surahId, ayahId, chapter, prefs.dataUsageMode],
+    [activeTafsir, surahId, ayahId, chapter, prefs.dataUsageMode, prefs.tafsirOrder],
   );
 
   const canGoPrev = ayahId > 1 || surahId > 1;
@@ -172,10 +180,10 @@ export function TafsirReader({
 
   const rangeLabel = useMemo(() => {
     if (!tafsirEntry?.ayahsStart || !tafsirEntry?.count || tafsirEntry.count <= 1) return null;
-    const start = tafsirEntry.ayahsStart;
-    const end = start + tafsirEntry.count - 1;
-    return `${surahId}:${start}–${end}`;
-  }, [tafsirEntry, surahId]);
+    const startKey = `${surahId}:${tafsirEntry.ayahsStart}`;
+    const endKey = `${surahId}:${tafsirEntry.ayahsStart + tafsirEntry.count - 1}`;
+    return formatVerseRangeReference(startKey, endKey, chapters);
+  }, [tafsirEntry, surahId, chapters]);
 
   const attributionUrl = `https://tafsir.app/${activeTafsir}/${surahId}/${ayahId}`;
 

@@ -13,6 +13,7 @@ import {
   type MutashabihatOccurrence,
   type MutashabihatPhraseGroup,
 } from "@/lib/mutashabihat";
+import { formatVerseReference } from "@/lib/recitationRange";
 import { vbvPath } from "@/lib/url";
 
 interface LoadedGroup {
@@ -26,11 +27,6 @@ function compareVerseKeys(a: string, b: string) {
   const [aSurah, aAyah] = a.split(":").map(Number);
   const [bSurah, bAyah] = b.split(":").map(Number);
   return aSurah - bSurah || aAyah - bAyah;
-}
-
-function getSurahLabel(verseKey: string, surahName: string | undefined) {
-  const [surah, ayah] = verseKey.split(":");
-  return `Surah ${surahName ?? surah} - ${ayah}`;
 }
 
 export function MutashabihatSheet({
@@ -85,10 +81,8 @@ function MutashabihatSheetContent({
   const sortedGroups = useMemo(() => {
     return [...(groups ?? [])].sort((a, b) => b.group.count - a.group.count || a.id - b.id);
   }, [groups]);
-  const activeSurahName = chapters.find((chapter) => chapter.id === Number.parseInt(verseKey.split(":")[0] ?? "0", 10))?.nameSimple;
-
   return (
-    <BaseSheet open onClose={onClose} title="Similar Passages" subtitle={getSurahLabel(verseKey, activeSurahName)} ariaLabel={`Mutashabihat for ${verseKey}`}>
+    <BaseSheet open onClose={onClose} title="Similar Passages" subtitle={formatVerseReference(verseKey, chapters)} ariaLabel={`Mutashabihat for ${verseKey}`}>
       <div className="max-h-[60vh] space-y-4 overflow-y-auto pb-8">
         {loading ? (
           <>
@@ -122,7 +116,7 @@ function MutashabihatSheetContent({
                       phraseHighlightRanges={[{ from: group.source.from, to: group.source.to, colorIndex }]}
                       fontScale={prefs.fontScale}
                       compact
-                      label={getSurahLabel(group.source.key, chapters.find((c) => c.id === Number.parseInt(group.source.key.split(":")[0] ?? "0", 10))?.nameSimple)}
+                      label={formatVerseReference(group.source.key, chapters)}
                       labelClassName="text-xs font-semibold text-[var(--color-muted)]"
                     />
                   </div>
@@ -131,7 +125,6 @@ function MutashabihatSheetContent({
                     {orderedEntries.map(([key, occurrences]) => {
                       const isActiveVerse = key === verseKey;
                       const surahId = Number.parseInt(key.split(":")[0] ?? "0", 10);
-                      const surahName = chapters.find((chapter) => chapter.id === surahId)?.nameSimple;
                       const highlightRanges: PhraseHighlightRange[] = occurrences.map((occurrence) => ({
                         from: occurrence.from,
                         to: occurrence.to,
@@ -148,12 +141,12 @@ function MutashabihatSheetContent({
                               ? "border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5"
                               : "border-[var(--color-muted)]/15 bg-[var(--color-surface)]/40"
                           } block`}
-                          aria-label={`Open ${getSurahLabel(key, surahName)}`}
+                          aria-label={`Open ${formatVerseReference(key, chapters)}`}
                         >
                           <ArabicVerseBlock
                             verseKey={key}
                             mushafCode={prefs.mushafCode}
-                            label={getSurahLabel(key, surahName)}
+                            label={formatVerseReference(key, chapters)}
                             isHighlighted={isActiveVerse}
                             phraseHighlightRanges={highlightRanges}
                             fontScale={prefs.fontScale}

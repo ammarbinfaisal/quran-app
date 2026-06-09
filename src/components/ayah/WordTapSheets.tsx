@@ -16,6 +16,11 @@ import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
 import { useRecitationPlayer } from "@/components/recitation/useRecitationPlayer";
 import { showToast } from "@/lib/toast";
+import { loadTafsirAvailability } from "@/lib/tafsir/loader";
+import {
+  pickPreferredAvailableTafsirId,
+  scheduleWordTapTafsirPrefetch,
+} from "@/lib/tafsir/prefetch";
 import { tafsirPath } from "@/lib/url";
 
 type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
@@ -64,6 +69,17 @@ export function WordTapSheets({
         loadMutashabihatVerseMap()
           .then((map) => setHasMutashabihat((map[tap.verseKey]?.length ?? 0) > 0))
           .catch(() => {});
+        const [surahPart, ayahPart] = tap.verseKey.split(":");
+        const surah = Number.parseInt(surahPart, 10);
+        const ayah = Number.parseInt(ayahPart, 10);
+        if (Number.isFinite(surah) && Number.isFinite(ayah)) {
+          scheduleWordTapTafsirPrefetch(
+            surah,
+            ayah,
+            prefs.dataUsageMode,
+            prefs.tafsirOrder,
+          );
+        }
       });
     }
   }
@@ -156,8 +172,19 @@ export function WordTapSheets({
         icon: <BookMarked className="h-4 w-4" />,
         label: "Open tafsir",
         onClick: () => {
+          const surah = Number.parseInt(s, 10);
+          const ayah = Number.parseInt(a, 10);
+          if (!Number.isFinite(surah) || !Number.isFinite(ayah)) return;
           onClose();
-          router.push(tafsirPath("ibn-katheer", parseInt(s, 10), parseInt(a, 10)));
+          void (async () => {
+            await loadTafsirAvailability().catch(() => null);
+            const tafsirId = pickPreferredAvailableTafsirId(
+              surah,
+              ayah,
+              prefs.tafsirOrder,
+            );
+            router.push(tafsirPath(tafsirId, surah, ayah));
+          })();
         },
       });
     }
@@ -188,6 +215,7 @@ export function WordTapSheets({
     hasNotes,
     isRangePlaying,
     onClose,
+    prefs.tafsirOrder,
     recitation,
     router,
     selectedTap,

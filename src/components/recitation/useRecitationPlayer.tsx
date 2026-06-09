@@ -22,6 +22,10 @@ import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
 import { getEffectiveDataMode } from "@/lib/prefetch/networkQuality";
 import type { AyahReciterId } from "@/lib/types";
 import { getChapters } from "@/lib/chapters";
+import {
+  formatVerseReference,
+  formatVerseRangeReference,
+} from "@/lib/recitationRange";
 
 export type RecitationStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -330,31 +334,37 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
     dispatchVerseChange(null, null);
   }, []);
 
-  const currentVerseLabel = currentVerse ? formatVerseLabel(currentVerse) : null;
+  const chapters = getChapters();
+  const currentVerseLabel = currentVerse ? formatVerseReference(currentVerse, chapters) : null;
 
   // Follow-the-recitation: when enabled, mark the playing verse with a data
-  // attribute and scroll it into view. We use a global DOM lookup so any
-  // mounted reader/viewer that tags elements with data-verse-key participates
-  // automatically.
+  // attribute and scroll it into view. Targets only explicit recitation
+  // containers (VerseCard via data-recitation-verse-key, MushafLine via
+  // data-recitation-verse-keys token list) so individual MushafWord spans
+  // are never outlined during playback.
   useEffect(() => {
     if (!syncWithRecitation || !currentVerse) return;
     const rafId = window.requestAnimationFrame(() => {
       const els = document.querySelectorAll<HTMLElement>(
-        `[data-verse-key="${currentVerse}"]`,
+        `[data-recitation-verse-key="${currentVerse}"], [data-recitation-verse-keys~="${currentVerse}"]`,
       );
       if (!els.length) return;
       for (const el of els) {
         el.setAttribute("data-recitation-playing", "true");
       }
-      // Scroll the first element into view
       els[0].scrollIntoView({ behavior: "smooth", block: "center" });
     });
     return () => {
       cancelAnimationFrame(rafId);
-      const prevEls = document.querySelectorAll<HTMLElement>(
-        `[data-verse-key="${currentVerse}"][data-recitation-playing="true"]`,
+      // Clean up only previously marked explicit targets to avoid touching
+      // .mushaf-word or other generic data-verse-key holders.
+      const verseCard = document.querySelectorAll<HTMLElement>(
+        `[data-recitation-verse-key="${currentVerse}"][data-recitation-playing="true"]`,
       );
-      for (const el of prevEls) {
+      const mushafLines = document.querySelectorAll<HTMLElement>(
+        `[data-recitation-verse-keys~="${currentVerse}"][data-recitation-playing="true"]`,
+      );
+      for (const el of [...verseCard, ...mushafLines]) {
         el.removeAttribute("data-recitation-playing");
       }
     };
@@ -370,9 +380,7 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   })();
 
   const rangeLabel = range
-    ? range.verses.length === 1
-      ? formatVerseLabel(range.startVerse)
-      : `${formatVerseLabel(range.startVerse)} – ${formatVerseLabel(range.endVerse)}`
+    ? formatVerseRangeReference(range.startVerse, range.endVerse, getChapters())
     : null;
 
   const value: RecitationContextValue = {
@@ -404,12 +412,6 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
       {children}
     </RecitationContext.Provider>
   );
-}
-
-function formatVerseLabel(verseKey: string): string {
-  const [s, a] = verseKey.split(":");
-  const ch = getChapters().find((c) => c.id === parseInt(s, 10));
-  return ch ? `${ch.nameSimple} ${s}:${a}` : `Ayah ${verseKey}`;
 }
 
 export function useRecitationPlayer(): RecitationContextValue {

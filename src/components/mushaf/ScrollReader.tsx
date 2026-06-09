@@ -74,6 +74,7 @@ export default function ScrollReader({
     scopeType: type,
     focusPage: focusPage ?? fullPageRange[0] ?? null,
     scopePages: fullPageRange,
+    tafsirOrder: prefs.tafsirOrder,
   });
 
   // Combined mount effect: look up highlighted verse page, ensure it's loaded, then scroll to it

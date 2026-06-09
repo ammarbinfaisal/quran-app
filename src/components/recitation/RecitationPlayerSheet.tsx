@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { X, Play, Pause, SkipBack, SkipForward, Repeat, Loader2, Eye } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Repeat, Loader2, Eye } from "lucide-react";
 import {
   useRecitationPlayer,
   type RecitationRange,
@@ -11,12 +11,14 @@ import { fetchVersePages, type VersePageMap } from "@/lib/navigation/maps";
 import {
   buildVerseList,
   clampAyah,
+  formatVerseRangeReference,
   juzBounds,
   parseVerseKey,
   surahBounds,
   type RangeBounds,
 } from "@/lib/recitationRange";
 import { showToast } from "@/lib/toast";
+import { BaseSheet } from "@/components/ui/BaseSheet";
 import type { Chapter } from "@/lib/types";
 
 interface RecitationPlayerSheetProps {
@@ -196,154 +198,126 @@ export function RecitationPlayerSheet({
     await playRange(newRange);
   };
 
-  if (!open) return null;
-
   const headerLabel = isActive
-    ? currentVerseLabel ?? "Now Playing"
+    ? currentVerseLabel ?? "Playing"
     : verseCount > 0
-      ? `${startVerse} – ${endVerse}`
+      ? formatVerseRangeReference(startVerse, endVerse, chapters)
       : "Pick a range";
 
+  const subtitleLabel = isActive && rangeLabel ? rangeLabel : undefined;
+
   return (
-    <>
-      <div className="sheet-overlay" onClick={onClose} />
-      <div
-        className="sheet-content"
-        data-open="true"
-        role="dialog"
-        aria-label="Recitation player"
-      >
-        <div className="sheet-handle" />
-
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-              {isActive ? "Now playing" : "Ready"}
-            </p>
-            <p className="mt-0.5 truncate text-base font-semibold text-[var(--color-text)]">
-              {headerLabel}
-            </p>
-            {isActive && rangeLabel && (
-              <p className="mt-0.5 truncate text-xs text-[var(--color-muted)]">
-                Range: {rangeLabel}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-[0.97] active:opacity-80"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Progress */}
-        <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]/15">
-          <div
-            className="h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-100"
-            style={{ width: `${rangeProgress * 100}%` }}
-          />
-        </div>
-
-        {/* Transport controls */}
-        <div className="mb-5 flex items-center justify-center gap-5">
-          <button
-            type="button"
-            onClick={skipBackward}
-            disabled={!isActive}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-[var(--color-text)] active:scale-95 disabled:opacity-30"
-            aria-label="Previous verse"
-          >
-            <SkipBack className="h-5 w-5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={handlePlay}
-            disabled={!isActive && verseCount === 0}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-bg)] shadow-md active:scale-95 disabled:opacity-50"
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="h-7 w-7" />
-            ) : (
-              <Play className="ml-0.5 h-7 w-7" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={skipForward}
-            disabled={!isActive}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-[var(--color-text)] active:scale-95 disabled:opacity-30"
-            aria-label="Next verse"
-          >
-            <SkipForward className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Range picker */}
-        <div className="mb-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
-              Range
-            </span>
-            <span className="text-[11px] text-[var(--color-muted)]">
-              {verseCount > 0 ? `${verseCount} verse${verseCount === 1 ? "" : "s"}` : "Invalid range"}
-            </span>
-          </div>
-
-          <VersePickerRow
-            label="From"
-            chapters={chapters}
-            verseRef={startRef}
-            chapter={startChapter}
-            onSurahChange={handleStartSurah}
-            onAyahChange={handleStartAyah}
-          />
-          <VersePickerRow
-            label="To"
-            chapters={chapters}
-            verseRef={endRef}
-            chapter={endChapter}
-            onSurahChange={handleEndSurah}
-            onAyahChange={handleEndAyah}
-          />
-        </div>
-
-        {/* Repeat toggle */}
-        <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
-          <div className="flex items-center gap-2.5">
-            <Repeat className="h-4 w-4 text-[var(--color-muted)]" />
-            <span className="text-sm text-[var(--color-text)]">Repeat range</span>
-          </div>
-          <ToggleSwitch checked={repeat} onChange={setRepeat} />
-        </div>
-
-        {/* Follow-along toggle */}
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
-          <div className="flex items-center gap-2.5">
-            <Eye className="h-4 w-4 text-[var(--color-muted)]" />
-            <span className="text-sm text-[var(--color-text)]">Follow recitation</span>
-          </div>
-          <ToggleSwitch checked={syncWithRecitation} onChange={setSyncWithRecitation} />
-        </div>
-
-        {isActive && (
-          <button
-            type="button"
-            onClick={stop}
-            className="w-full rounded-xl border border-[var(--color-muted)]/20 px-3 py-3 text-sm font-medium text-[var(--color-muted)] active:opacity-80"
-          >
-            Stop playback
-          </button>
-        )}
+    <BaseSheet
+      open={open}
+      onClose={onClose}
+      ariaLabel={isActive ? `Recitation player — ${currentVerseLabel ?? headerLabel}` : "Recitation player"}
+      title={headerLabel}
+      subtitle={subtitleLabel}
+    >
+      {/* Progress */}
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]/15">
+        <div
+          className="h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-100"
+          style={{ width: `${rangeProgress * 100}%` }}
+        />
       </div>
-    </>
+
+      {/* Transport controls */}
+      <div className="mb-5 flex items-center justify-center gap-5">
+        <button
+          type="button"
+          onClick={skipBackward}
+          disabled={!isActive}
+          className="flex h-12 w-12 items-center justify-center rounded-full text-[var(--color-text)] active:scale-95 disabled:opacity-30"
+          aria-label="Previous verse"
+        >
+          <SkipBack className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handlePlay}
+          disabled={!isActive && verseCount === 0}
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-bg)] shadow-md active:scale-95 disabled:opacity-50"
+          aria-label={isPlaying ? "Pause" : "Play"}
+        >
+          {isLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : isPlaying ? (
+            <Pause className="h-7 w-7" />
+          ) : (
+            <Play className="ml-0.5 h-7 w-7" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={skipForward}
+          disabled={!isActive}
+          className="flex h-12 w-12 items-center justify-center rounded-full text-[var(--color-text)] active:scale-95 disabled:opacity-30"
+          aria-label="Next verse"
+        >
+          <SkipForward className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Range picker */}
+      <div className="mb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
+            Range
+          </span>
+          <span className="text-[11px] text-[var(--color-muted)]">
+            {verseCount > 0 ? `${verseCount} verse${verseCount === 1 ? "" : "s"}` : "Invalid range"}
+          </span>
+        </div>
+
+        <VersePickerRow
+          label="From"
+          chapters={chapters}
+          verseRef={startRef}
+          chapter={startChapter}
+          onSurahChange={handleStartSurah}
+          onAyahChange={handleStartAyah}
+        />
+        <VersePickerRow
+          label="To"
+          chapters={chapters}
+          verseRef={endRef}
+          chapter={endChapter}
+          onSurahChange={handleEndSurah}
+          onAyahChange={handleEndAyah}
+        />
+      </div>
+
+      {/* Repeat toggle */}
+      <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
+        <div className="flex items-center gap-2.5">
+          <Repeat className="h-4 w-4 text-[var(--color-muted)]" />
+          <span className="text-sm text-[var(--color-text)]">Repeat range</span>
+        </div>
+        <ToggleSwitch checked={repeat} onChange={setRepeat} />
+      </div>
+
+      {/* Follow-along toggle */}
+      <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3.5 py-3">
+        <div className="flex items-center gap-2.5">
+          <Eye className="h-4 w-4 text-[var(--color-muted)]" />
+          <span className="text-sm text-[var(--color-text)]">Follow recitation</span>
+        </div>
+        <ToggleSwitch checked={syncWithRecitation} onChange={setSyncWithRecitation} />
+      </div>
+
+      {isActive && (
+        <button
+          type="button"
+          onClick={stop}
+          className="w-full rounded-xl border border-[var(--color-muted)]/20 px-3 py-3 text-sm font-medium text-[var(--color-muted)] active:opacity-80"
+        >
+          Stop playback
+        </button>
+      )}
+    </BaseSheet>
   );
 }
 
@@ -365,9 +339,7 @@ function VersePickerRow({
   const maxAyah = chapter?.versesCount ?? 286;
   return (
     <div className="flex items-center gap-2 rounded-xl border border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-3 py-2.5">
-      <span className="w-10 shrink-0 text-[11px] uppercase tracking-wider text-[var(--color-muted)]">
-        {label}
-      </span>
+      <span className="sr-only">{label}</span>
       <select
         value={verseRef?.surah ?? 1}
         onChange={(event) => onSurahChange(Number.parseInt(event.target.value, 10))}

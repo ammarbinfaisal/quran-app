@@ -226,6 +226,7 @@ export interface UserPreferences {
   viewMode: ViewMode;
   vbvSubmode: VbvSubmode;
   scrollSubmode: VbvSubmode;
+  tafsirOrder: TafsirId[];
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -241,6 +242,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   viewMode: "mushaf",
   vbvSubmode: "s",
   scrollSubmode: "p",
+  tafsirOrder: [...TAFSIR_IDS],
 };
 
 // ---------------------------------------------------------------------------

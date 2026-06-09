@@ -9,6 +9,8 @@ import { useTranslations } from "@/hooks/useTranslations";
 import { fetchUthmaniText } from "@/lib/api";
 import type { FootnoteReference, TranslationSegment } from "@/lib/footnotes";
 import { ABU_IYAAD_KEYS } from "@/lib/translations/abuIyaadKeys";
+import { formatVerseReference } from "@/lib/recitationRange";
+import { useChapters } from "@/hooks/useChapters";
 import { FootnoteSheet } from "./FootnoteSheet";
 
 export function AyahSheet({
@@ -57,7 +59,8 @@ export function AyahSheet({
     return map;
   }, [filteredTranslationIds, translations]);
 
-  const title = verseKey ? `Verse ${verseKey}` : "Verse";
+  const chapters = useChapters();
+  const title = verseKey ? formatVerseReference(verseKey, chapters) : "Verse";
 
   if (!open) return null;
 

@@ -124,6 +124,7 @@ export function VerseByVerseViewer({
         scopeType: type,
         focusPage: focusPage ?? visiblePages[0] ?? null,
         scopePages: fullPageRange,
+        tafsirOrder: prefs.tafsirOrder,
     });
 
     // Navigation button labels

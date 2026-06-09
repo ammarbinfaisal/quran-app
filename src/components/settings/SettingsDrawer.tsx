@@ -10,6 +10,7 @@ import { AyahReciterPicker } from "@/components/settings/AyahReciterPicker";
 import { InlineVerseNotesToggle } from "@/components/settings/InlineVerseNotesToggle";
 import { FontSizeControl } from "@/components/settings/FontSizeControl";
 import { DataUsageModePicker } from "@/components/settings/DataUsageModePicker";
+import { TafsirOrderPicker } from "@/components/settings/TafsirOrderPicker";
 import { DataManagerSection } from "@/components/settings/DataManagerSection";
 import { DownloadsSection } from "@/components/settings/DownloadsSection";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
@@ -68,6 +69,7 @@ export function SettingsDrawer({
           <InlineVerseNotesToggle />
           <FontSizeControl />
           <DataUsageModePicker />
+          <TafsirOrderPicker />
           <DownloadsSection />
           <DataManagerSection />
 

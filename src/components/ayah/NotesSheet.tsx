@@ -5,6 +5,7 @@ import { BaseSheet } from "@/components/ui/BaseSheet";
 import { useChapters } from "@/hooks/useChapters";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { NoteCard } from "@/components/ayah/NoteCard";
+import { formatVerseReference } from "@/lib/recitationRange";
 import {
   loadAbuIyaadNotes,
   type AbuIyaadNote,
@@ -57,18 +58,7 @@ function NotesSheetContent({
   });
 
   const subtitle = useMemo(() => {
-    const [surahPart, ayahPart] = verseKey.split(":");
-    const surahNum = Number(surahPart);
-    const ayahNum = Number(ayahPart);
-
-    if (!Number.isFinite(surahNum) || !Number.isFinite(ayahNum)) {
-      return verseKey;
-    }
-
-    const surahName = chapters.find((chapter) => chapter.id === surahNum)?.nameSimple;
-    const surahLabel = surahName ? `Surah ${surahName}` : `Surah ${surahNum}`;
-
-    return `${surahLabel} - ${ayahNum}`;
+    return formatVerseReference(verseKey, chapters);
   }, [chapters, verseKey]);
 
   return (

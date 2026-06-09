@@ -73,6 +73,11 @@ function MushafLineInner({
     }
   }
 
+  // Collect unique verse keys present on this line for recitation targeting.
+  // Uses a token-list attribute (~= selector) so the recitation player can
+  // match lines containing the current verse without querying individual words.
+  const lineVerseKeys = [...new Set(line.words.map((w) => w.verseKey))];
+
   // Stop propagation when the click lands on the line container itself (i.e. the
   // flex gaps between words), but allow clicks on mushaf-word spans to bubble
   // normally — those already call stopPropagation themselves.
@@ -90,7 +95,7 @@ function MushafLineInner({
       : "mushaf-line mushaf-line-unicode";
 
     return (
-      <div className={unicodeClassName} onClick={handleLineClick}>
+      <div className={unicodeClassName} onClick={handleLineClick} data-recitation-verse-keys={lineVerseKeys.join(" ")}>
         {line.words.map((word, idx) => (
           <MushafWord
             key={`${word.verseKey}-${idx}`}
@@ -110,7 +115,7 @@ function MushafLineInner({
 
   // QCF lines: flexbox with space-between; each word is flex-shrink: 0
   return (
-    <div className={className} onClick={handleLineClick}>
+    <div className={className} onClick={handleLineClick} data-recitation-verse-keys={lineVerseKeys.join(" ")}>
       {line.words.map((word, idx) => (
         <MushafWord
           key={`${word.verseKey}-${idx}`}
