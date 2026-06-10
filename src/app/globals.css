@@ -262,7 +262,6 @@ main {
   direction: rtl;
   text-align: center;
   inline-size: var(--mushaf-line-width);
-  margin-inline: auto;
   /* 1.35 matches quran.com and printed mushafs — leaves ~25% leading above
      the ink so descenders/marks of one line don't kiss the ascenders of the
      next. line-height: 1 made the slot exactly the font-size, producing the
