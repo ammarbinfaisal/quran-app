@@ -53,10 +53,11 @@ test.describe("URL state updates on swipe", () => {
             };
             const state = (window as unknown as { __urlTestState: { fetches: string[]; mountCycles: string[] } }).__urlTestState;
             const origFetch = window.fetch;
-            window.fetch = function (url: RequestInfo | URL, ...rest: [RequestInit?]) {
+            const instrumented = function (this: typeof window, url: RequestInfo | URL, ...rest: [RequestInit?]): Promise<Response> {
                 state.fetches.push(typeof url === "string" ? url : (url as URL | Request).toString());
                 return origFetch.call(this, url as RequestInfo, ...rest);
             };
+            window.fetch = Object.assign(instrumented, origFetch) as typeof window.fetch;
             const swipeContainer = document.querySelector(".swipe-container") || document.body;
             const obs = new MutationObserver((records) => {
                 for (const rec of records) {
@@ -134,10 +135,11 @@ test.describe("URL state updates on swipe", () => {
             (window as unknown as { __urlTestState: { fetches: string[] } }).__urlTestState = { fetches: [] };
             const state = (window as unknown as { __urlTestState: { fetches: string[] } }).__urlTestState;
             const origFetch = window.fetch;
-            window.fetch = function (url: RequestInfo | URL, ...rest: [RequestInit?]) {
+            const instrumented = function (this: typeof window, url: RequestInfo | URL, ...rest: [RequestInit?]): Promise<Response> {
                 state.fetches.push(typeof url === "string" ? url : (url as URL | Request).toString());
                 return origFetch.call(this, url as RequestInfo, ...rest);
             };
+            window.fetch = Object.assign(instrumented, origFetch) as typeof window.fetch;
         });
 
         // 3 swipes forward (wheel lock is 220ms, give 300ms between)
