@@ -97,7 +97,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
         window.history.replaceState(null, "", mushafPath(p, null));
       }, 150);
     },
-    [router],
+    [],
   );
 
   // Cleanup replaceTimer on unmount
