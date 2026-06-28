@@ -19,6 +19,15 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 
 const NOOP = () => {};
 
+/**
+ * Translation font size for VBV verse cards.
+ *
+ * Steeper multiplier keeps translations proportional to Arabic across the
+ * `fontScale` range, clamped to a sensible mobile range.
+ */
+const VBV_TRANSLATION_FONT_REM = (fontScale: number) =>
+    `clamp(0.85rem, ${0.75 + fontScale * 0.09}rem, 1.6rem)`;
+
 type VerseViewPreferences = UserPreferences & { inlineVerseNotes?: boolean };
 
 /**
@@ -144,7 +153,7 @@ export function VerseCard({
 
             <div
                 className="w-full space-y-5"
-                style={{ fontSize: `clamp(0.85rem, ${fontScale * 0.04 + 0.75}rem, 1.2rem)` }}
+                style={{ fontSize: VBV_TRANSLATION_FONT_REM(fontScale) }}
             >
                 {translationIds.map((id) => {
                     const t = translations[id];
