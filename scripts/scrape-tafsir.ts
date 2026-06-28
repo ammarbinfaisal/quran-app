@@ -18,6 +18,11 @@ const TAFSIR_SOURCES = [
   { id: "iraab-graphs", label: "I'raab Graphs", full: true },
 ] as const;
 
+const IRAAB_SOURCE_ID = "iraab-graphs";
+const IRAAB_DIR = path.join(process.cwd(), "public/data/iraab");
+const IRAAB_VERSES_DIR = path.join(IRAAB_DIR, "verses");
+const IRAAB_AVAILABILITY_PATH = path.join(IRAAB_DIR, "availability.json");
+
 const DELAY_MIN = parseInt(process.env.SCRAPE_DELAY_MIN ?? "4000", 10);
 const DELAY_MAX = parseInt(process.env.SCRAPE_DELAY_MAX ?? "8000", 10);
 
@@ -54,9 +59,6 @@ async function fetchTafsir(
 }
 
 function getOutputPath(sourceId: string, surah: number): string {
-  if (sourceId === "iraab-graphs") {
-    return path.join(process.cwd(), "public/data/iraab", `${surah}.json`);
-  }
   return path.join(process.cwd(), "public/data/tafsir", sourceId, `${surah}.json`);
 }
 
@@ -73,22 +75,91 @@ function saveJson(filePath: string, data: Record<string, unknown>) {
   writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+// --- I3raab split store helpers -------------------------------------------
+
+type IraabAvailability = Record<string, string>;
+
+function loadIraabAvailability(): IraabAvailability {
+  if (!existsSync(IRAAB_AVAILABILITY_PATH)) return {};
+  try {
+    return JSON.parse(readFileSync(IRAAB_AVAILABILITY_PATH, "utf-8")) as IraabAvailability;
+  } catch {
+    return {};
+  }
+}
+
+function saveIraabAvailability(data: IraabAvailability): void {
+  if (!existsSync(IRAAB_DIR)) mkdirSync(IRAAB_DIR, { recursive: true });
+  writeFileSync(IRAAB_AVAILABILITY_PATH, JSON.stringify(data, null, 2) + "\n");
+}
+
+/**
+ * Sets the availability bit for one ayah. Bit semantics: "1" available,
+ * "0" fetched known unavailable, "?" unknown. Positions beyond the bitmap
+ * length are implicitly unknown. The bitmap is grown as needed; gaps
+ * introduced before the target ayah (previously unknown) are filled with
+ * "?" so they remain retryable rather than being recorded as unavailable.
+ */
+function setIraabAvailabilityBit(
+  availability: IraabAvailability,
+  surah: number,
+  ayah: number,
+  available: boolean,
+): void {
+  const key = String(surah);
+  let bitmap = availability[key] ?? "";
+
+  // Grow the bitmap up to and including this ayah, filling any previously
+  // unknown gap (beyond the old length) with "?" so those ayahs stay retryable.
+  while (bitmap.length < ayah) bitmap += "?";
+  bitmap =
+    bitmap.substring(0, ayah - 1) +
+    (available ? "1" : "0") +
+    bitmap.substring(ayah);
+  availability[key] = bitmap;
+}
+
+function iraabVersePath(surah: number, ayah: number): string {
+  return path.join(IRAAB_VERSES_DIR, String(surah), `${ayah}.json`);
+}
+
+function writeIraabVerse(surah: number, ayah: number, svg: string): void {
+  const filePath = iraabVersePath(surah, ayah);
+  const dir = path.dirname(filePath);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(filePath, JSON.stringify({ svg }));
+}
+
 async function scrapeSource(sourceId: string) {
-  const isIraab = sourceId === "iraab-graphs";
+  const isIraab = sourceId === IRAAB_SOURCE_ID;
   console.log(`\n=== Scraping ${sourceId} ===`);
+
+  let iraabAvailability: IraabAvailability | null = null;
+  if (isIraab) {
+    iraabAvailability = loadIraabAvailability();
+  }
 
   for (let s = surahStart; s <= 114; s++) {
     const ayahCount = SURAH_AYAH_COUNTS[s - 1];
-    const outPath = getOutputPath(sourceId, s);
-    const existing = loadExisting(outPath) as Record<string, any>;
+
+    // Non-iraab path keeps the original per-surah JSON output shape.
+    let outPath: string | null = null;
+    type TafsirStored =
+      | { text: string; ayahsStart?: number; count?: number }
+      | null;
+    let existing: Record<string, TafsirStored> = {};
+    if (!isIraab) {
+      outPath = getOutputPath(sourceId, s);
+      existing = loadExisting(outPath) as Record<string, TafsirStored>;
+    }
     let modified = false;
 
     // Track which ayahs are covered by groups (from previously scraped data)
     const coveredByGroup = new Set<number>();
-    for (const [key, val] of Object.entries(existing)) {
-      if (val && typeof val === "object" && "ayahsStart" in val && "count" in val) {
-        const start = val.ayahsStart as number;
-        const count = val.count as number;
+    for (const [, val] of Object.entries(existing)) {
+      if (val && typeof val === "object" && val.ayahsStart != null && val.count != null) {
+        const start = val.ayahsStart;
+        const count = val.count;
         for (let i = start + 1; i < start + count; i++) {
           coveredByGroup.add(i);
         }
@@ -98,13 +169,20 @@ async function scrapeSource(sourceId: string) {
     for (let a = 1; a <= ayahCount; a++) {
       const key = String(a);
 
-      // Skip if already scraped
-      if (key in existing) continue;
-      // Skip if covered by a group from an earlier entry
-      if (coveredByGroup.has(a)) {
-        existing[key] = null;
-        modified = true;
-        continue;
+      if (isIraab) {
+        // Skip only ayahs already confirmed ("1" or "0"). A "?" bit means
+        // the ayah is still unknown and must remain retryable.
+        const bit = iraabAvailability![String(s)]?.charAt(a - 1);
+        if (bit === "1" || bit === "0") continue;
+      } else {
+        // Skip if already scraped
+        if (key in existing) continue;
+        // Skip if covered by a group from an earlier entry
+        if (coveredByGroup.has(a)) {
+          existing[key] = null;
+          modified = true;
+          continue;
+        }
       }
 
       try {
@@ -112,7 +190,15 @@ async function scrapeSource(sourceId: string) {
         const data = response.data;
 
         if (isIraab) {
-          existing[key] = data || null;
+          if (data) {
+            writeIraabVerse(s, a, data);
+            setIraabAvailabilityBit(iraabAvailability!, s, a, true);
+            saveIraabAvailability(iraabAvailability!);
+          } else {
+            // Fetched null → known unavailable. No per-verse file is written.
+            setIraabAvailabilityBit(iraabAvailability!, s, a, false);
+            saveIraabAvailability(iraabAvailability!);
+          }
         } else if (!data) {
           existing[key] = null;
         } else if (response.ayahs_start != null && response.count != null) {
@@ -141,19 +227,19 @@ async function scrapeSource(sourceId: string) {
         console.error(
           `  ${sourceId} ${s}:${a} ✗ ${err instanceof Error ? err.message : err}`,
         );
-        // Don't save null on error — leave it un-scraped for retry
+        // Don't record anything on error — leave it unknown for retry.
       }
 
-      // Save after each ayah
-      if (modified) {
-        saveJson(outPath, existing);
+      // Save after each ayah (non-iraab per-surah JSON only; iraab saves inline)
+      if (!isIraab && modified) {
+        saveJson(outPath!, existing);
         modified = false;
       }
 
       await sleep(randomDelay());
     }
 
-    if (modified) saveJson(outPath, existing);
+    if (!isIraab && modified) saveJson(outPath!, existing);
     console.log(`  Surah ${s} complete (${ayahCount} ayaat)`);
   }
 }

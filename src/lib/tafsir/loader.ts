@@ -12,6 +12,9 @@ type SurahData = Record<string, TafsirEntry | null>;
 const cache = new Map<string, SurahData>();
 const inflight = new Map<string, Promise<SurahData>>();
 
+const iraabSvgCache = new Map<string, string | null>();
+const iraabSvgInflight = new Map<string, Promise<string | null>>();
+
 function cacheKey(tafsirId: TafsirId, surah: number): string {
   return `${tafsirId}:${surah}`;
 }
@@ -96,19 +99,90 @@ function resolveEntry(data: SurahData, ayah: number): TafsirEntry | null {
 }
 
 export async function loadIraabSvg(surah: number, ayah: number): Promise<string | null> {
-  try {
-    const res = await fetch(`/data/iraab/${surah}.json`);
-    if (!res.ok) return null;
-    const data: Record<string, string | null> = await res.json();
-    return data[String(ayah)] ?? null;
-  } catch {
-    return null;
-  }
+  const verseKey = `${surah}:${ayah}`;
+  const cached = iraabSvgCache.get(verseKey);
+  if (cached !== undefined) return cached;
+
+  const pending = iraabSvgInflight.get(verseKey);
+  if (pending) return pending;
+
+  const request = (async (): Promise<string | null> => {
+    try {
+      const res = await fetch(`/data/iraab/verses/${surah}/${ayah}.json`);
+      if (!res.ok) {
+        iraabSvgCache.set(verseKey, null);
+        return null;
+      }
+      const data = (await res.json()) as { svg?: string } | null;
+      const svg = data?.svg ?? null;
+      iraabSvgCache.set(verseKey, svg);
+      return svg;
+    } catch {
+      return null;
+    } finally {
+      iraabSvgInflight.delete(verseKey);
+    }
+  })();
+
+  iraabSvgInflight.set(verseKey, request);
+  return request;
+}
+
+// ---------------------------------------------------------------------------
+// I3raab availability manifest
+// ---------------------------------------------------------------------------
+
+type IraabBitmap = string;
+
+export type IraabAvailability = Record<string, IraabBitmap>;
+
+let iraabAvailabilityPromise: Promise<IraabAvailability> | null = null;
+let iraabAvailabilitySync: IraabAvailability | null = null;
+
+export function loadIraabAvailability(): Promise<IraabAvailability> {
+  if (iraabAvailabilityPromise) return iraabAvailabilityPromise;
+  iraabAvailabilityPromise = (async () => {
+    try {
+      const res = await fetch("/data/iraab/availability.json");
+      if (!res.ok) return {};
+      const data = (await res.json()) as IraabAvailability;
+      iraabAvailabilitySync = data;
+      return data;
+    } catch {
+      return {};
+    }
+  })();
+  return iraabAvailabilityPromise;
+}
+
+export function getIraabAvailabilitySync(): IraabAvailability | null {
+  return iraabAvailabilitySync;
+}
+
+/**
+ * Returns true if i3raab is available, false if known unavailable,
+ * or null if unknown (manifest not loaded, ayah beyond bitmap coverage,
+ * or an explicit "?" placeholder for an unsampled gap).
+ */
+export function isIraabAvailable(
+  manifest: IraabAvailability | null,
+  surah: number,
+  ayah: number,
+): boolean | null {
+  if (!manifest) return null;
+  const bitmap = manifest[String(surah)];
+  if (!bitmap) return null;
+  const ch = bitmap.charAt(ayah - 1);
+  if (ch === "1") return true;
+  if (ch === "0") return false;
+  return null;
 }
 
 export function clearTafsirRuntimeCache(): void {
   cache.clear();
   inflight.clear();
+  iraabSvgCache.clear();
+  iraabSvgInflight.clear();
 }
 
 // ---------------------------------------------------------------------------

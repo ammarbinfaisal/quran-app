@@ -23,6 +23,7 @@
     "scrape:tafsir": "bun scripts/scrape-tafsir.ts",
     "fetch:all-fonts": "bun scripts/fetch-all-fonts.ts",
     "split:morphology": "bun scripts/split-morphology.ts",
+    "split:iraab": "bun scripts/split-iraab.ts",
     "precompute:translations": "bun scripts/precompute-translations.ts"
   },
   "dependencies": {

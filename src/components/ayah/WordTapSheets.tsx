@@ -2,9 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, BookMarked, BookOpen, Copy, FileText, Play, Search, CornerDownRight } from "lucide-react";
+import { ArrowLeftRight, BookMarked, BookOpen, Copy, FileText, GitBranch, Play, Search, CornerDownRight } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
+import { IraabSheet } from "@/components/ayah/IraabSheet";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
 import { NotesSheet } from "@/components/ayah/NotesSheet";
 import { MorphologySheet } from "@/components/mushaf/MorphologySheet";
@@ -16,14 +17,20 @@ import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
 import { useRecitationPlayer } from "@/components/recitation/useRecitationPlayer";
 import { showToast } from "@/lib/toast";
-import { loadTafsirAvailability } from "@/lib/tafsir/loader";
+import {
+  getIraabAvailabilitySync,
+  isIraabAvailable,
+  loadIraabAvailability,
+  loadTafsirAvailability,
+  type IraabAvailability,
+} from "@/lib/tafsir/loader";
 import {
   pickPreferredAvailableTafsirId,
   scheduleWordTapTafsirPrefetch,
 } from "@/lib/tafsir/prefetch";
 import { tafsirPath } from "@/lib/url";
 
-type ActiveSheet = "translation" | "morphology" | "notes" | "mutashabihat" | null;
+type ActiveSheet = "translation" | "morphology" | "iraab" | "notes" | "mutashabihat" | null;
 
 export function WordTapSheets({
   selectedTap,
@@ -42,6 +49,9 @@ export function WordTapSheets({
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [hasNotes, setHasNotes] = useState(false);
   const [hasMutashabihat, setHasMutashabihat] = useState(false);
+  const [iraabAvailability, setIraabAvailability] = useState<IraabAvailability | null>(
+    getIraabAvailabilitySync(),
+  );
   const { prefs } = usePreferences();
   const recitation = useRecitationPlayer();
   const isRangePlaying = recitation.status !== "idle" && recitation.range !== null;
@@ -79,6 +89,11 @@ export function WordTapSheets({
             prefs.dataUsageMode,
             prefs.tafsirOrder,
           );
+          // Load i3raab availability without blocking the menu. Default unknown
+          // allows the action to show; the sheet handles unavailable states.
+          loadIraabAvailability()
+            .then((manifest) => setIraabAvailability(manifest))
+            .catch(() => {});
         }
       });
     }
@@ -167,6 +182,26 @@ export function WordTapSheets({
 
     {
       const [s, a] = selectedTap.verseKey.split(":");
+      const surah = Number.parseInt(s, 10);
+      const ayah = Number.parseInt(a, 10);
+      // Show i3raab action when available or unknown; hide only when the
+      // manifest confirms this ayah is known unavailable.
+      if (
+        Number.isFinite(surah) &&
+        Number.isFinite(ayah) &&
+        isIraabAvailable(iraabAvailability, surah, ayah) !== false
+      ) {
+        items.push({
+          id: "iraab",
+          icon: <GitBranch className="h-4 w-4" />,
+          label: "Open iʿraab",
+          onClick: () => setActiveSheet("iraab"),
+        });
+      }
+    }
+
+    {
+      const [s, a] = selectedTap.verseKey.split(":");
       items.push({
         id: "tafsir",
         icon: <BookMarked className="h-4 w-4" />,
@@ -213,6 +248,7 @@ export function WordTapSheets({
     copyTranslationIds,
     hasMutashabihat,
     hasNotes,
+    iraabAvailability,
     isRangePlaying,
     onClose,
     prefs.tafsirOrder,
@@ -246,6 +282,12 @@ export function WordTapSheets({
         verseKey={selectedTap.verseKey}
         wordIndex={selectedTap.wordIndex}
         mushafCode={mushafCode}
+        onClose={onClose}
+      />
+
+      <IraabSheet
+        open={activeSheet === "iraab"}
+        verseKey={selectedTap.verseKey}
         onClose={onClose}
       />
 
