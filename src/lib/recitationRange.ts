@@ -1,5 +1,6 @@
 import type { Chapter } from "@/lib/types";
 import { JUZ_VERSE_RANGES } from "@/lib/juz";
+import { formatVerseRef } from "@/lib/verseRef";
 
 export interface VerseRef {
   surah: number;
@@ -77,8 +78,11 @@ export function formatVerseReference(verseKey: string, chapters: Chapter[]): str
   const ref = parseVerseKey(verseKey);
   if (!ref) return verseKey;
   const ch = chapters.find((c) => c.id === ref.surah);
-  const name = ch ? ch.nameSimple : `${ref.surah}`;
-  return `${name} : ${ref.ayah}`;
+  return formatVerseRef({
+    surahName: ch?.nameSimple,
+    surahId: ref.surah,
+    ayahStart: ref.ayah,
+  });
 }
 
 export function formatVerseRangeReference(startVerse: string, endVerse: string, chapters: Chapter[]): string {
@@ -87,11 +91,14 @@ export function formatVerseRangeReference(startVerse: string, endVerse: string, 
   if (!start || !end) return `${startVerse} - ${endVerse}`;
   if (start.surah === end.surah) {
     const ch = chapters.find((c) => c.id === start.surah);
-    const name = ch ? ch.nameSimple : `${start.surah}`;
-    return start.ayah === end.ayah
-      ? `${name} : ${start.ayah}`
-      : `${name} : ${start.ayah}-${end.ayah}`;
+    return formatVerseRef({
+      surahName: ch?.nameSimple,
+      surahId: start.surah,
+      ayahStart: start.ayah,
+      ayahEnd: end.ayah,
+    });
   }
+  // Cross-surah range: fully-qualified label on each side, joined by " - ".
   const startLabel = formatVerseReference(startVerse, chapters);
   const endLabel = formatVerseReference(endVerse, chapters);
   return `${startLabel} - ${endLabel}`;

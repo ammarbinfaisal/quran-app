@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { MushafCode, Chapter } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { useChapters } from "@/hooks/useChapters";
@@ -11,6 +10,7 @@ import type { JuzPageRange } from "@/lib/juz";
 import { fetchJuzPagesForMushaf, fetchVersePages } from "@/lib/navigation/maps";
 import MushafPage from "@/components/mushaf/MushafPage";
 import { PageSkeleton } from "@/components/mushaf/PageSkeleton";
+import { ReaderPrevNext } from "@/components/navigation/ReaderPrevNext";
 import type { OnWordTap } from "@/lib/wordTap";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
@@ -177,29 +177,7 @@ export default function ScrollReader({
       )}
 
       {navButtons && pagesToShow >= fullPageRange.length && (
-        <div className="flex items-center justify-between px-4 py-6 gap-4">
-          {navButtons.next ? (
-            <button
-              type="button"
-              onClick={navButtons.next.action}
-              className="flex-1 min-w-0 rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-3 py-3 text-xs font-medium text-[var(--color-text)] active:scale-[0.98] active:opacity-80 transition flex items-center justify-center gap-1.5 truncate"
-            >
-              <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{navButtons.next.label}</span>
-            </button>
-          ) : <div className="flex-1" />}
-
-          {navButtons.prev ? (
-            <button
-              type="button"
-              onClick={navButtons.prev.action}
-              className="flex-1 min-w-0 rounded-lg border border-[var(--color-muted)]/20 bg-[var(--color-surface)] px-3 py-3 text-xs font-medium text-[var(--color-text)] active:scale-[0.98] active:opacity-80 transition flex items-center justify-center gap-1.5 truncate"
-            >
-              <span className="truncate">{navButtons.prev.label}</span>
-              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-            </button>
-          ) : <div className="flex-1" />}
-        </div>
+        <ReaderPrevNext prev={navButtons.prev} next={navButtons.next} />
       )}
     </div>
   );

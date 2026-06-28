@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { BookOpen, ExternalLink } from "lucide-react";
 import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useChapters } from "@/hooks/useChapters";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -11,6 +11,7 @@ import { ArabicVerseBlock } from "@/components/ayah/ArabicVerseBlock";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
+import { ReaderPrevNext } from "@/components/navigation/ReaderPrevNext";
 import NavigationPicker from "@/components/nav/NavigationPicker";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { TafsirSwitcher } from "@/components/tafsir/TafsirSwitcher";
@@ -29,7 +30,7 @@ import {
   TAFSIR_IDS,
   type TafsirId,
 } from "@/lib/types";
-import { formatVerseRangeReference } from "@/lib/recitationRange";
+import { formatVerseRangeReference, formatVerseReference } from "@/lib/recitationRange";
 import { sortTafsirIdsByPreference } from "@/lib/tafsir/order";
 import { tafsirPath, vbvPath } from "@/lib/url";
 import type { WordTapTarget } from "@/lib/wordTap";
@@ -178,6 +179,11 @@ export function TafsirReader({
   const canGoPrev = ayahId > 1 || surahId > 1;
   const canGoNext = chapter ? ayahId < chapter.versesCount || surahId < 114 : false;
 
+  const verseRefLabel = useMemo(
+    () => formatVerseReference(verseKey, chapters),
+    [verseKey, chapters],
+  );
+
   const rangeLabel = useMemo(() => {
     if (!tafsirEntry?.ayahsStart || !tafsirEntry?.count || tafsirEntry.count <= 1) return null;
     const startKey = `${surahId}:${tafsirEntry.ayahsStart}`;
@@ -213,11 +219,9 @@ export function TafsirReader({
               <a
                 href={vbvPath("s", surahId, verseKey)}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-muted)] tabular-nums hover:text-[var(--color-accent)] transition-colors"
-                aria-label={`Open ${verseKey} in reader`}
+                aria-label={`Open ${verseRefLabel} in reader`}
               >
-                <span>{chapter?.nameSimple}</span>
-                <span aria-hidden>·</span>
-                <span>{verseKey}</span>
+                {verseRefLabel}
               </a>
               <span className="font-arabic text-sm text-[var(--color-muted)]" dir="rtl">
                 {chapter?.nameArabic}
@@ -284,32 +288,17 @@ export function TafsirReader({
         centerClassName="gap-2"
         centerLabel={{
           icon: <BookOpen className="h-4 w-4 text-[var(--color-muted)]" />,
-          text: verseKey,
-          ariaLabel: `Verse ${verseKey} — open navigation`,
+          text: verseRefLabel,
+          ariaLabel: `${verseRefLabel} — open navigation`,
           onClick: () => setPickerOpen(true),
           size: "sm",
         }}
         centerExtra={
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={navigatePrev}
-              disabled={!canGoPrev}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] active:scale-95 disabled:opacity-30 disabled:pointer-events-none transition"
-              aria-label="Previous ayah"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={navigateNext}
-              disabled={!canGoNext}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] active:scale-95 disabled:opacity-30 disabled:pointer-events-none transition"
-              aria-label="Next ayah"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
+          <ReaderPrevNext
+            size="compact"
+            prev={{ label: "ayah", action: navigatePrev, disabled: !canGoPrev }}
+            next={{ label: "ayah", action: navigateNext, disabled: !canGoNext }}
+          />
         }
         showModeToggle={false}
         showRecitation={false}
