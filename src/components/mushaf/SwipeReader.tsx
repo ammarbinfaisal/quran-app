@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import type { MushafCode, Chapter } from "@/lib/types";
 import { TOTAL_PAGES } from "@/lib/constants";
@@ -259,7 +259,7 @@ export default function SwipeReader({
 
     const x = touch.clientX;
     const y = touch.clientY;
-    let deltaX = x - startXRef.current;
+    const deltaX = x - startXRef.current;
     lastXRef.current = x;
 
     const now = performance.now();
