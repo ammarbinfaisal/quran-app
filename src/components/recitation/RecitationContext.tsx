@@ -68,13 +68,11 @@ export function useRecitationContext(): RecitationContextValue {
 export function useUpdateRecitationContext(context: Partial<RecitationContextState>) {
   const { setContext } = useRecitationContext();
 
-  // Update context when values change
   const contextKey = JSON.stringify(context);
-  const prevContextKeyRef = { current: "" };
+  const [prevContextKey, setPrevContextKey] = useState("");
 
-  if (prevContextKeyRef.current !== contextKey) {
-    prevContextKeyRef.current = contextKey;
-    // Use queueMicrotask to avoid updating during render
+  if (prevContextKey !== contextKey) {
+    setPrevContextKey(contextKey);
     queueMicrotask(() => setContext(context));
   }
 }

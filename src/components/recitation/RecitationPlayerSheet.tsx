@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Play, Pause, SkipBack, SkipForward, Repeat, Loader2, Eye } from "lucide-react";
 import {
   useRecitationPlayer,
@@ -98,15 +98,19 @@ export function RecitationPlayerSheet({
   const isActive = status !== "idle";
 
   // Lazy-load verse-pages so the page default is accurate.
-  const [versePages, setVersePages] = useState<VersePageMap | null>(null);
-  const versePagesFetchedRef = useRef(false);
-  if (open && !versePages && !versePagesFetchedRef.current) {
-    versePagesFetchedRef.current = true;
-    fetchVersePages("v2")
-      .then((map) => setVersePages(map))
-      .catch(() => {
-        versePagesFetchedRef.current = false;
-      });
+  const [versePagesState, setVersePagesState] = useState<{
+    status: "idle" | "loading" | "loaded";
+    data: VersePageMap | null;
+  }>({ status: "idle", data: null });
+
+  const versePages = versePagesState.data;
+  if (open && versePagesState.status === "idle") {
+    setVersePagesState({ status: "loading", data: null });
+    queueMicrotask(() => {
+      fetchVersePages("v2")
+        .then((map) => setVersePagesState({ status: "loaded", data: map }))
+        .catch(() => setVersePagesState({ status: "idle", data: null }));
+    });
   }
 
   // Initial defaults derived from the active view.
@@ -123,20 +127,34 @@ export function RecitationPlayerSheet({
   );
 
   // User-edited bounds; reset when the sheet opens or the view changes.
-  const [startVerse, setStartVerse] = useState(initialBounds.startVerse);
-  const [endVerse, setEndVerse] = useState(initialBounds.endVerse);
-  const lastSyncedKey = useRef<string>("");
+  const [bounds, setBounds] = useState<{
+    syncedKey: string;
+    startVerse: string;
+    endVerse: string;
+  }>({
+    syncedKey: "",
+    startVerse: initialBounds.startVerse,
+    endVerse: initialBounds.endVerse,
+  });
+
+  const startVerse = bounds.startVerse;
+  const endVerse = bounds.endVerse;
 
   if (open) {
     const key = `${initialBounds.startVerse}-${initialBounds.endVerse}`;
-    if (lastSyncedKey.current !== key) {
-      lastSyncedKey.current = key;
-      queueMicrotask(() => {
-        setStartVerse(initialBounds.startVerse);
-        setEndVerse(initialBounds.endVerse);
+    if (bounds.syncedKey !== key) {
+      setBounds({
+        syncedKey: key,
+        startVerse: initialBounds.startVerse,
+        endVerse: initialBounds.endVerse,
       });
     }
   }
+
+  const setStartVerse = (verse: string) =>
+    setBounds((prev) => ({ ...prev, startVerse: verse }));
+  const setEndVerse = (verse: string) =>
+    setBounds((prev) => ({ ...prev, endVerse: verse }));
 
   const startRef = parseVerseKey(startVerse);
   const endRef = parseVerseKey(endVerse);

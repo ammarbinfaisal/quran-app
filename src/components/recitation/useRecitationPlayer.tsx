@@ -127,13 +127,13 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
   }, [currentVerse, currentWordIndex, syncWithRecitation]);
 
   // Update progress and word index during playback
-  const updateProgress = useCallback(() => {
+  const updateProgress = useCallback(function updateProgressCallback() {
     const el = getAudioElement();
     if (el && el.duration && Number.isFinite(el.duration)) {
       setProgress(el.currentTime / el.duration);
       updateWordIndex();
     }
-    rafRef.current = requestAnimationFrame(updateProgress);
+    rafRef.current = requestAnimationFrame(updateProgressCallback);
   }, [updateWordIndex]);
 
   // Play a specific verse
