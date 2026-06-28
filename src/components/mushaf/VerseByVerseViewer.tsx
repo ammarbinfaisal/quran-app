@@ -169,7 +169,7 @@ export function VerseByVerseViewer({
     });
 
     return (
-        <div className="flex flex-col w-full max-w-3xl mx-auto pb-32">
+        <div className="flex flex-col w-full max-w-3xl mx-auto pb-32 lg:max-w-5xl">
             {visiblePages.map((p) => (
                 <div key={p} data-scroll-page={p}>
                     <VersePageBatch

@@ -57,7 +57,7 @@ export function ReaderBottomNav({
         paddingBottom: "max(8px, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-2">
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-2 lg:max-w-5xl">
       <div className="flex items-center">
         {showBack && (
           <button

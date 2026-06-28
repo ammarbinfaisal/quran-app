@@ -59,7 +59,7 @@ export function HomePageClient() {
 
   return (
     <main className="h-full w-full overflow-hidden">
-      <div className="mx-auto flex h-full max-w-xl flex-col">
+      <div className="mx-auto flex h-full max-w-xl flex-col lg:max-w-4xl">
         <header className="flex items-center justify-between px-4 pb-2 pt-5">
           <h1 className="text-2xl font-semibold tracking-tight capitalize">{SITE_NAME}</h1>
         </header>

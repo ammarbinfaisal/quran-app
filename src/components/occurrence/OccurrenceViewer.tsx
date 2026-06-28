@@ -223,7 +223,7 @@ export function OccurrenceViewer({
     return (
         <div className="flex h-full w-full flex-col bg-[var(--color-bg)]">
             <main className="flex-1 overflow-y-auto pb-20">
-                <div className="mx-auto max-w-3xl px-4 pt-6 pb-4">
+                <div className="mx-auto max-w-3xl px-4 pt-6 pb-4 lg:max-w-5xl">
                     <div className="flex items-center justify-between">
                         <div>
                             <div className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wider">{subtitle}</div>
@@ -248,7 +248,7 @@ export function OccurrenceViewer({
                         <p className="text-lg">No occurrences found.</p>
                     </div>
                 ) : pageGroups ? (
-                    <div className="mx-auto max-w-3xl pb-10">
+                    <div className="mx-auto max-w-3xl pb-10 lg:max-w-5xl">
                         {pageGroups.slice(0, pagesToShow).map((group) => (
                             <OccurrencePageBatch
                                 key={group.page}

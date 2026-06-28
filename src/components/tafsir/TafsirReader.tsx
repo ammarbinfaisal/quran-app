@@ -200,7 +200,7 @@ export function TafsirReader({
   return (
     <main className="flex h-full w-full flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto min-h-0 bg-[var(--color-bg)]">
-        <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 animate-fade-in">
+        <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 animate-fade-in lg:max-w-4xl">
           {ayahId === 1 && chapter && (
             <div className="mb-6">
               <SurahHeader

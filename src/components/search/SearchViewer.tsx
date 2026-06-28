@@ -307,7 +307,7 @@ function SearchResultsPanel({
           ))}
         </div>
       ) : pageGroups && pageGroups.length > 0 ? (
-        <div className="mx-auto max-w-3xl pb-6">
+        <div className="mx-auto max-w-3xl pb-6 lg:max-w-5xl">
           {pageGroups.slice(0, pagesToShow).map((group) => (
             <SearchPageBatch
               key={group.page}
