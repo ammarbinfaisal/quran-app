@@ -63,14 +63,10 @@ export function Reader({ initialPage }: { initialPage: number }) {
     return chapters.find(c => c.id === surahId)?.nameSimple ?? String(page);
   }, [surahId, chapters, page]);
 
-  // Update recitation context when page changes
-  const prevPageRef = useRef(page);
-  if (prevPageRef.current !== page) {
-    prevPageRef.current = page;
-    queueMicrotask(() => {
-      setContext({ currentPage: page, currentSurahId: surahId, currentJuzId: juzId });
-    });
-  }
+  // Update recitation context after render when page/surah/juz change
+  useLayoutEffect(() => {
+    setContext({ currentPage: page, currentSurahId: surahId, currentJuzId: juzId });
+  }, [page, surahId, juzId, setContext]);
 
   // Set initial context on mount
   useMountEffect(() => {

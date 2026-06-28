@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -79,11 +79,11 @@ export function VerseReader({
   // Reset focusPage when navigating to a different scope so the recitation
   // context (and any other labelPage consumers) immediately reflect the new
   // view instead of holding the previously scrolled page.
-  const lastScopeRef = useRef(`${type}:${id}`);
   const currentScopeKey = `${type}:${id}`;
-  if (lastScopeRef.current !== currentScopeKey) {
-    lastScopeRef.current = currentScopeKey;
-    queueMicrotask(() => setFocusPage(type === "p" ? id : null));
+  const [lastScopeKey, setLastScopeKey] = useState(currentScopeKey);
+  if (lastScopeKey !== currentScopeKey) {
+    setLastScopeKey(currentScopeKey);
+    setFocusPage(type === "p" ? id : null);
   }
 
   const handleScrollFocusPage = useCallback(
@@ -154,18 +154,13 @@ export function VerseReader({
     if (labelPage === null) return undefined;
     return pageToJuz(labelPage);
   }, [labelPage]);
-  const lastRecitationContextRef = useRef<string>("");
-  const recitationKey = `${labelPage ?? ""}|${recitationContextSurahId ?? ""}|${recitationContextJuzId ?? ""}`;
-  if (lastRecitationContextRef.current !== recitationKey) {
-    lastRecitationContextRef.current = recitationKey;
-    queueMicrotask(() =>
-      setContext({
-        currentPage: labelPage ?? undefined,
-        currentSurahId: recitationContextSurahId,
-        currentJuzId: recitationContextJuzId,
-      }),
-    );
-  }
+  useLayoutEffect(() => {
+    setContext({
+      currentPage: labelPage ?? undefined,
+      currentSurahId: recitationContextSurahId,
+      currentJuzId: recitationContextJuzId,
+    });
+  }, [labelPage, recitationContextSurahId, recitationContextJuzId, setContext]);
 
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
