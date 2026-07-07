@@ -16,6 +16,7 @@ import { VerseByVerseViewer } from "@/components/mushaf/VerseByVerseViewer";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { vbvPath } from "@/lib/url";
+import { shareUrl } from "@/lib/share";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
@@ -130,6 +131,10 @@ export function VerseReader({
     }
   }, [verseParam]);
 
+  const handleShare = useCallback(() => {
+    void shareUrl(vbvPath(type, id, highlightedVerse ?? undefined));
+  }, [type, id, highlightedVerse]);
+
   const labelPage = useMemo(() => {
     if (focusPage !== null) return focusPage;
     if (type === "p") return id;
@@ -235,6 +240,8 @@ export function VerseReader({
           setSettingsOpen(true);
           showChrome();
         }}
+        showShare
+        onShareClick={handleShare}
       />
 
       <WordTapSheets

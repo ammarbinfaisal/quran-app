@@ -74,15 +74,16 @@ function IraabSheetContent({
       title="Iʿraab"
       subtitle={subtitle}
       ariaLabel={`Iʿraab diagram for ${verseKey}`}
+      maxHeight="85vh"
     >
-      <div className="max-h-[70vh] overflow-auto pb-8">
+      <div className="overflow-auto">
         {loading ? (
           <div className="flex min-h-[12rem] items-center justify-center">
             <div className="h-24 w-full max-w-md rounded-xl bg-[var(--color-muted)]/10 animate-pulse" />
           </div>
         ) : svg ? (
           <div
-            className="iraab-svg-container w-fit [&_svg]:max-h-[70vh] [&_svg]:w-auto [&_svg]:max-w-none"
+            className="iraab-svg-container [&>svg]:block [&>svg]:h-auto [&>svg]:w-full [&>svg]:max-w-none [&>svg]:min-w-[720px]"
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (

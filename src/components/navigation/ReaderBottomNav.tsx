@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Home, Settings } from "lucide-react";
+import { ChevronLeft, Home, Settings, Share2 } from "lucide-react";
 import { ModeToggle } from "@/components/navigation/ModeToggle";
 import { OfflineIndicator } from "@/components/offline/OfflineIndicator";
 import { RecitationButton } from "@/components/recitation/RecitationButton";
@@ -32,6 +32,8 @@ export function ReaderBottomNav({
   showSettings = true,
   showBack = false,
   onSettingsClick,
+  showShare = false,
+  onShareClick,
 }: {
   visible?: boolean;
   homeHref?: string;
@@ -45,6 +47,8 @@ export function ReaderBottomNav({
   showSettings?: boolean;
   showBack?: boolean;
   onSettingsClick?: () => void;
+  showShare?: boolean;
+  onShareClick?: () => void;
 }) {
   const router = useRouter();
   const labelSize = centerLabel?.size ?? "md";
@@ -107,6 +111,17 @@ export function ReaderBottomNav({
         {showOfflineIndicator && <OfflineIndicator />}
 
         {showRecitation && <RecitationButton />}
+
+        {showShare && onShareClick && (
+          <button
+            type="button"
+            onClick={onShareClick}
+            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+            aria-label="Share"
+          >
+            <Share2 className="h-5 w-5" />
+          </button>
+        )}
 
         {showSettings && onSettingsClick && (
           <button

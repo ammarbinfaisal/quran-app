@@ -33,6 +33,7 @@ import {
 import { formatVerseRangeReference, formatVerseReference } from "@/lib/recitationRange";
 import { sortTafsirIdsByPreference } from "@/lib/tafsir/order";
 import { tafsirPath, vbvPath } from "@/lib/url";
+import { shareUrl } from "@/lib/share";
 import type { WordTapTarget } from "@/lib/wordTap";
 
 export function TafsirReader({
@@ -197,6 +198,10 @@ export function TafsirReader({
     setSelectedTap(target);
   }, []);
 
+  const handleShare = useCallback(() => {
+    void shareUrl(tafsirPath(activeTafsir, surahId, ayahId));
+  }, [activeTafsir, surahId, ayahId]);
+
   return (
     <main className="flex h-full w-full flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto min-h-0 bg-[var(--color-bg)]">
@@ -303,6 +308,8 @@ export function TafsirReader({
         showModeToggle={false}
         showRecitation={false}
         onSettingsClick={() => setSettingsOpen(true)}
+        showShare
+        onShareClick={handleShare}
       />
 
       <WordTapSheets

@@ -15,6 +15,7 @@ import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mushafPath } from "@/lib/url";
+import { shareUrl } from "@/lib/share";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { trackPageDebounced } from "@/hooks/useReadingHistory";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -163,6 +164,10 @@ export function Reader({ initialPage }: { initialPage: number }) {
     queueMicrotask(() => setDismissedVerse(null));
   }, [highlightedVerse]);
 
+  const handleShare = useCallback(() => {
+    void shareUrl(mushafPath(page, highlightedVerse ?? null));
+  }, [page, highlightedVerse]);
+
   const ReaderComponent = SwipeReader;
 
   return (
@@ -204,6 +209,8 @@ export function Reader({ initialPage }: { initialPage: number }) {
             setSettingsOpen(true);
             showChrome();
           }}
+          showShare
+          onShareClick={handleShare}
         />
       </div>
 

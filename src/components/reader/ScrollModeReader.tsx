@@ -14,6 +14,7 @@ import ScrollReader from "@/components/mushaf/ScrollReader";
 import { setPreference } from "@/lib/preferences";
 import { devLog } from "@/lib/devLog";
 import { scrollPath } from "@/lib/url";
+import { shareUrl } from "@/lib/share";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
@@ -94,6 +95,10 @@ export function ScrollModeReader({
     );
     setSelectedTap(target);
   }, []);
+
+  const handleShare = useCallback(() => {
+    void shareUrl(scrollPath(type, id, highlightedVerse ?? undefined));
+  }, [type, id, highlightedVerse]);
 
   const labelPage = useMemo(() => {
     if (focusPage !== null) return focusPage;
@@ -199,6 +204,8 @@ export function ScrollModeReader({
           setSettingsOpen(true);
           showChrome();
         }}
+        showShare
+        onShareClick={handleShare}
       />
 
       <WordTapSheets

@@ -11,6 +11,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { fetchVersePages, type VersePageMap } from "@/lib/navigation/maps";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
+import { shareUrl } from "@/lib/share";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
 import type { WordTapTarget, OnWordTap } from "@/lib/wordTap";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -44,6 +45,10 @@ export function SearchViewer() {
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     setSelectedTap(target);
+  }, []);
+
+  const handleShare = useCallback(() => {
+    void shareUrl(window.location.href);
   }, []);
 
   return (
@@ -128,6 +133,8 @@ export function SearchViewer() {
       <ReaderBottomNav
         showModeToggle={false}
         onSettingsClick={() => setSettingsOpen(true)}
+        showShare
+        onShareClick={handleShare}
       />
 
       <WordTapSheets

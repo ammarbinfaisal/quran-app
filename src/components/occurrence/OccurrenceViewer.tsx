@@ -12,6 +12,7 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { usePreferences } from "@/hooks/usePreferences";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { WordTapSheets } from "@/components/ayah/WordTapSheets";
+import { shareUrl } from "@/lib/share";
 import type { WordTapTarget } from "@/lib/wordTap";
 import { useMushafPage } from "@/hooks/useMushafPage";
 import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
@@ -220,6 +221,10 @@ export function OccurrenceViewer({
         setSelectedTap(target);
     }, []);
 
+    const handleShare = useCallback(() => {
+        void shareUrl(window.location.href);
+    }, []);
+
     return (
         <div className="flex h-full w-full flex-col bg-[var(--color-bg)]">
             <main className="flex-1 overflow-y-auto pb-20">
@@ -281,6 +286,8 @@ export function OccurrenceViewer({
                     size: "sm",
                 }}
                 onSettingsClick={() => setSettingsOpen(true)}
+                showShare
+                onShareClick={handleShare}
             />
 
             <WordTapSheets
