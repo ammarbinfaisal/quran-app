@@ -17,8 +17,9 @@ import { loadAbuIyaadData, loadAbuIyaadSegments } from "./abu-iyaad";
 import { fetchVersePages } from "@/lib/navigation/maps";
 
 const STORE = "translations";
-// "v2:" prefix distinguishes pre-parsed TranslationContent from old raw-string entries.
-const V2 = "v2:";
+// "v3:" prefix distinguishes pre-parsed TranslationContent from old raw-string entries
+// and from the previous "v2:" cache that may hold empty/stale Abu Iyaad results.
+const TRANSLATION_CACHE_PREFIX = "v3:";
 
 type ApiTranslationId = Exclude<TranslationId, "abu-iyaad">;
 
@@ -37,11 +38,11 @@ export async function loadTranslation(
   verseKey: string,
   translationId: TranslationId,
 ): Promise<TranslationContent> {
-  const v2Key = `${V2}${translationId}:${verseKey}`;
+  const cacheKey = `${TRANSLATION_CACHE_PREFIX}${translationId}:${verseKey}`;
 
   // Check IDB for a pre-parsed result
   try {
-    const cached = await dbGet<TranslationContent | undefined>(STORE, v2Key);
+    const cached = await dbGet<TranslationContent | undefined>(STORE, cacheKey);
     if (cached && typeof cached === "object" && "segments" in cached) {
       return cached as TranslationContent;
     }
@@ -50,7 +51,7 @@ export async function loadTranslation(
   }
 
   if (translationId === "abu-iyaad") {
-    return loadAndCacheAbuIyaad(verseKey, v2Key);
+    return loadAndCacheAbuIyaad(verseKey, cacheKey);
   }
 
   // API-based translations (saheeh, hilali-khan)
@@ -77,7 +78,7 @@ export async function loadTranslation(
   const content = segmentsToContent(segments);
 
   try {
-    await dbPut(STORE, v2Key, content);
+    await dbPut(STORE, cacheKey, content);
   } catch {
     // Silently ignore storage errors
   }
@@ -93,13 +94,13 @@ let abuIyaadBulkStorePromise: Promise<void> | null = null;
 
 async function loadAndCacheAbuIyaad(
   verseKey: string,
-  v2Key: string,
+  cacheKey: string,
 ): Promise<TranslationContent> {
   const compact = await loadAbuIyaadSegments(verseKey);
   const content = compactToContent(compact);
 
   // Cache the requested verse immediately (best effort)
-  dbPut(STORE, v2Key, content).catch(() => { });
+  dbPut(STORE, cacheKey, content).catch(() => { });
 
   // Store all entries in IDB once (actually fire-and-forget)
   if (!abuIyaadBulkStorePromise) {
@@ -107,7 +108,7 @@ async function loadAndCacheAbuIyaad(
       const data = await loadAbuIyaadData();
       const entries: Array<[string, TranslationContent]> = [];
       for (const [key, segs] of Object.entries(data)) {
-        entries.push([`${V2}abu-iyaad:${key}`, compactToContent(segs)]);
+        entries.push([`${TRANSLATION_CACHE_PREFIX}abu-iyaad:${key}`, compactToContent(segs)]);
       }
       try {
         await dbPutMany(STORE, entries);
@@ -170,7 +171,7 @@ async function loadStaticTranslationPageMap(
     for (const [verseKey, segments] of Object.entries(data)) {
       const content = segmentsToContent(segments);
       map.set(verseKey, content);
-      toStore.push([`${V2}${translationId}:${verseKey}`, content]);
+      toStore.push([`${TRANSLATION_CACHE_PREFIX}${translationId}:${verseKey}`, content]);
     }
 
     dbPutMany(STORE, toStore).catch(() => { });
@@ -194,7 +195,7 @@ async function loadApiTranslationPageMap(
     const segments = parseTranslationSegments(rawHtml, translationId);
     const content = segmentsToContent(segments);
     map.set(e.verseKey, content);
-    toStore.push([`${V2}${translationId}:${e.verseKey}`, content]);
+    toStore.push([`${TRANSLATION_CACHE_PREFIX}${translationId}:${e.verseKey}`, content]);
   }
 
   dbPutMany(STORE, toStore).catch(() => { });

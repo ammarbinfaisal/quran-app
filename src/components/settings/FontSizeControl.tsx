@@ -2,13 +2,14 @@
 
 import { Minus, Plus } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
+import { applyResponsiveScales } from "@/lib/responsiveScale";
 
 export function FontSizeControl() {
   const { prefs, setPref } = usePreferences();
 
   const setScale = (next: number) => {
     const clamped = Math.max(1, Math.min(10, next));
-    document.documentElement.style.setProperty("--mushaf-font-scale", String(clamped));
+    applyResponsiveScales(clamped);
     setPref("fontScale", clamped);
   };
 
@@ -21,10 +22,10 @@ export function FontSizeControl() {
         <button
           type="button"
           onClick={() => setScale(prefs.fontScale - 1)}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-text)] hover:bg-[var(--color-surface)]"
+          className="flex h-12 w-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[var(--color-text)] hover:bg-[var(--color-surface)]"
           aria-label="Decrease font size"
         >
-          <Minus className="h-4 w-4" />
+          <Minus className="h-4 w-4 shrink-0" />
         </button>
         <div className="text-sm text-[var(--color-text)] tabular-nums">
           {prefs.fontScale}
@@ -32,14 +33,14 @@ export function FontSizeControl() {
         <button
           type="button"
           onClick={() => setScale(prefs.fontScale + 1)}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-text)] hover:bg-[var(--color-surface)]"
+          className="flex h-12 w-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[var(--color-text)] hover:bg-[var(--color-surface)]"
           aria-label="Increase font size"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4 shrink-0" />
         </button>
       </div>
       <p className="mt-2 text-xs text-[var(--color-muted)]">
-        Only applies in Verse-by-Verse and Morphology modes.
+        Adjusts reader text and interface sizing gently.
       </p>
     </section>
   );

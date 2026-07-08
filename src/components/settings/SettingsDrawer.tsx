@@ -48,7 +48,7 @@ export function SettingsDrawer({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-xl rounded-t-2xl bg-[var(--color-surface)] shadow-lg" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="settings-responsive-surface fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-xl rounded-t-2xl bg-[var(--color-surface)] shadow-lg" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-[var(--color-muted)]/20">
           <h2 className="text-sm font-semibold text-[var(--color-text)]">Settings</h2>
           <button

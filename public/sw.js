@@ -1,4 +1,4 @@
-const CACHE_NAME = "quran-assets-r3";
+const CACHE_NAME = "quran-assets-r4";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.webmanifest",

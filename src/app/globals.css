@@ -34,6 +34,8 @@
   --color-annotation: #6b5938;
 
   --mushaf-font-scale: 3;
+  --device-ui-font-scale: 1;
+  --user-ui-font-scale: 1;
 
   /* POS morphology colors — Lab-uniform qualitative (light, L≈45) */
   --pos-verb: #2d6e4e;
@@ -198,6 +200,13 @@
 /* Base                                                                */
 /* ------------------------------------------------------------------ */
 
+html {
+  /* Scale rem-based Tailwind sizing from the device and user UI scales.
+     This is the single place where dynamic UI scaling happens; all other
+     rem units inherit from it. */
+  font-size: calc(16px * var(--device-ui-font-scale) * var(--user-ui-font-scale));
+}
+
 html,
 body {
   background-color: var(--color-bg);
@@ -206,6 +215,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+}
+
+/* Scoped touch-target floor for the settings surface only. We intentionally
+   avoid min-width here: full-width buttons do not need it, and icon buttons
+   already declare their own width. */
+.settings-responsive-surface :where(button, a, [role="button"]) {
+  min-height: 44px;
 }
 
 /* Instant theme switching — only allow transform/opacity to transition */
