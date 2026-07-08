@@ -47,13 +47,38 @@ function PageSlot({
   highlightedVerse?: string | null;
   chapters?: Chapter[];
 }) {
+  if (pageNumber < 1 || pageNumber > TOTAL_PAGES) {
+    return <div className="swipe-page empty" />;
+  }
+
+  return (
+    <ValidPageSlot
+      pageNumber={pageNumber}
+      mushafCode={mushafCode}
+      onWordTap={onWordTap}
+      highlightedVerse={highlightedVerse}
+      chapters={chapters}
+    />
+  );
+}
+
+function ValidPageSlot({
+  pageNumber,
+  mushafCode,
+  onWordTap,
+  highlightedVerse,
+  chapters,
+}: {
+  pageNumber: number;
+  mushafCode: MushafCode;
+  onWordTap: OnWordTap;
+  highlightedVerse?: string | null;
+  chapters?: Chapter[];
+}) {
   const { pageData, loading, fontReady, showFontSkeleton } = useMushafPage(mushafCode, pageNumber);
   const nextPage = pageNumber < TOTAL_PAGES ? pageNumber + 1 : pageNumber;
   const { pageData: nextPageData } = useMushafPage(mushafCode, nextPage);
 
-  if (pageNumber < 1 || pageNumber > TOTAL_PAGES) {
-    return <div className="swipe-page empty" />;
-  }
   if (loading || !pageData) {
     return <div className="swipe-page"><PageSkeleton /></div>;
   }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "quran-assets-r4";
+const CACHE_NAME = "quran-assets-r5";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.webmanifest",
@@ -26,9 +26,31 @@ const IS_DEV_HOST =
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(ASSETS_TO_CACHE);
+
+      // The cached app shell is only useful offline if the hashed Next.js
+      // runtime chunks it references are cached too. The SW is installed after
+      // the first page load, so those first-load chunks are not seen by the
+      // fetch handler yet.
+      try {
+        const shell = await cache.match("/");
+        const html = await shell?.clone().text();
+        if (!html) return;
+
+        const assetPaths = new Set();
+        for (const match of html.matchAll(/["'](\/_next\/static\/[^"'\\]+)["']/g)) {
+          assetPaths.add(match[1].replace(/&amp;/g, "&"));
+        }
+        if (assetPaths.size > 0) {
+          await cache.addAll(Array.from(assetPaths));
+        }
+      } catch {
+        // Static chunk precache is a best-effort optimization; runtime caching
+        // below still catches Next assets once the SW controls the page.
+      }
+    })()
   );
 });
 
@@ -64,13 +86,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Never handle Next.js internals; they are already cache-busted by hashes and
-  // caching them here can cause stale bundle issues across deployments.
-  if (url.origin === self.location.origin && url.pathname.startsWith("/_next/")) {
-    return;
-  }
-
   const isSameOrigin = url.origin === self.location.origin;
+  const isNextStaticAsset =
+    isSameOrigin && url.pathname.startsWith("/_next/static/");
   const isQuranCdnFont =
     url.origin === "https://static.qurancdn.com" &&
     url.pathname.includes("/fonts/quran/hafs/") &&
@@ -78,14 +96,42 @@ self.addEventListener("fetch", (event) => {
 
   if (!isSameOrigin && !isQuranCdnFont) return;
 
-  // Navigation requests should be network-first to avoid serving stale HTML or
-  // stale RSC payloads. For offline, fall back to the cached app shell (/).
+  // Hashed Next.js static assets are immutable for a build. Cache them so a
+  // cached offline HTML document can actually hydrate.
+  if (isNextStaticAsset) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+
+        const networkResponse = await fetch(event.request);
+        if (networkResponse && networkResponse.ok) {
+          const cloned = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+        }
+        return networkResponse;
+      })(),
+    );
+    return;
+  }
+
+  // Navigation requests are network-first to avoid serving stale HTML. Cache
+  // successful route HTML by URL; offline, prefer the exact route before
+  // falling back to the app shell.
   if (event.request.mode === "navigate") {
     event.respondWith(
       (async () => {
         try {
-          return await fetch(event.request);
+          const networkResponse = await fetch(event.request);
+          if (networkResponse && networkResponse.ok) {
+            const cloned = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          }
+          return networkResponse;
         } catch {
+          const cachedRoute = await caches.match(event.request, { ignoreSearch: true });
+          if (cachedRoute) return cachedRoute;
+
           const shell = await caches.match("/");
           if (shell) return shell;
           return new Response("Offline", { status: 503, statusText: "Offline" });
