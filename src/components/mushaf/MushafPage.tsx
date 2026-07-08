@@ -33,7 +33,6 @@ function MushafPageInner({
   const isSpecialPage = pageData.page === 1 || pageData.page === 2;
   const renderedChildren = [];
   const linesByNumber = new Map(pageData.lines.map((l) => [l.lineNumber, l]));
-  const hasExplicitCenteredMetadata = pageData.lines.some((line) => typeof line.centered === "boolean");
 
   function getLegacyOpeningVerseLineTargets() {
     return [];
@@ -145,18 +144,6 @@ function MushafPageInner({
   const centeredLines = new Set<number>();
   if (pageData.page === 1 || pageData.page === 2) {
     for (let ln = 1; ln <= maxLines; ln++) centeredLines.add(ln);
-  } else {
-    if (hasExplicitCenteredMetadata) {
-      for (const line of pageData.lines) {
-        if (line.centered) centeredLines.add(line.lineNumber);
-      }
-    }
-
-    for (const s of surahsStartingOnPage) {
-      if (s.headerLineTarget > 0) centeredLines.add(s.headerLineTarget);
-      if (s.bismillahLineTarget != null) centeredLines.add(s.bismillahLineTarget);
-      for (const lineNumber of s.openingVerseLineTargets) centeredLines.add(lineNumber);
-    }
   }
 
   // Build per-verse word offsets: for each line, track how many word-type tokens
