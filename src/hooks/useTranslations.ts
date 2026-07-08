@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TranslationId } from "@/lib/types";
 import type { TranslationContent } from "@/lib/footnotes";
 import { loadTranslation } from "@/lib/translations/loader";
@@ -16,6 +16,11 @@ type TranslationRowState = {
   content: TranslationContent;
   loading: boolean;
   showSkeleton: boolean;
+};
+
+type TranslationState = {
+  signature: string | null;
+  results: Record<TranslationId, TranslationRowState>;
 };
 
 const EMPTY: TranslationContent = { segments: [], plain: "" };
@@ -74,87 +79,120 @@ export function useTranslations(
   verseKey: string | null,
   translationIds: TranslationId[],
 ): Record<TranslationId, TranslationRowState> {
+  const translationIdsKey = translationIds.join(",");
+  const currentTranslationIds = useMemo(
+    () =>
+      translationIdsKey
+        ? (translationIdsKey.split(",") as TranslationId[])
+        : [],
+    [translationIdsKey],
+  );
   const signature =
-    verseKey && translationIds.length > 0
-      ? `${verseKey}::${translationIds.join(",")}`
+    verseKey && currentTranslationIds.length > 0
+      ? `${verseKey}::${translationIdsKey}`
       : null;
-  const [state, setState] = useState(() => ({
+
+  const initialResults = useMemo(
+    () => getInitialResults(verseKey, currentTranslationIds),
+    [verseKey, currentTranslationIds],
+  );
+
+  const [state, setState] = useState<TranslationState>(() => ({
     signature,
-    results: getInitialResults(verseKey, translationIds),
-    startedSignature: null as string | null,
+    results: initialResults,
   }));
 
-  let currentSignature = state.signature;
-  let currentResults = state.results;
-  let startedSignature = state.startedSignature;
+  useEffect(() => {
+    let active = true;
+    let skeletonTimer: ReturnType<typeof setTimeout> | null = null;
+
+    if (!signature || !verseKey) {
+      return () => {
+        active = false;
+      };
+    }
+
+    const toFetch = currentTranslationIds.filter(
+      (id) => initialResults[id]?.loading,
+    );
+
+    if (toFetch.length === 0) {
+      return () => {
+        active = false;
+      };
+    }
+
+    skeletonTimer = setTimeout(() => {
+      if (!active) return;
+      setState((prev) => {
+        const next = {
+          ...(prev.signature === signature ? prev.results : initialResults),
+        };
+        let changed = false;
+
+        for (const id of toFetch) {
+          const row = next[id];
+          if (row?.loading && !row.showSkeleton) {
+            next[id] = { ...row, showSkeleton: true };
+            changed = true;
+          }
+        }
+
+        if (!changed && prev.signature === signature) {
+          return prev;
+        }
+
+        return { signature, results: next };
+      });
+    }, 140);
+
+    void Promise.allSettled(
+      toFetch.map((id) =>
+        loadTranslationCached(`${id}:${verseKey}`, verseKey, id).then(
+          (content) => ({ id, content }),
+        ),
+      ),
+    ).then((entries) => {
+      if (skeletonTimer) clearTimeout(skeletonTimer);
+      if (!active) return;
+
+      setState((prev) => {
+        const next = {
+          ...(prev.signature === signature ? prev.results : initialResults),
+        };
+
+        for (const [index, entry] of entries.entries()) {
+          const id = toFetch[index];
+          if (entry.status === "fulfilled") {
+            next[id] = {
+              content: entry.value.content,
+              loading: false,
+              showSkeleton: false,
+            };
+          } else {
+            next[id] = {
+              content: EMPTY,
+              loading: false,
+              showSkeleton: false,
+            };
+          }
+        }
+
+        return { signature, results: next };
+      });
+    });
+
+    return () => {
+      active = false;
+      if (skeletonTimer) {
+        clearTimeout(skeletonTimer);
+      }
+    };
+  }, [currentTranslationIds, initialResults, signature, verseKey]);
 
   if (state.signature !== signature) {
-    currentSignature = signature;
-    currentResults = getInitialResults(verseKey, translationIds);
-    startedSignature = null;
-    setState({ signature, results: currentResults, startedSignature: null });
+    return initialResults;
   }
 
-  if (currentSignature && verseKey) {
-    const toFetch = translationIds.filter((id) => currentResults[id]?.loading);
-
-    if (toFetch.length > 0 && startedSignature !== currentSignature) {
-      startedSignature = currentSignature;
-      setState({
-        signature: currentSignature,
-        results: currentResults,
-        startedSignature: currentSignature,
-      });
-      queueMicrotask(() => {
-        const skeletonTimer = setTimeout(() => {
-          setState((prev) => {
-            if (prev.signature !== currentSignature) return prev;
-            const next = { ...prev.results };
-            for (const id of toFetch) {
-              const row = next[id];
-              if (row?.loading) {
-                next[id] = { ...row, showSkeleton: true };
-                }
-              }
-            return { ...prev, results: next };
-          });
-        }, 140);
-
-        void Promise.allSettled(
-          toFetch.map((id) =>
-            loadTranslationCached(`${id}:${verseKey}`, verseKey, id).then(
-              (content) => ({ id, content }),
-            ),
-          ),
-        ).then((entries) => {
-          clearTimeout(skeletonTimer);
-          setState((prev) => {
-            if (prev.signature !== currentSignature) return prev;
-            const next = { ...prev.results };
-
-            for (const [index, entry] of entries.entries()) {
-              const id = toFetch[index];
-              if (entry.status === "fulfilled") {
-                next[id] = {
-                  content: entry.value.content,
-                  loading: false,
-                  showSkeleton: false,
-                };
-              } else {
-                next[id] = {
-                  content: EMPTY,
-                  loading: false,
-                  showSkeleton: false,
-                };
-              }
-            }
-
-            return { ...prev, results: next };
-          });
-        });
-      });
-    }
-  }
-
-  return currentResults;
+  return state.results;
 }
