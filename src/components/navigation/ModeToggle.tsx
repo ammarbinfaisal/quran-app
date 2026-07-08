@@ -185,9 +185,8 @@ export function ModeToggle() {
       pendingValue={pendingMode}
       ariaLabel="Reading mode"
       onSelect={handleSelect}
-      itemWidthPx={24}
+      itemWidth="var(--reader-nav-mode-item-width)"
       iconClassName="h-3.5 w-3.5"
-      className="w-[76px]"
     />
   );
 }

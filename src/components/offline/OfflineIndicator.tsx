@@ -36,7 +36,7 @@ export function OfflineIndicator() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center rounded-md p-2 text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
+        className="flex h-[var(--reader-nav-button-size,2.75rem)] w-[var(--reader-nav-button-size,2.75rem)] items-center justify-center rounded-md text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
         aria-label="Offline status"
       >
         <CloudOff className="h-5 w-5" />

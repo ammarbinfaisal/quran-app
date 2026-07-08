@@ -80,7 +80,7 @@ export function TranslationBlock({
                     }
                     if (part.type === "annotation") {
                         return (
-                            <span key={idx} className="text-[var(--color-annotation)]">
+                            <span key={idx} className="font-normal text-[var(--color-annotation)]">
                                 {part.text}
                             </span>
                         );

@@ -469,6 +469,24 @@ main {
 /* Bottom navigation bar                                               */
 /* ------------------------------------------------------------------ */
 
+.reader-bottom-nav {
+  --reader-nav-button-size: clamp(2.75rem, 11vw, 3rem);
+  --reader-nav-back-button-size: clamp(2.5rem, 10vw, 2.75rem);
+  --reader-nav-control-height: clamp(2.5rem, 10vw, 2.75rem);
+  --reader-nav-segment-height: clamp(2.25rem, 9vw, 2.5rem);
+  --reader-nav-label-max: clamp(4rem, 24vw, 10rem);
+  --reader-nav-mode-item-width: clamp(1.5rem, 7.5vw, 1.75rem);
+  --reader-nav-submode-item-width: clamp(1.625rem, 8.25vw, 1.75rem);
+}
+
+@media (max-width: 520px) {
+  .reader-bottom-nav {
+    --reader-nav-label-max: clamp(2.75rem, 18vw, 4.5rem);
+    --reader-nav-mode-item-width: clamp(1.375rem, 7vw, 1.625rem);
+    --reader-nav-submode-item-width: clamp(1.5rem, 7.75vw, 1.625rem);
+  }
+}
+
 .bottom-nav {
   position: fixed;
   bottom: 0;

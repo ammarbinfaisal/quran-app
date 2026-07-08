@@ -103,7 +103,7 @@ export function SubmodeToggle({
       pendingValue={pendingSubmode}
       ariaLabel={ariaLabel}
       onSelect={handleSelect}
-      itemWidthPx={28}
+      itemWidth="var(--reader-nav-submode-item-width)"
     />
   );
 }

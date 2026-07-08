@@ -55,85 +55,85 @@ export function ReaderBottomNav({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--color-muted)]/15 bg-[var(--color-bg)]/95 backdrop-blur-sm transition-transform duration-300 ease-in-out"
+      className="reader-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-[var(--color-muted)]/15 bg-[var(--color-bg)]/95 backdrop-blur-sm transition-transform duration-300 ease-in-out"
       style={{
         transform: visible ? "translateY(0)" : "translateY(100%)",
         paddingBottom: "max(8px, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-2 lg:max-w-5xl">
-      <div className="flex items-center">
-        {showBack && (
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex h-12 w-10 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-            aria-label="Go back"
+      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-1 gap-y-1 px-2 py-1 min-[521px]:flex-nowrap lg:max-w-5xl">
+        <div className="order-2 flex items-center min-[521px]:order-none">
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex h-[var(--reader-nav-button-size)] w-[var(--reader-nav-back-button-size)] items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+          <Link
+            href={homeHref}
+            className="flex h-[var(--reader-nav-button-size)] w-[var(--reader-nav-button-size)] items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+            aria-label="Home"
+            onClick={() => onHomeClick?.()}
           >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
-        <Link
-          href={homeHref}
-          className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-          aria-label="Home"
-          onClick={() => onHomeClick?.()}
-        >
-          <Home className="h-5 w-5" />
-        </Link>
-      </div>
+            <Home className="h-5 w-5" />
+          </Link>
+        </div>
 
-      <div className={cn("flex items-center", centerClassName ?? "gap-3")}>
-        {centerLabel && (
-          <button
-            type="button"
-            onClick={centerLabel.onClick}
-            className={cn(
-              "flex items-center rounded-lg text-[var(--color-text)] active:scale-[0.97] active:opacity-80",
-              labelSize === "sm"
-                ? "gap-1.5 px-2 py-2 text-[11px]"
-                : "gap-2 px-4 py-2.5 text-sm",
-            )}
-            aria-label={centerLabel.ariaLabel}
-          >
-            {centerLabel.icon}
-            <span className="font-medium tabular-nums whitespace-nowrap">
-              {centerLabel.text}
-            </span>
-          </button>
-        )}
+        <div className={cn("order-1 flex min-w-0 flex-1 items-center justify-center min-[521px]:order-none min-[521px]:justify-center max-[520px]:basis-full", centerClassName ?? "gap-3")}>
+          {centerLabel && (
+            <button
+              type="button"
+              onClick={centerLabel.onClick}
+              className={cn(
+                "flex min-w-0 max-w-[var(--reader-nav-label-max)] items-center rounded-lg text-[var(--color-text)] active:scale-[0.97] active:opacity-80",
+                labelSize === "sm"
+                  ? "h-[var(--reader-nav-control-height)] gap-1 px-1.5 text-[11px]"
+                  : "h-[var(--reader-nav-control-height)] gap-1.5 px-2.5 text-sm",
+              )}
+              aria-label={centerLabel.ariaLabel}
+            >
+              {centerLabel.icon}
+              <span className="min-w-0 truncate font-medium tabular-nums whitespace-nowrap">
+                {centerLabel.text}
+              </span>
+            </button>
+          )}
 
-        {centerExtra}
-        {showModeToggle && <ModeToggle />}
-      </div>
+          {centerExtra}
+          {showModeToggle && <ModeToggle />}
+        </div>
 
-      <div className="flex items-center">
-        {showOfflineIndicator && <OfflineIndicator />}
+        <div className="order-3 flex items-center min-[521px]:order-none">
+          {showOfflineIndicator && <OfflineIndicator />}
 
-        {showRecitation && <RecitationButton />}
+          {showRecitation && <RecitationButton />}
 
-        {showShare && onShareClick && (
-          <button
-            type="button"
-            onClick={onShareClick}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-            aria-label="Share"
-          >
-            <Share2 className="h-5 w-5" />
-          </button>
-        )}
+          {showShare && onShareClick && (
+            <button
+              type="button"
+              onClick={onShareClick}
+              className="flex h-[var(--reader-nav-button-size)] w-[var(--reader-nav-button-size)] items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+              aria-label="Share"
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
+          )}
 
-        {showSettings && onSettingsClick && (
-          <button
-            type="button"
-            onClick={onSettingsClick}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
-            aria-label="Settings"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
-        )}
-      </div>
+          {showSettings && onSettingsClick && (
+            <button
+              type="button"
+              onClick={onSettingsClick}
+              className="flex h-[var(--reader-nav-button-size)] w-[var(--reader-nav-button-size)] items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+              aria-label="Settings"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

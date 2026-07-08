@@ -23,7 +23,7 @@ export function RecitationButton() {
       <button
         type="button"
         onClick={() => setSheetOpen(true)}
-        className="relative flex h-12 w-12 items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
+        className="relative flex h-[var(--reader-nav-button-size,3rem)] w-[var(--reader-nav-button-size,3rem)] items-center justify-center rounded-lg text-[var(--color-muted)] active:scale-95 active:opacity-80"
         aria-label={hasActivePlayback ? "Open recitation player" : "Play recitation"}
       >
         {/* Progress ring background */}
