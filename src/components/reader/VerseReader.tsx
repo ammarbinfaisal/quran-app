@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useImmersiveMode } from "@/hooks/useImmersiveMode";
-import { trackPageDebounced } from "@/hooks/useReadingHistory";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import NavigationPicker from "@/components/nav/NavigationPicker";
@@ -19,12 +18,8 @@ import { vbvPath } from "@/lib/url";
 import { shareUrl } from "@/lib/share";
 import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import type { WordTapTarget } from "@/lib/wordTap";
-import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
 import { useDirectionalReaderKeyboardNav } from "@/hooks/useDirectionalReaderKeyboardNav";
-import { useChapters } from "@/hooks/useChapters";
-import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
-import { JUZ_PAGE_RANGES } from "@/lib/juz";
-import { useRecitationContext } from "@/components/recitation/RecitationContext";
+import { useReaderPosition } from "@/hooks/useReaderPosition";
 
 export function VerseReader({
   type,
@@ -37,7 +32,6 @@ export function VerseReader({
   const searchParams = useSearchParams();
   const verseParam = searchParams.get("verse");
   const { prefs } = usePreferences();
-  const chapters = useChapters();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } =
     useImmersiveMode();
 
@@ -47,23 +41,6 @@ export function VerseReader({
 
   const mushafCode = prefs.mushafCode;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const lastTrackedPageRef = useRef<number | null>(null);
-
-  // Track reading on mount — derive the actual first page for s/j types
-  useMountEffect(() => {
-    let page: number | null = null;
-    if (type === "p") {
-      page = id;
-    } else if (type === "s") {
-      page = chapters.find((c) => c.id === id)?.pages[0] ?? null;
-    } else {
-      page = JUZ_PAGE_RANGES.find((r) => r.juz === id)?.pages[0] ?? null;
-    }
-    if (page !== null) {
-      lastTrackedPageRef.current = page;
-      trackPageDebounced(page);
-    }
-  });
 
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,28 +52,15 @@ export function VerseReader({
     page: type === "p" ? id : null,
     verseKey: verseParam,
   });
-  const [focusPage, setFocusPage] = useState<number | null>(type === "p" ? id : null);
 
-  // Reset focusPage when navigating to a different scope so the recitation
-  // context (and any other labelPage consumers) immediately reflect the new
-  // view instead of holding the previously scrolled page.
-  const currentScopeKey = `${type}:${id}`;
-  const [lastScopeKey, setLastScopeKey] = useState(currentScopeKey);
-  if (lastScopeKey !== currentScopeKey) {
-    setLastScopeKey(currentScopeKey);
-    setFocusPage(type === "p" ? id : null);
-  }
-
-  const handleScrollFocusPage = useCallback(
-    (nextPage: number | null) => {
-      setFocusPage(nextPage);
-      if (nextPage !== null && nextPage !== lastTrackedPageRef.current) {
-        lastTrackedPageRef.current = nextPage;
-        trackPageDebounced(nextPage);
-      }
-    },
-    [],
-  );
+  const { focusPage, label, getNavSelection, handleScrollPosition } =
+    useReaderPosition({
+      type,
+      id,
+      scrollContainerRef,
+      fallbackVerseKey: verseParam,
+      trackHistory: true,
+    });
 
   // Save reading mode + submode preferences on mount
   useMountEffect(() => {
@@ -135,38 +99,6 @@ export function VerseReader({
     void shareUrl(vbvPath(type, id, highlightedVerse ?? undefined));
   }, [type, id, highlightedVerse]);
 
-  const labelPage = useMemo(() => {
-    if (focusPage !== null) return focusPage;
-    if (type === "p") return id;
-    if (type === "s") return chapters.find((chapter) => chapter.id === id)?.pages[0] ?? null;
-    return JUZ_PAGE_RANGES.find((range) => range.juz === id)?.pages[0] ?? null;
-  }, [chapters, focusPage, id, type]);
-
-  const label = useMemo(() => {
-    if (!chapters.length || labelPage === null) return String(id);
-    const surahId = pageToSurah(labelPage, chapters);
-    return chapters.find((chapter) => chapter.id === surahId)?.nameSimple ?? String(id);
-  }, [chapters, id, labelPage]);
-
-  // Keep the recitation player in sync with the current view so the range
-  // picker has sensible defaults when the player sheet opens.
-  const { setContext } = useRecitationContext();
-  const recitationContextSurahId = useMemo(() => {
-    if (!chapters.length || labelPage === null) return undefined;
-    return pageToSurah(labelPage, chapters);
-  }, [chapters, labelPage]);
-  const recitationContextJuzId = useMemo(() => {
-    if (labelPage === null) return undefined;
-    return pageToJuz(labelPage);
-  }, [labelPage]);
-  useLayoutEffect(() => {
-    setContext({
-      currentPage: labelPage ?? undefined,
-      currentSurahId: recitationContextSurahId,
-      currentJuzId: recitationContextJuzId,
-    });
-  }, [labelPage, recitationContextSurahId, recitationContextJuzId, setContext]);
-
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
       <div
@@ -174,12 +106,7 @@ export function VerseReader({
         className="flex-1 overflow-y-auto min-h-0 bg-[var(--color-bg)]"
         data-vbv-scroll
         onScroll={() => {
-          const container = scrollContainerRef.current;
-          if (container) {
-            handleScrollFocusPage(
-              getFirstFullyVisiblePage(container) ?? (type === "p" ? id : null),
-            );
-          }
+          handleScrollPosition();
         }}
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest("button, a")) {
@@ -215,11 +142,7 @@ export function VerseReader({
           text: label,
           ariaLabel: "Open navigation",
           onClick: () => {
-            const scrollContainer = scrollContainerRef.current;
-            setNavSelection({
-              page: scrollContainer ? getFirstFullyVisiblePage(scrollContainer) : labelPage,
-              verseKey: scrollContainer ? getFirstFullyVisibleVerse(scrollContainer) : verseParam,
-            });
+            setNavSelection(getNavSelection());
             setSurahOpen(true);
             showChrome();
           },

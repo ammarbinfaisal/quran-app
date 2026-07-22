@@ -4,14 +4,38 @@ import type { Chapter, TranslationEntry, AudioFile } from "./types";
 // ---------------------------------------------------------------------------
 // Generic fetcher
 // ---------------------------------------------------------------------------
-async function apiFetch<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-  const url = new URL(`${API_BASE}${path}`);
+const INTERNAL_API_BASE = "/api/quran";
+
+function buildApiUrl(
+  base: string,
+  path: string,
+  params?: Record<string, string | number>,
+): string {
+  const url =
+    base.startsWith("/") && typeof window !== "undefined"
+      ? new URL(`${base}${path}`, window.location.origin)
+      : new URL(`${base}${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       url.searchParams.set(k, String(v));
     }
   }
-  const res = await fetch(url.toString());
+  return url.toString();
+}
+
+async function apiFetch<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+  const useInternalProxy = typeof window !== "undefined";
+  const primaryUrl = buildApiUrl(
+    useInternalProxy ? INTERNAL_API_BASE : API_BASE,
+    path,
+    params,
+  );
+  let res = await fetch(primaryUrl);
+
+  if (useInternalProxy && res.status === 503) {
+    res = await fetch(buildApiUrl(API_BASE, path, params));
+  }
+
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
   return res.json() as Promise<T>;
 }

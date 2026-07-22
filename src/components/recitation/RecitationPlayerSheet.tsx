@@ -79,6 +79,7 @@ export function RecitationPlayerSheet({
   const chapters = useChapters();
   const {
     status,
+    range,
     repeat,
     setRepeat,
     syncWithRecitation,
@@ -140,14 +141,37 @@ export function RecitationPlayerSheet({
   const startVerse = bounds.startVerse;
   const endVerse = bounds.endVerse;
 
-  if (open) {
-    const key = `${initialBounds.startVerse}-${initialBounds.endVerse}`;
-    if (bounds.syncedKey !== key) {
-      setBounds({
-        syncedKey: key,
-        startVerse: initialBounds.startVerse,
-        endVerse: initialBounds.endVerse,
-      });
+  const defaultsKey = `${initialBounds.startVerse}-${initialBounds.endVerse}`;
+  const boundsAreDefaults =
+    bounds.startVerse === initialBounds.startVerse &&
+    bounds.endVerse === initialBounds.endVerse;
+  const resetBoundsToDefaults = () =>
+    setBounds({
+      syncedKey: defaultsKey,
+      startVerse: initialBounds.startVerse,
+      endVerse: initialBounds.endVerse,
+    });
+
+  if (open && bounds.syncedKey !== defaultsKey) {
+    resetBoundsToDefaults();
+  }
+
+  // Reset the From/To fields back to the current view defaults when the
+  // sheet closes (playback keeps running — only unsaved picker edits are
+  // dropped) and when playback transitions to idle with no active range
+  // (stop clicked or a range finished playing).
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevActive, setPrevActive] = useState(isActive);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (!open && !boundsAreDefaults) {
+      resetBoundsToDefaults();
+    }
+  }
+  if (prevActive !== isActive) {
+    setPrevActive(isActive);
+    if (!isActive && !range && !boundsAreDefaults) {
+      resetBoundsToDefaults();
     }
   }
 

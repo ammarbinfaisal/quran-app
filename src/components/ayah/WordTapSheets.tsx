@@ -2,8 +2,9 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, BookMarked, BookOpen, Copy, FileText, GitBranch, Play, Search, CornerDownRight } from "lucide-react";
+import { ArrowLeftRight, Bookmark, BookmarkPlus, BookMarked, BookOpen, Copy, FileText, GitBranch, Play, Search, CornerDownRight } from "lucide-react";
 import { AyahSheet } from "@/components/ayah/AyahSheet";
+import { BookmarkSheet } from "@/components/ayah/BookmarkSheet";
 import { FloatingWordMenu } from "@/components/ayah/FloatingWordMenu";
 import { IraabSheet } from "@/components/ayah/IraabSheet";
 import { MutashabihatSheet } from "@/components/ayah/MutashabihatSheet";
@@ -13,6 +14,7 @@ import { loadMutashabihatVerseMap } from "@/lib/mutashabihat";
 import { loadAbuIyaadNotes } from "@/lib/translations/abu-iyaad";
 import type { MushafCode, TranslationId, UserPreferences } from "@/lib/types";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { buildVerseCopyText, type VerseCopyMode, type VerseCopySettings } from "@/lib/verseCopy";
 import { isMorphologyTap, type WordTapTarget } from "@/lib/wordTap";
 import { useRecitationPlayer } from "@/components/recitation/useRecitationPlayer";
@@ -30,7 +32,7 @@ import {
 } from "@/lib/tafsir/prefetch";
 import { tafsirPath } from "@/lib/url";
 
-type ActiveSheet = "translation" | "morphology" | "iraab" | "notes" | "mutashabihat" | null;
+type ActiveSheet = "translation" | "morphology" | "iraab" | "notes" | "mutashabihat" | "bookmarks" | null;
 
 export function WordTapSheets({
   selectedTap,
@@ -53,6 +55,7 @@ export function WordTapSheets({
     getIraabAvailabilitySync(),
   );
   const { prefs } = usePreferences();
+  const { isBookmarked } = useBookmarks();
   const recitation = useRecitationPlayer();
   const isRangePlaying = recitation.status !== "idle" && recitation.range !== null;
 
@@ -111,6 +114,7 @@ export function WordTapSheets({
     const playLabel = isRangePlaying
       ? "Jump recitation to this verse"
       : "Play this verse";
+    const verseIsBookmarked = isBookmarked(selectedTap.verseKey);
 
     const items = [
       {
@@ -161,6 +165,16 @@ export function WordTapSheets({
             }
           })();
         },
+      },
+      {
+        id: "bookmarks",
+        icon: verseIsBookmarked ? (
+          <Bookmark className="h-4 w-4" />
+        ) : (
+          <BookmarkPlus className="h-4 w-4" />
+        ),
+        label: "Manage bookmarks",
+        onClick: () => setActiveSheet("bookmarks"),
       },
     ];
 
@@ -250,6 +264,7 @@ export function WordTapSheets({
     hasNotes,
     iraabAvailability,
     isRangePlaying,
+    isBookmarked,
     onClose,
     prefs.tafsirOrder,
     recitation,
@@ -274,6 +289,12 @@ export function WordTapSheets({
         open={activeSheet === "translation"}
         verseKey={selectedTap.verseKey}
         translationIds={translationIds}
+        onClose={onClose}
+      />
+
+      <BookmarkSheet
+        open={activeSheet === "bookmarks"}
+        verseKey={selectedTap.verseKey}
         onClose={onClose}
       />
 

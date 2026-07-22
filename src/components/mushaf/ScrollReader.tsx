@@ -15,6 +15,10 @@ import type { OnWordTap } from "@/lib/wordTap";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
 
+const INITIAL_SCROLL_PAGES = 5;
+const SCROLL_PAGE_INCREMENT = 5;
+const LOAD_AHEAD_PAGE_THRESHOLD = 2;
+
 interface ScrollReaderProps {
   type: "p" | "s" | "j";
   id: number;
@@ -37,7 +41,7 @@ export default function ScrollReader({
   const chapters = useChapters();
   const { prefs } = usePreferences();
   const [juzRanges, setJuzRanges] = useState<readonly JuzPageRange[]>([]);
-  const [pagesToShow, setPagesToShow] = useState(5);
+  const [pagesToShow, setPagesToShow] = useState(INITIAL_SCROLL_PAGES);
   const didAutoScrollToHighlightRef = useRef(false);
   const lastHighlightedVerseRef = useRef<string | null>(null);
 
@@ -64,6 +68,23 @@ export default function ScrollReader({
     }
     return [id];
   }, [type, id, chapters, juzRanges]);
+
+  const focusIndexForAhead =
+    focusPage === null || focusPage === undefined
+      ? -1
+      : fullPageRange.indexOf(focusPage);
+  if (
+    focusIndexForAhead !== -1 &&
+    focusIndexForAhead >= pagesToShow - LOAD_AHEAD_PAGE_THRESHOLD &&
+    pagesToShow < fullPageRange.length
+  ) {
+    setPagesToShow(
+      Math.min(
+        Math.max(pagesToShow + SCROLL_PAGE_INCREMENT, focusIndexForAhead + 1),
+        fullPageRange.length,
+      ),
+    );
+  }
 
   const visiblePages = useMemo(() => fullPageRange.slice(0, pagesToShow), [fullPageRange, pagesToShow]);
 
@@ -125,10 +146,10 @@ export default function ScrollReader({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setPagesToShow((prev) => Math.min(prev + 5, fullPageRange.length));
+          setPagesToShow((prev) => Math.min(prev + SCROLL_PAGE_INCREMENT, fullPageRange.length));
         }
       },
-      { rootMargin: "1600px" },
+      { rootMargin: "3000px" },
     );
     observer.observe(node);
     observerInstanceRef.current = observer;

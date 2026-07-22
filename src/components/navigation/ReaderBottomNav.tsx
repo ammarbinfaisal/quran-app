@@ -61,8 +61,11 @@ export function ReaderBottomNav({
         paddingBottom: "max(8px, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-1 gap-y-1 px-2 py-1 min-[521px]:flex-nowrap lg:max-w-5xl">
-        <div className="order-2 flex items-center min-[521px]:order-none">
+      <div className="reader-bottom-nav-inner mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-1 gap-y-1 px-2 py-1 min-[521px]:flex-nowrap lg:max-w-5xl">
+        <div
+          className="reader-bottom-nav-side reader-bottom-nav-side-start order-2 flex items-center min-[521px]:order-none"
+          data-nav-row="actions"
+        >
           {showBack && (
             <button
               type="button"
@@ -83,7 +86,13 @@ export function ReaderBottomNav({
           </Link>
         </div>
 
-        <div className={cn("order-1 flex min-w-0 flex-1 items-center justify-center min-[521px]:order-none min-[521px]:justify-center max-[520px]:basis-full", centerClassName ?? "gap-3")}>
+        <div
+          className={cn(
+            "reader-bottom-nav-center order-1 flex min-w-0 flex-1 items-center justify-center min-[521px]:order-none min-[521px]:justify-center max-[520px]:basis-full",
+            centerClassName ?? "gap-3",
+          )}
+          data-nav-row="center"
+        >
           {centerLabel && (
             <button
               type="button"
@@ -107,7 +116,10 @@ export function ReaderBottomNav({
           {showModeToggle && <ModeToggle />}
         </div>
 
-        <div className="order-3 flex items-center min-[521px]:order-none">
+        <div
+          className="reader-bottom-nav-side reader-bottom-nav-side-end order-3 flex items-center min-[521px]:order-none"
+          data-nav-row="actions"
+        >
           {showOfflineIndicator && <OfflineIndicator />}
 
           {showRecitation && <RecitationButton />}

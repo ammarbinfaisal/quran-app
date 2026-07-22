@@ -1,12 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import type { MushafPagePayload, MushafCode, Chapter } from "@/lib/types";
 import { MUSHAF_LINES } from "@/lib/types";
 import { MushafLine } from "@/components/mushaf/MushafLine";
 import { SurahHeader } from "@/components/mushaf/SurahHeader";
 import { Bismillah } from "@/components/mushaf/Bismillah";
 import type { OnWordTap } from "@/lib/wordTap";
+
+type VerseHighlightSegment = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
 
 interface MushafPageProps {
   pageData: MushafPagePayload;
@@ -19,6 +26,51 @@ interface MushafPageProps {
   nextPageData?: MushafPagePayload | null;
 }
 
+function escapeAttributeValue(value: string) {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+function measureVerseHighlightSegments(
+  pageEl: HTMLElement,
+  verseKey: string,
+): VerseHighlightSegment[] {
+  const selector = `.mushaf-word[data-verse-key="${escapeAttributeValue(verseKey)}"]`;
+  const words = Array.from(pageEl.querySelectorAll<HTMLElement>(selector));
+  if (words.length === 0) return [];
+
+  const pageRect = pageEl.getBoundingClientRect();
+  const groupedRects = new Map<Element | string, DOMRect[]>();
+
+  for (const word of words) {
+    const rect = word.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const line = word.closest(".mushaf-line");
+    const key = line ?? `top:${Math.round(rect.top)}`;
+    const rects = groupedRects.get(key) ?? [];
+    rects.push(rect);
+    groupedRects.set(key, rects);
+  }
+
+  return Array.from(groupedRects.values())
+    .map((rects) => {
+      const left = Math.min(...rects.map((rect) => rect.left));
+      const right = Math.max(...rects.map((rect) => rect.right));
+      const top = Math.min(...rects.map((rect) => rect.top));
+      const bottom = Math.max(...rects.map((rect) => rect.bottom));
+      return {
+        left: left - pageRect.left - pageEl.clientLeft,
+        top: top - pageRect.top - pageEl.clientTop,
+        width: right - left,
+        height: bottom - top,
+      };
+    })
+    .filter((segment) => segment.width > 0 && segment.height > 0)
+    .sort((a, b) => a.top - b.top || a.left - b.left);
+}
+
 function MushafPageInner({
   pageData,
   mushafCode,
@@ -29,10 +81,48 @@ function MushafPageInner({
   showFontSkeleton,
   nextPageData,
 }: MushafPageProps) {
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [verseHighlightSegments, setVerseHighlightSegments] = useState<
+    VerseHighlightSegment[]
+  >([]);
   const maxLines = MUSHAF_LINES[mushafCode] ?? 15;
   const isSpecialPage = pageData.page === 1 || pageData.page === 2;
   const renderedChildren = [];
   const linesByNumber = new Map(pageData.lines.map((l) => [l.lineNumber, l]));
+
+  useLayoutEffect(() => {
+    const pageEl = pageRef.current;
+    if (!pageEl || !fontReady || !highlightedVerse) {
+      setVerseHighlightSegments([]);
+      return;
+    }
+
+    let frameId: number | null = null;
+    const updateSegments = () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        setVerseHighlightSegments(
+          measureVerseHighlightSegments(pageEl, highlightedVerse),
+        );
+      });
+    };
+
+    updateSegments();
+
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateSegments)
+        : null;
+    observer?.observe(pageEl);
+    window.addEventListener("resize", updateSegments, { passive: true });
+
+    return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      window.removeEventListener("resize", updateSegments);
+    };
+  }, [fontReady, highlightedVerse, pageData.page]);
 
   function getLegacyOpeningVerseLineTargets() {
     return [];
@@ -244,7 +334,18 @@ function MushafPageInner({
   }
 
   return (
-    <div className="mushaf-page relative flex flex-col justify-between">
+    <div ref={pageRef} className="mushaf-page relative flex flex-col justify-between">
+      {verseHighlightSegments.length > 0 && (
+        <div className="mushaf-verse-highlight-layer" aria-hidden="true">
+          {verseHighlightSegments.map((segment) => (
+            <div
+              key={`${segment.top}:${segment.left}:${segment.width}`}
+              className="mushaf-verse-highlight-segment"
+              style={segment}
+            />
+          ))}
+        </div>
+      )}
       {renderedChildren}
       <div className="page-number flex-shrink-0 h-4">{pageData.page}</div>
     </div>

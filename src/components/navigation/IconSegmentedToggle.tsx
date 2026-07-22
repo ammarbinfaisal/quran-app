@@ -68,7 +68,7 @@ export function IconSegmentedToggle<T extends string>({
             onClick={() => onSelect(optionValue)}
             disabled={disabled || pendingValue !== null}
             className={cn(
-              "relative z-10 flex flex-1 items-center justify-center transition-colors duration-300",
+              "relative z-10 flex h-full flex-1 items-center justify-center transition-colors duration-300",
               selected ? "text-[var(--color-text)]" : "text-[var(--color-muted)]",
             )}
             aria-label={`${ariaLabel}: ${label}`}

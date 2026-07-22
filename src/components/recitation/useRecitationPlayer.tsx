@@ -209,12 +209,14 @@ export function RecitationProvider({ children }: { children: ReactNode }) {
       verseIndexRef.current = 0;
       playVerseInternal(range.verses[0]);
     } else {
-      // Range complete
+      // Range complete — reset to the same stop-like idle state as stop()
       setStatus("idle");
       setProgress(0);
       setCurrentVerse(null);
       setCurrentWordIndex(null);
+      setRange(null);
       verseIndexRef.current = 0;
+      currentRecitationRef.current = null;
       dispatchVerseChange(null, null);
     }
   }, [range, repeat, playVerseInternal]);

@@ -15,6 +15,7 @@ const TAFSIR_SOURCES = [
   { id: "baghawi", label: "Tafsir al-Baghawi", full: true },
   { id: "ibn-uthaymeen", label: "Tafsir Ibn Uthaymeen", full: false },
   { id: "ibn-alqayyim", label: "Tafsir Ibn al-Qayyim", full: false },
+  { id: "adwaa-albayan", label: "Adwaa al-Bayan", full: false },
   { id: "iraab-graphs", label: "I'raab Graphs", full: true },
 ] as const;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -19,12 +19,8 @@ import { ReaderBottomNav } from "@/components/navigation/ReaderBottomNav";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
-import { getFirstFullyVisiblePage, getFirstFullyVisibleVerse } from "@/lib/viewport";
 import { useDirectionalReaderKeyboardNav } from "@/hooks/useDirectionalReaderKeyboardNav";
-import { useChapters } from "@/hooks/useChapters";
-import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
-import { JUZ_PAGE_RANGES } from "@/lib/juz";
-import { useRecitationContext } from "@/components/recitation/RecitationContext";
+import { useReaderPosition } from "@/hooks/useReaderPosition";
 
 export function ScrollModeReader({
   type,
@@ -37,7 +33,6 @@ export function ScrollModeReader({
   const searchParams = useSearchParams();
   const { prefs } = usePreferences();
   const { chromeVisible, toggleChrome, showChrome, resetTimer } = useImmersiveMode();
-  const chapters = useChapters();
 
   const [selectedTap, setSelectedTap] = useState<WordTapTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -52,20 +47,17 @@ export function ScrollModeReader({
     page: type === "p" ? id : null,
     verseKey: verseParam,
   });
-  const [focusPage, setFocusPage] = useState<number | null>(type === "p" ? id : null);
   const [dismissedVerse, setDismissedVerse] = useState<string | null>(null);
   const highlightedVerse =
     verseParam && dismissedVerse === verseParam ? null : verseParam;
 
-  // Reset focusPage when navigating to a different scope so the recitation
-  // context (and any other labelPage consumers) immediately reflect the new
-  // view instead of holding the previously scrolled page.
-  const currentScopeKey = `${type}:${id}`;
-  const [lastScopeKey, setLastScopeKey] = useState(currentScopeKey);
-  if (lastScopeKey !== currentScopeKey) {
-    setLastScopeKey(currentScopeKey);
-    setFocusPage(type === "p" ? id : null);
-  }
+  const { focusPage, label, getNavSelection, handleScrollPosition } =
+    useReaderPosition({
+      type,
+      id,
+      scrollContainerRef,
+      fallbackVerseKey: verseParam,
+    });
 
   // Save reading mode + submode preferences on mount
   useMountEffect(() => {
@@ -100,38 +92,6 @@ export function ScrollModeReader({
     void shareUrl(scrollPath(type, id, highlightedVerse ?? undefined));
   }, [type, id, highlightedVerse]);
 
-  const labelPage = useMemo(() => {
-    if (focusPage !== null) return focusPage;
-    if (type === "p") return id;
-    if (type === "s") return chapters.find((chapter) => chapter.id === id)?.pages[0] ?? null;
-    return JUZ_PAGE_RANGES.find((range) => range.juz === id)?.pages[0] ?? null;
-  }, [chapters, focusPage, id, type]);
-
-  const label = useMemo(() => {
-    if (!chapters.length || labelPage === null) return String(id);
-    const surahId = pageToSurah(labelPage, chapters);
-    return chapters.find((chapter) => chapter.id === surahId)?.nameSimple ?? String(id);
-  }, [chapters, id, labelPage]);
-
-  // Keep the recitation player in sync with the current view so the range
-  // picker has sensible defaults when the player sheet opens.
-  const { setContext } = useRecitationContext();
-  const recitationContextSurahId = useMemo(() => {
-    if (!chapters.length || labelPage === null) return undefined;
-    return pageToSurah(labelPage, chapters);
-  }, [chapters, labelPage]);
-  const recitationContextJuzId = useMemo(() => {
-    if (labelPage === null) return undefined;
-    return pageToJuz(labelPage);
-  }, [labelPage]);
-  useLayoutEffect(() => {
-    setContext({
-      currentPage: labelPage ?? undefined,
-      currentSurahId: recitationContextSurahId,
-      currentJuzId: recitationContextJuzId,
-    });
-  }, [labelPage, recitationContextSurahId, recitationContextJuzId, setContext]);
-
   return (
     <main className="h-full w-full overflow-hidden flex flex-col">
       <div
@@ -139,10 +99,7 @@ export function ScrollModeReader({
         className="scroll-container flex-1 min-h-0 bg-[var(--color-bg)]"
         data-scroll-reader
         onScroll={() => {
-          const container = scrollContainerRef.current;
-          if (container) {
-            setFocusPage(getFirstFullyVisiblePage(container) ?? (type === "p" ? id : null));
-          }
+          handleScrollPosition();
           if (!verseParam) return;
           if (dismissedVerse === verseParam) return;
           setDismissedVerse(verseParam);
@@ -179,11 +136,7 @@ export function ScrollModeReader({
           text: label,
           ariaLabel: "Open navigation",
           onClick: () => {
-            const scrollContainer = scrollContainerRef.current;
-            setNavSelection({
-              page: scrollContainer ? getFirstFullyVisiblePage(scrollContainer) : labelPage,
-              verseKey: scrollContainer ? getFirstFullyVisibleVerse(scrollContainer) : verseParam,
-            });
+            setNavSelection(getNavSelection());
             setSurahOpen(true);
             showChrome();
           },

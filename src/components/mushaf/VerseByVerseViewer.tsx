@@ -15,6 +15,10 @@ import { VerseCard } from "@/components/lemma/VerseCard";
 import type { OnWordTap } from "@/lib/wordTap";
 import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
 
+const INITIAL_SCROLL_PAGES = 5;
+const SCROLL_PAGE_INCREMENT = 5;
+const LOAD_AHEAD_PAGE_THRESHOLD = 2;
+
 interface VerseByVerseViewerProps {
     type: "p" | "s" | "j";
     id: number;
@@ -70,7 +74,7 @@ export function VerseByVerseViewer({
     // Progressive rendering: Start with only max 5 pages, expand on scroll.
     // pagesToShow resets to 5 automatically when parent changes the `key` prop
     // (VerseReader passes key={type+":"+id} so React remounts this component on navigation).
-    const [pagesToShow, setPagesToShow] = React.useState<number>(5);
+    const [pagesToShow, setPagesToShow] = React.useState<number>(INITIAL_SCROLL_PAGES);
 
     // If highlightedVerse is provided, ensure enough pages are loaded to show it
     useMountEffect(() => {
@@ -91,6 +95,23 @@ export function VerseByVerseViewer({
         ensureHighlightedPageLoaded();
     });
 
+    const focusIndexForAhead =
+        focusPage === null || focusPage === undefined
+            ? -1
+            : fullPageRange.indexOf(focusPage);
+    if (
+        focusIndexForAhead !== -1 &&
+        focusIndexForAhead >= pagesToShow - LOAD_AHEAD_PAGE_THRESHOLD &&
+        pagesToShow < fullPageRange.length
+    ) {
+        setPagesToShow(
+            Math.min(
+                Math.max(pagesToShow + SCROLL_PAGE_INCREMENT, focusIndexForAhead + 1),
+                fullPageRange.length,
+            ),
+        );
+    }
+
     const visiblePages = useMemo(() => {
         return fullPageRange.slice(0, pagesToShow);
     }, [fullPageRange, pagesToShow]);
@@ -107,10 +128,10 @@ export function VerseByVerseViewer({
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting) {
-                    setPagesToShow((prev) => Math.min(prev + 5, fullPageRange.length));
+                    setPagesToShow((prev) => Math.min(prev + SCROLL_PAGE_INCREMENT, fullPageRange.length));
                 }
             },
-            { rootMargin: "2000px" }
+            { rootMargin: "3000px" }
         );
         observer.observe(node);
         observerInstanceRef.current = observer;

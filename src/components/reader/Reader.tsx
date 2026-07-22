@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { TOTAL_PAGES } from "@/lib/constants";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -21,10 +21,9 @@ import { trackPageDebounced } from "@/hooks/useReadingHistory";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { removeQueryParamFromCurrentUrl } from "@/lib/urlSearchParams";
 import type { WordTapTarget } from "@/lib/wordTap";
-import { useChapters } from "@/hooks/useChapters";
-import { pageToSurah, pageToJuz } from "@/lib/navigation/maps";
+import { useReaderPosition } from "@/hooks/useReaderPosition";
+import { useRecitationAutoFollowPage } from "@/hooks/useRecitationAutoFollowPage";
 import { useReaderDataPrefetch } from "@/hooks/useReaderDataPrefetch";
-import { useRecitationContext } from "@/components/recitation/RecitationContext";
 
 function clampPage(p: number) {
   return Math.max(1, Math.min(TOTAL_PAGES, p));
@@ -49,30 +48,7 @@ export function Reader({ initialPage }: { initialPage: number }) {
 
   const mushafCode = prefs.mushafCode;
 
-  const chapters = useChapters();
-  const { setContext } = useRecitationContext();
-
-  const surahId = useMemo(() => {
-    if (!chapters.length) return undefined;
-    return pageToSurah(page, chapters);
-  }, [page, chapters]);
-
-  const juzId = useMemo(() => pageToJuz(page), [page]);
-
-  const surahName = useMemo(() => {
-    if (!chapters.length) return String(page);
-    return chapters.find(c => c.id === surahId)?.nameSimple ?? String(page);
-  }, [surahId, chapters, page]);
-
-  // Update recitation context after render when page/surah/juz change
-  useLayoutEffect(() => {
-    setContext({ currentPage: page, currentSurahId: surahId, currentJuzId: juzId });
-  }, [page, surahId, juzId, setContext]);
-
-  // Set initial context on mount
-  useMountEffect(() => {
-    setContext({ currentPage: page, currentSurahId: surahId, currentJuzId: juzId });
-  });
+  const { label: surahName } = useReaderPosition({ type: "p", id: page });
 
   // --- Track reading: initial + on page change ---
   useMountEffect(() => {
@@ -106,6 +82,15 @@ export function Reader({ initialPage }: { initialPage: number }) {
     return () => {
       if (replaceTimer.current) clearTimeout(replaceTimer.current);
     };
+  });
+
+  // Follow recitation playback: turn to the page of the currently recited
+  // verse. Goes through handlePageChange, so the debounced replaceState URL
+  // sync above applies to auto-follows exactly like manual swipes.
+  useRecitationAutoFollowPage({
+    mushafCode,
+    currentPage: page,
+    onPageChange: handlePageChange,
   });
 
   // Apply theme and font scale via preferences listener

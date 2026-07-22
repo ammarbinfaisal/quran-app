@@ -20,6 +20,7 @@ const TAFSIR_IDS = [
   "baghawi",
   "ibn-uthaymeen",
   "ibn-alqayyim",
+  "adwaa-albayan",
 ] as const;
 
 type TafsirId = (typeof TAFSIR_IDS)[number];

@@ -268,6 +268,7 @@ main {
    matches --mushaf-line-width — words sit flush at both edges with no
    inter-word slack to redistribute. */
 .mushaf-line {
+  position: relative;
   /* Flex with space-between distributes words edge-to-edge (matches quran.com
      and printed mushaf justification). Each word is the natural QCF-kerned
      width; the small remaining slack (~10% of line) is divided as inter-word
@@ -314,6 +315,18 @@ main {
   padding-block: 1px;
 }
 
+.mushaf-verse-highlight-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mushaf-verse-highlight-segment {
+  position: absolute;
+  background-color: var(--verse-highlight-bg);
+  border-radius: 8px;
+}
+
 [data-recitation-playing="true"] {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
@@ -325,11 +338,6 @@ main {
   display: inline-block;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.mushaf-word[data-highlighted="true"] {
-  background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
-  border-radius: 4px;
 }
 
 .mushaf-word[data-phrase-color-index="1"] { background-color: var(--phrase-highlight-1); border-radius: 4px; }
@@ -481,9 +489,17 @@ main {
 
 @media (max-width: 520px) {
   .reader-bottom-nav {
+    --reader-nav-button-size: clamp(44px, 11vw, 48px);
+    --reader-nav-back-button-size: clamp(44px, 11vw, 48px);
+    --reader-nav-control-height: clamp(44px, 11vw, 48px);
+    --reader-nav-segment-height: clamp(48px, 12vw, 52px);
     --reader-nav-label-max: clamp(2.75rem, 18vw, 4.5rem);
     --reader-nav-mode-item-width: clamp(1.375rem, 7vw, 1.625rem);
     --reader-nav-submode-item-width: clamp(1.5rem, 7.75vw, 1.625rem);
+  }
+
+  .reader-bottom-nav-center {
+    flex-basis: 100%;
   }
 }
 
