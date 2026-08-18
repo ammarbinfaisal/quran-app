@@ -7,9 +7,9 @@
     "bun": ">=1.3.1"
   },
   "scripts": {
-    "dev": "bunx --bun next dev",
-    "build": "bunx next build",
-    "start": "bunx --bun next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "bunx --bun eslint",
     "test:e2e": "bunx --bun playwright test",
     "verify:mushaf-hashes": "bun scripts/verify-mushaf-text-hashes.ts",
