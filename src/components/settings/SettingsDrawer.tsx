@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, FileText, MonitorDown, X } from "lucide-react";
 import { ThemePicker } from "@/components/settings/ThemePicker";
@@ -15,6 +15,44 @@ import { DataManagerSection } from "@/components/settings/DataManagerSection";
 import { DownloadsSection } from "@/components/settings/DownloadsSection";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { cn } from "@/lib/utils";
+
+const SETTINGS_TABS = [
+  { id: "display", label: "Display" },
+  { id: "content", label: "Content" },
+  { id: "data", label: "Data" },
+  { id: "help", label: "Help" },
+] as const;
+
+type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
+
+function SettingsTabButton({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onClick}
+      className={cn(
+        "min-h-11 flex-1 rounded-lg px-2 py-2 text-sm font-semibold outline-none transition",
+        "focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40",
+        selected
+          ? "bg-[var(--color-accent)] text-[var(--color-bg)]"
+          : "bg-[var(--color-bg)] text-[var(--color-text)] ring-1 ring-[var(--color-muted)]/20 hover:bg-[var(--color-surface)]",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function SettingsDrawer({
   open,
@@ -42,6 +80,7 @@ export function SettingsDrawer({
   });
 
   const { canInstall, install } = usePwaInstall();
+  const [tab, setTab] = useState<SettingsTab>("display");
 
   if (!open) return null;
 
@@ -61,50 +100,86 @@ export function SettingsDrawer({
           </button>
         </div>
 
-        <div className="max-h-[75vh] overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
-          <ThemePicker />
-          <TranslationPicker />
-          <AyahReciterPicker />
-          <VerseCopySettings />
-          <InlineVerseNotesToggle />
-          <FontSizeControl />
-          <DataUsageModePicker />
-          <TafsirOrderPicker />
-          <DownloadsSection />
-          <DataManagerSection />
-
-          <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
-              Help
-            </h3>
-            <Link
-              href="/docs"
-              onClick={onClose}
-              className="flex min-h-12 w-full items-center justify-between rounded-lg border px-3 py-3 text-left transition-colors"
-              style={{
-                borderColor: "rgba(0,0,0,0.08)",
-                backgroundColor: "var(--color-bg)",
-              }}
+        <div
+          role="tablist"
+          aria-label="Settings tabs"
+          className="grid grid-cols-4 gap-2 px-4 pt-3 pb-2"
+        >
+          {SETTINGS_TABS.map((t) => (
+            <SettingsTabButton
+              key={t.id}
+              selected={tab === t.id}
+              onClick={() => setTab(t.id)}
             >
-              <span className="flex min-w-0 items-center gap-3">
-                <span
-                  className="flex size-9 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "var(--color-surface)" }}
-                >
-                  <FileText className="h-4 w-4 text-[var(--color-accent)]" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-[var(--color-text)]">
-                    Docs
+              {t.label}
+            </SettingsTabButton>
+          ))}
+        </div>
+
+        <div
+          key={tab}
+          role="tabpanel"
+          className="max-h-[70vh] overflow-y-auto overscroll-contain px-4 py-4 space-y-5"
+        >
+          {tab === "display" && (
+            <>
+              <ThemePicker />
+              <FontSizeControl />
+              <InlineVerseNotesToggle />
+            </>
+          )}
+
+          {tab === "content" && (
+            <>
+              <TranslationPicker />
+              <TafsirOrderPicker />
+              <AyahReciterPicker />
+              <VerseCopySettings />
+            </>
+          )}
+
+          {tab === "data" && (
+            <>
+              <DataUsageModePicker />
+              <DownloadsSection />
+              <DataManagerSection />
+            </>
+          )}
+
+          {tab === "help" && (
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+                Help
+              </h3>
+              <Link
+                href="/docs"
+                onClick={onClose}
+                className="flex min-h-12 w-full items-center justify-between rounded-lg border px-3 py-3 text-left transition-colors"
+                style={{
+                  borderColor: "rgba(0,0,0,0.08)",
+                  backgroundColor: "var(--color-bg)",
+                }}
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span
+                    className="flex size-9 items-center justify-center rounded-full"
+                    style={{ backgroundColor: "var(--color-surface)" }}
+                  >
+                    <FileText className="h-4 w-4 text-[var(--color-accent)]" />
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
-                    Features, icons, data sources, and design decisions.
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-[var(--color-text)]">
+                      Docs
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                      Features, icons, data sources, and design decisions.
+                    </span>
                   </span>
                 </span>
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--color-muted)]" />
-            </Link>
-          </section>
+                <ChevronRight className="h-4 w-4 shrink-0 text-[var(--color-muted)]" />
+              </Link>
+            </section>
+          )}
         </div>
 
         {canInstall && (
