@@ -14,6 +14,8 @@ import {
   isMorphologyDownloaded,
 } from "@/lib/offline/status";
 import { dbClear, dbDelete, dbGetAllKeys } from "@/lib/offline/storage";
+import { SEARCH_INDEX_STORE } from "@/lib/search/constants";
+import { clearSearchIndexMemoryCache } from "@/lib/search/client";
 import { resetReaderPrefetchState } from "@/lib/prefetch/readerPrefetch";
 import { clearTafsirRuntimeCache } from "@/lib/tafsir/loader";
 import { clearTranslationRuntimeCache } from "@/lib/translations/runtimeCache";
@@ -46,6 +48,7 @@ async function clearCacheStorage(): Promise<void> {
 
 function resetRuntimeCaches() {
   clearMushafPageMemoryCache();
+  clearSearchIndexMemoryCache();
   clearTafsirRuntimeCache();
   clearTranslationRuntimeCache();
   resetReaderPrefetchState();
@@ -100,6 +103,8 @@ export async function purgeTransientData(): Promise<void> {
     dbClear("tafsir-surahs"),
     status.morphologyDownloaded ? Promise.resolve() : dbClear("morphology"),
     status.lemmasDownloaded ? Promise.resolve() : dbClear("lemmas"),
+    // The search index is bundled with the mushaf download; keep it only alongside one.
+    status.downloadedMushafs.length > 0 ? Promise.resolve() : dbClear(SEARCH_INDEX_STORE),
   ]);
 
   await clearCacheStorage();

@@ -4,7 +4,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Home, Search, X } from "lucide-react";
-import type { QuranSearchResponse } from "@/lib/search";
+import type { QuranSearchResponse } from "@/lib/search/types";
+import { runSearch } from "@/lib/search/client";
 import type { MushafWord as MushafWordType } from "@/lib/types";
 import { VerseCard } from "@/components/lemma/VerseCard";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -178,24 +179,7 @@ function SearchResultsPanel({
   useMountEffect(() => {
     const controller = new AbortController();
 
-    fetch(`/api/search?q=${encodeURIComponent(query)}&limit=${SEARCH_RESULTS_LIMIT}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        const payload = (await res.json().catch(() => null)) as unknown;
-        if (!res.ok) {
-          const message =
-            typeof payload === "object" &&
-            payload !== null &&
-            "error" in payload &&
-            typeof (payload as { error?: unknown }).error === "string"
-              ? (payload as { error: string }).error
-              : "Search is unavailable right now.";
-          throw new Error(message);
-        }
-        return payload as QuranSearchResponse;
-      })
+    runSearch(query, SEARCH_RESULTS_LIMIT, controller.signal)
       .then((data) => {
         if (controller.signal.aborted) return;
         setResponse(data);

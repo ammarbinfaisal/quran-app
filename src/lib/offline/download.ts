@@ -9,6 +9,8 @@ import {
   TRANSLATION_API_IDS,
 } from "@/lib/types";
 import { dbPut, dbPutMany, dbDelete, dbGetAllKeys, dbClear } from "@/lib/offline/storage";
+import { SEARCH_INDEX_KEY, SEARCH_INDEX_STORE, SEARCH_INDEX_URL } from "@/lib/search/constants";
+import { clearSearchIndexMemoryCache } from "@/lib/search/client";
 import { getChapters } from "@/lib/chapters";
 import { AYAH_RECITERS } from "@/lib/ayahRecitation";
 import { getQcfFontUrl } from "@/lib/mushaf/fonts";
@@ -67,8 +69,9 @@ export async function downloadMushaf(
 
   const isQcf = QCF_CODES.includes(code);
 
-  // Each page may produce 1 fetch (JSON) or 2 fetches (JSON + font).
-  const totalSteps = isQcf ? TOTAL_PAGES * 2 : TOTAL_PAGES;
+  // Each page may produce 1 fetch (JSON) or 2 fetches (JSON + font), plus one
+  // fetch for the search index so search keeps working offline.
+  const totalSteps = (isQcf ? TOTAL_PAGES * 2 : TOTAL_PAGES) + 1;
   let done = 0;
 
   const report = () => {
@@ -108,6 +111,16 @@ export async function downloadMushaf(
     }
   }
 
+  // Search index task (single file, see scripts/generate-search-index.ts)
+  tasks.push(async () => {
+    const res = await fetch(SEARCH_INDEX_URL);
+    if (!res.ok) throw new Error(`Failed to fetch ${SEARCH_INDEX_URL}: ${res.status}`);
+    const buffer = await res.arrayBuffer();
+    await dbPut(SEARCH_INDEX_STORE, SEARCH_INDEX_KEY, buffer);
+    done++;
+    report();
+  });
+
   await runWithConcurrency(tasks, 8);
 
   // Mark as complete
@@ -131,6 +144,9 @@ export async function removeMushaf(code: MushafCode): Promise<void> {
       await dbDelete("mushaf-fonts", key);
     }
   }
+
+  await dbDelete(SEARCH_INDEX_STORE, SEARCH_INDEX_KEY);
+  clearSearchIndexMemoryCache();
 }
 
 // ---------------------------------------------------------------------------
