@@ -12,7 +12,7 @@ type Rect = {
 };
 
 test.describe("Reader bottom nav on small screens", () => {
-  test("puts center controls above action buttons without shrinking touch targets", async ({
+  test("keeps every control on one full-width row without shrinking touch targets", async ({
     page,
   }) => {
     await page.goto("/p/1", { waitUntil: "domcontentloaded" });
@@ -47,13 +47,27 @@ test.describe("Reader bottom nav on small screens", () => {
     });
 
     expect(layout).not.toBeNull();
-    expect(layout!.center.width).toBeGreaterThan(layout!.nav.width * 0.9);
 
-    const actionTop = Math.min(...layout!.actions.map((rect) => rect.top));
-    expect(layout!.center.bottom).toBeLessThanOrEqual(actionTop + 1);
+    // The bar spans the full viewport width...
+    expect(layout!.nav.width).toBe(360);
+
+    // ...and everything sits on a single row: the center shares its vertical
+    // band with the action clusters rather than wrapping onto its own line.
     for (const action of layout!.actions) {
+      expect(action.top).toBeLessThan(layout!.center.bottom);
+      expect(action.bottom).toBeGreaterThan(layout!.center.top);
       expect(action.height).toBeGreaterThanOrEqual(44);
     }
+
+    // A single row must not overflow horizontally.
+    const overflows = await page.evaluate(() => {
+      const inner = document.querySelector<HTMLElement>(
+        ".reader-bottom-nav-inner",
+      );
+      if (!inner) return null;
+      return inner.scrollWidth > inner.clientWidth + 1;
+    });
+    expect(overflows).toBe(false);
 
     const targetRects = await page.evaluate(() => {
       const selectors = [
@@ -67,7 +81,15 @@ test.describe("Reader bottom nav on small screens", () => {
         const element = document.querySelector<HTMLElement>(selector);
         if (!element) return null;
         const rect = element.getBoundingClientRect();
-        return { width: rect.width, height: rect.height };
+        // Segmented controls keep a compact painted box but extend their
+        // pressable area with an ::after overlay, so measure the larger of the
+        // two.
+        const overlayHeight =
+          Number.parseFloat(getComputedStyle(element, "::after").minHeight) || 0;
+        return {
+          width: rect.width,
+          height: Math.max(rect.height, overlayHeight),
+        };
       });
     });
 

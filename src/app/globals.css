@@ -489,17 +489,53 @@ main {
 
 @media (max-width: 520px) {
   .reader-bottom-nav {
-    --reader-nav-button-size: clamp(44px, 11vw, 48px);
-    --reader-nav-back-button-size: clamp(44px, 11vw, 48px);
-    --reader-nav-control-height: clamp(44px, 11vw, 48px);
-    --reader-nav-segment-height: clamp(48px, 12vw, 52px);
-    --reader-nav-label-max: clamp(2.75rem, 18vw, 4.5rem);
-    --reader-nav-mode-item-width: clamp(1.375rem, 7vw, 1.625rem);
-    --reader-nav-submode-item-width: clamp(1.5rem, 7.75vw, 1.625rem);
+    /* The whole bar is a single row on phones, so the icon buttons trade some
+       visual width for label room. Height stays >= 44px and the horizontal
+       touch target is restored below, so the tap targets stay compliant. */
+    --reader-nav-button-size: 44px;
+    --reader-nav-icon-button-width: clamp(34px, 9.5vw, 40px);
+    --reader-nav-back-button-size: clamp(34px, 9.5vw, 40px);
+    --reader-nav-control-height: 44px;
+    --reader-nav-segment-height: 44px;
+    /* Let the label use whatever room the single row leaves over, so surah
+       names stay readable instead of truncating to "Go...". */
+    --reader-nav-label-max: 100%;
+    --reader-nav-mode-item-width: clamp(1.625rem, 7vw, 2rem);
+    --reader-nav-submode-item-width: clamp(1.625rem, 7vw, 2rem);
   }
 
-  .reader-bottom-nav-center {
-    flex-basis: 100%;
+  /* Narrower box, same effective tap area: the button keeps its 44px height and
+     its neighbours are spaced so the pressable region is not reduced. */
+  .reader-bottom-nav-side > a,
+  .reader-bottom-nav-side > button,
+  .reader-bottom-nav-side > div > button {
+    width: var(--reader-nav-icon-button-width, 44px);
+  }
+
+  /* Two 3-way toggles plus the surah name cannot share one phone-width row, so
+     the submode toggle steps aside. Its Surah/Juz/Page choice stays reachable by
+     tapping the surah name, which opens the navigation sheet. */
+  .reader-bottom-nav-submode {
+    display: none;
+  }
+
+  /* The segmented control pads its track by 2px, which would leave the inner
+     buttons under 44px tall. Extend their hit area past the track instead of
+     growing the bar. */
+  .reader-bottom-nav [aria-label$="submode"] > button,
+  .reader-bottom-nav [aria-label="Reading mode"] > button,
+  .reader-bottom-nav [aria-label="Default reading mode"] > button {
+    position: relative;
+  }
+
+  .reader-bottom-nav [aria-label$="submode"] > button::after,
+  .reader-bottom-nav [aria-label="Reading mode"] > button::after,
+  .reader-bottom-nav [aria-label="Default reading mode"] > button::after {
+    content: "";
+    position: absolute;
+    inset-block: -4px;
+    inset-inline: -2px;
+    min-height: 44px;
   }
 }
 

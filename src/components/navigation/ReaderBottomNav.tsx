@@ -61,9 +61,9 @@ export function ReaderBottomNav({
         paddingBottom: "max(8px, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="reader-bottom-nav-inner mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-1 gap-y-1 px-2 py-1 min-[521px]:flex-nowrap lg:max-w-5xl">
+      <div className="reader-bottom-nav-inner mx-auto flex w-full max-w-3xl flex-nowrap items-center gap-x-1 px-2 py-1 lg:max-w-5xl">
         <div
-          className="reader-bottom-nav-side reader-bottom-nav-side-start order-2 flex items-center min-[521px]:order-none"
+          className="reader-bottom-nav-side reader-bottom-nav-side-start flex shrink-0 items-center"
           data-nav-row="actions"
         >
           {showBack && (
@@ -88,7 +88,7 @@ export function ReaderBottomNav({
 
         <div
           className={cn(
-            "reader-bottom-nav-center order-1 flex min-w-0 flex-1 items-center justify-center min-[521px]:order-none min-[521px]:justify-center max-[520px]:basis-full",
+            "reader-bottom-nav-center flex min-w-0 flex-1 basis-0 items-center justify-center",
             centerClassName ?? "gap-3",
           )}
           data-nav-row="center"
@@ -98,7 +98,7 @@ export function ReaderBottomNav({
               type="button"
               onClick={centerLabel.onClick}
               className={cn(
-                "flex min-w-0 max-w-[var(--reader-nav-label-max)] items-center rounded-lg text-[var(--color-text)] active:scale-[0.97] active:opacity-80",
+                "flex min-w-0 shrink max-w-[var(--reader-nav-label-max)] items-center rounded-lg text-[var(--color-text)] active:scale-[0.97] active:opacity-80",
                 labelSize === "sm"
                   ? "h-[var(--reader-nav-control-height)] gap-1 px-1.5 text-[11px]"
                   : "h-[var(--reader-nav-control-height)] gap-1.5 px-2.5 text-sm",
@@ -117,7 +117,7 @@ export function ReaderBottomNav({
         </div>
 
         <div
-          className="reader-bottom-nav-side reader-bottom-nav-side-end order-3 flex items-center min-[521px]:order-none"
+          className="reader-bottom-nav-side reader-bottom-nav-side-end flex shrink-0 items-center"
           data-nav-row="actions"
         >
           {showOfflineIndicator && <OfflineIndicator />}

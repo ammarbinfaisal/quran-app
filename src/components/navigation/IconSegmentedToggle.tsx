@@ -43,7 +43,7 @@ export function IconSegmentedToggle<T extends string>({
   return (
     <div
       className={cn(
-        "relative flex h-[var(--reader-nav-segment-height,2rem)] items-center rounded-full bg-[var(--color-surface)] p-[2px] shadow-inner",
+        "relative flex h-[var(--reader-nav-segment-height,2rem)] shrink-0 items-center rounded-full bg-[var(--color-surface)] p-[2px] shadow-inner",
         className,
       )}
       style={{ width: containerWidth }}

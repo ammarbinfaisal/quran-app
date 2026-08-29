@@ -104,6 +104,7 @@ export function SubmodeToggle({
       ariaLabel={ariaLabel}
       onSelect={handleSelect}
       itemWidth="var(--reader-nav-submode-item-width)"
+      className="reader-bottom-nav-submode"
     />
   );
 }
