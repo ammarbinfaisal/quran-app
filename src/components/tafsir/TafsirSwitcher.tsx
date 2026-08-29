@@ -6,6 +6,7 @@ import {
   TAFSIR_IDS,
   TAFSIR_ARABIC_NAMES,
   TAFSIR_DISPLAY_NAMES,
+  TAFSIR_LANGUAGES,
   type TafsirId,
 } from "@/lib/types";
 
@@ -45,6 +46,9 @@ export function TafsirSwitcher({
       {visibleIds.map((id) => {
         const selected = id === active;
         const isPending = pending === id;
+        // English editions carry a Latin label, so they take the UI face and
+        // LTR rather than the Arabic naskh the other tabs are set in.
+        const isEnglish = TAFSIR_LANGUAGES[id] === "en";
 
         return (
           <button
@@ -65,10 +69,13 @@ export function TafsirSwitcher({
             )}
           >
             <span
-              className={cn("font-arabic text-[0.95rem]", isPending && "opacity-40")}
-              dir="rtl"
+              className={cn(
+                isEnglish ? "text-[0.85rem] font-medium" : "font-arabic text-[0.95rem]",
+                isPending && "opacity-40",
+              )}
+              dir={isEnglish ? "ltr" : "rtl"}
             >
-              {TAFSIR_ARABIC_NAMES[id]}
+              {isEnglish ? TAFSIR_DISPLAY_NAMES[id] : TAFSIR_ARABIC_NAMES[id]}
             </span>
             {isPending && (
               <span className="pointer-events-none absolute inset-0 flex items-center justify-center">

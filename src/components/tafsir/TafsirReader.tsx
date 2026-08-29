@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ExternalLink } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useApplyPreferences } from "@/hooks/useApplyPreferences";
 import { useChapters } from "@/hooks/useChapters";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -28,6 +30,7 @@ import { scheduleTafsirPrefetch } from "@/lib/tafsir/prefetch";
 import {
   TAFSIR_DISPLAY_NAMES,
   TAFSIR_IDS,
+  TAFSIR_LANGUAGES,
   type TafsirId,
 } from "@/lib/types";
 import { formatVerseRangeReference, formatVerseReference } from "@/lib/recitationRange";
@@ -192,7 +195,18 @@ export function TafsirReader({
     return formatVerseRangeReference(startKey, endKey, chapters);
   }, [tafsirEntry, surahId, chapters]);
 
-  const attributionUrl = `https://tafsir.app/${activeTafsir}/${surahId}/${ayahId}`;
+  // English tafsir comes from the Quran.Foundation API; the Arabic ones were
+  // sourced from tafsir.app, so each links back to where its text came from.
+  const attribution = useMemo(
+    () =>
+      TAFSIR_LANGUAGES[activeTafsir] === "en"
+        ? { label: "quran.com", url: `https://quran.com/${surahId}/${ayahId}/tafsirs` }
+        : {
+            label: "tafsir.app",
+            url: `https://tafsir.app/${activeTafsir}/${surahId}/${ayahId}`,
+          },
+    [activeTafsir, surahId, ayahId],
+  );
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     setSelectedTap(target);
@@ -258,12 +272,12 @@ export function TafsirReader({
                 {TAFSIR_DISPLAY_NAMES[activeTafsir]}
               </h2>
               <a
-                href={attributionUrl}
+                href={attribution.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-[var(--color-muted)] hover:text-[var(--color-accent)] transition"
               >
-                tafsir.app
+                {attribution.label}
                 <ExternalLink className="h-3 w-3" />
               </a>
             </header>
@@ -277,7 +291,14 @@ export function TafsirReader({
             {loading ? (
               <TafsirSkeleton />
             ) : tafsirEntry?.text ? (
-              <TafsirContent html={tafsirEntry.text} fontScale={prefs.fontScale ?? 1} />
+              TAFSIR_LANGUAGES[activeTafsir] === "en" ? (
+                <TafsirMarkdown
+                  markdown={tafsirEntry.text}
+                  fontScale={prefs.fontScale ?? 1}
+                />
+              ) : (
+                <TafsirContent html={tafsirEntry.text} fontScale={prefs.fontScale ?? 1} />
+              )
             ) : (
               <p className="py-4 text-center text-sm text-[var(--color-muted)]">
                 No tafsir available for this ayah.
@@ -491,6 +512,77 @@ function InlineSegments({
         return <span key={i}>{seg.value}</span>;
       })}
     </>
+  );
+}
+
+/**
+ * English tafsirs are stored as markdown (converted from the source HTML at
+ * fetch time), so they render through react-markdown in LTR body type rather
+ * than the Arabic plain-text parser below. Embedded Qur'an and hadith
+ * quotations arrive as blockquotes wrapped in ﴿ ﴾ and stay in the Arabic face.
+ */
+function TafsirMarkdown({
+  markdown,
+  fontScale,
+}: {
+  markdown: string;
+  fontScale: number;
+}) {
+  const fontSize = `clamp(1rem, ${fontScale * 0.08 + 0.95}rem, 1.5rem)`;
+
+  return (
+    <div
+      className="leading-[1.85] text-[var(--color-text)] space-y-3"
+      dir="ltr"
+      style={{ fontSize }}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => (
+            <h3 className="pt-2 first:pt-0 font-semibold text-[var(--color-accent)]">
+              {children}
+            </h3>
+          ),
+          h2: ({ children }) => (
+            <h3 className="pt-2 first:pt-0 font-semibold text-[var(--color-accent)]">
+              {children}
+            </h3>
+          ),
+          h3: ({ children }) => (
+            <h4 className="pt-2 first:pt-0 font-semibold text-[var(--color-accent)]">
+              {children}
+            </h4>
+          ),
+          p: ({ children }) => <p>{children}</p>,
+          blockquote: ({ children }) => (
+            <blockquote
+              className="my-3 border-r-2 border-[var(--color-accent)]/40 pr-3 font-arabic text-[1.15em] leading-[2] text-[var(--color-accent)]"
+              dir="rtl"
+            >
+              {children}
+            </blockquote>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc space-y-1 pl-5">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal space-y-1 pl-5">{children}</ol>
+          ),
+          li: ({ children }) => <li>{children}</li>,
+          em: ({ children }) => <em className="italic">{children}</em>,
+          strong: ({ children }) => (
+            <strong className="font-semibold">{children}</strong>
+          ),
+          // Backticks are transliteration marks in this corpus (`Amr, `A'ishah,
+          // Ka`b), never code. Render any span markdown parsed as code back as
+          // plain text with its delimiters intact.
+          code: ({ children }) => <>`{children}`</>,
+        }}
+      >
+        {markdown}
+      </ReactMarkdown>
+    </div>
   );
 }
 

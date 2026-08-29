@@ -1,8 +1,9 @@
 import { TafsirReader } from "@/components/tafsir/TafsirReader";
 import { InvalidPathMessage } from "@/components/ui/InvalidPathMessage";
-import { TAFSIR_IDS } from "@/lib/types";
+import { TAFSIR_DISPLAY_NAMES, TAFSIR_IDS } from "@/lib/types";
 import { getChapters } from "@/lib/chapters";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 
 // Tafsir pages are rendered on-demand. With 6 tafaseer × ~6200 ayaat ≈ 37k
 // static HTML files, prerendering exceeds Vercel's per-deployment file-count
@@ -10,6 +11,23 @@ import { Suspense } from "react";
 // on-demand is fast enough without SSG.
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tafsirId: string; surahId: string; ayahId: string }>;
+}): Promise<Metadata> {
+  const { tafsirId, surahId, ayahId } = await params;
+
+  const validTafsirId = TAFSIR_IDS.find((id) => id === tafsirId);
+  const chapter = getChapters().find((c) => c.id === Number(surahId));
+  if (!validTafsirId || !chapter) return { title: "Tafsir" };
+
+  const name = TAFSIR_DISPLAY_NAMES[validTafsirId];
+  return {
+    title: `${name} — ${chapter.nameSimple} ${surahId}:${ayahId}`,
+  };
+}
 
 export default async function TafsirRoute({
   params,

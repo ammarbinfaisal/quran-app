@@ -15,6 +15,7 @@ import path from "path";
 
 const TAFSIR_IDS = [
   "ibn-katheer",
+  "ibn-katheer-en",
   "tabari",
   "qurtubi",
   "baghawi",

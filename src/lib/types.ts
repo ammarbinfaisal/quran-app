@@ -108,6 +108,7 @@ export interface TranslationEntry {
 // ---------------------------------------------------------------------------
 export type TafsirId =
   | "ibn-katheer"
+  | "ibn-katheer-en"
   | "tabari"
   | "qurtubi"
   | "baghawi"
@@ -117,6 +118,7 @@ export type TafsirId =
 
 export const TAFSIR_IDS = [
   "ibn-katheer",
+  "ibn-katheer-en",
   "tabari",
   "qurtubi",
   "baghawi",
@@ -127,6 +129,7 @@ export const TAFSIR_IDS = [
 
 export const TAFSIR_DISPLAY_NAMES: Record<TafsirId, string> = {
   "ibn-katheer": "Tafsir Ibn Kathir",
+  "ibn-katheer-en": "Ibn Kathir (Abridged)",
   tabari: "Tafsir al-Tabari",
   qurtubi: "Tafsir al-Qurtubi",
   baghawi: "Tafsir al-Baghawi",
@@ -137,6 +140,7 @@ export const TAFSIR_DISPLAY_NAMES: Record<TafsirId, string> = {
 
 export const TAFSIR_ARABIC_NAMES: Record<TafsirId, string> = {
   "ibn-katheer": "تفسير ابن كثير",
+  "ibn-katheer-en": "تفسير ابن كثير (مختصر إنجليزي)",
   tabari: "تفسير الطبري",
   qurtubi: "تفسير القرطبي",
   baghawi: "تفسير البغوي",
@@ -145,9 +149,29 @@ export const TAFSIR_ARABIC_NAMES: Record<TafsirId, string> = {
   "adwaa-albayan": "أضواء البيان",
 };
 
+/**
+ * Language a tafsir is written in. Drives text direction, typeface and
+ * which content parser the reader uses: "ar" sources come from tafsir.app
+ * as plain text with Arabic editorial conventions, "en" sources come from
+ * the Quran.Foundation API and are stored as markdown.
+ */
+export type TafsirLanguage = "ar" | "en";
+
+export const TAFSIR_LANGUAGES: Record<TafsirId, TafsirLanguage> = {
+  "ibn-katheer": "ar",
+  "ibn-katheer-en": "en",
+  tabari: "ar",
+  qurtubi: "ar",
+  baghawi: "ar",
+  "ibn-uthaymeen": "ar",
+  "ibn-alqayyim": "ar",
+  "adwaa-albayan": "ar",
+};
+
 /** Whether the tafsir covers all 6236 ayaat (true) or only some (false) */
 export const TAFSIR_FULL_COVERAGE: Record<TafsirId, boolean> = {
   "ibn-katheer": true,
+  "ibn-katheer-en": true,
   tabari: true,
   qurtubi: true,
   baghawi: true,

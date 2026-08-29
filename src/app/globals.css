@@ -630,6 +630,11 @@ main {
 /* ------------------------------------------------------------------ */
 
 @theme {
+  /* Arabic body text — quoted ayat and hadith inside tafsir prose. Distinct
+     from the per-page mushaf glyph fonts, which are loaded per mushaf page. */
+  --font-arabic: "SF Arabic", "Geeza Pro", "Noto Naskh Arabic",
+    "Traditional Arabic", "Amiri", serif;
+
   --color-bg: var(--color-bg);
   --color-foreground: var(--color-text);
   --color-accent: var(--color-accent);
