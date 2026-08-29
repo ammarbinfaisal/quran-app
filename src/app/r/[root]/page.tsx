@@ -2,6 +2,7 @@ import { OccurrenceViewer } from "@/components/occurrence/OccurrenceViewer";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buckwalterToArabic } from "@/lib/transliteration";
 import { decodeRouteParam } from "@/lib/routeParams";
+import { rootToFilename } from "@/lib/rootFilename";
 import { createWebPageJsonLd } from "@/lib/seo";
 
 export const revalidate = 604800; // ISR: 7 days
@@ -20,7 +21,7 @@ export default async function RootRoute({
     const { root: encodedRoot } = await params;
     const buckwalter = decodeRouteParam(encodedRoot);
     const arabicRoot = buckwalterToArabic(buckwalter);
-    const dataUrl = `/data/roots/${encodeURIComponent(buckwalter)}.json`;
+    const dataUrl = `/data/roots/${encodeURIComponent(rootToFilename(buckwalter))}.json`;
 
     return (
         <>

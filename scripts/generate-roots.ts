@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 import path from 'path';
+import { rootToFilename } from '../src/lib/rootFilename';
 
 const MORPHOLOGY_DIR = path.join(process.cwd(), 'public/data/morphology');
 const ROOTS_DIR = path.join(process.cwd(), 'public/data/roots');
@@ -41,9 +42,22 @@ for (const file of files) {
     }
 }
 
+// Roots are written under an encoded basename because Buckwalter is
+// case-sensitive while macOS and Windows filesystems are not — see
+// src/lib/rootFilename.ts. Writing `${root}.json` directly silently
+// overwrote every root differing only in case.
 let count = 0;
+const written = new Map<string, string>();
 for (const [root, occurrences] of Object.entries(roots)) {
-    writeFileSync(path.join(ROOTS_DIR, `${root}.json`), JSON.stringify(occurrences));
+    const filename = rootToFilename(root);
+    const clash = written.get(filename.toLowerCase());
+    if (clash) {
+        throw new Error(
+            `Filename collision: roots "${clash}" and "${root}" both map to "${filename}.json"`,
+        );
+    }
+    written.set(filename.toLowerCase(), root);
+    writeFileSync(path.join(ROOTS_DIR, `${filename}.json`), JSON.stringify(occurrences));
     count++;
 }
 

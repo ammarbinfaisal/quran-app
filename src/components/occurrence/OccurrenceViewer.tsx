@@ -17,6 +17,7 @@ import type { WordTapTarget } from "@/lib/wordTap";
 import { useMushafPage } from "@/hooks/useMushafPage";
 import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
 import type { OnWordTap } from "@/lib/wordTap";
+import { rootToFilename } from "@/lib/rootFilename";
 
 interface Occurrence {
     surah: number;
@@ -380,5 +381,5 @@ export function lemmaDataUrl(arabicLemma: string): string {
  * Builds the fetch URL for a root data file given the Buckwalter root string.
  */
 export function rootDataUrl(buckwalterRoot: string): string {
-    return `/data/roots/${encodeURIComponent(buckwalterRoot)}.json`;
+    return `/data/roots/${encodeURIComponent(rootToFilename(buckwalterRoot))}.json`;
 }
