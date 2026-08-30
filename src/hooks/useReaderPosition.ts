@@ -7,6 +7,7 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { trackPageDebounced } from "@/hooks/useReadingHistory";
 import { useRecitationContext } from "@/components/recitation/RecitationContext";
 import { pageToJuz } from "@/lib/navigation/maps";
+import { parseVerseKey } from "@/lib/recitationRange";
 import {
   getVisibleReaderPosition,
   resolvePageContext,
@@ -73,8 +74,27 @@ export function useReaderPosition({
     [chapters, labelPage],
   );
 
-  const label = pageContext?.surahName ?? String(id);
-  const currentSurahId = pageContext?.surahId;
+  // A page that ends one surah and starts the next maps to the *earlier* surah,
+  // so `pageContext.surahId` lags by one whole surah while a surah header sits
+  // at the top of the view. The visible verse knows which surah is actually
+  // being read, so it wins whenever the scroll container has reported one.
+  const visibleSurahId = useMemo(() => {
+    const fromVisibleVerse = focusVerseKey
+      ? (parseVerseKey(focusVerseKey)?.surah ?? null)
+      : null;
+    if (fromVisibleVerse !== null) return fromVisibleVerse;
+    // Before the first scroll there is no visible verse yet; in surah scope the
+    // route itself already names the surah being read.
+    return type === "s" ? id : null;
+  }, [focusVerseKey, type, id]);
+
+  const currentSurahId = visibleSurahId ?? pageContext?.surahId;
+  const label =
+    (visibleSurahId !== null
+      ? chapters.find((chapter) => chapter.id === visibleSurahId)?.nameSimple
+      : undefined) ??
+    pageContext?.surahName ??
+    String(id);
   const currentJuzId = useMemo(
     () => (labelPage === null ? undefined : pageToJuz(labelPage)),
     [labelPage],
@@ -101,6 +121,27 @@ export function useReaderPosition({
     }
   });
 
+  const handleScrollPositionRef = useRef<() => void>(() => {});
+
+  // Seed the position from the container once its verses have rendered, so
+  // consumers (notably the recitation range defaults) see the verse actually at
+  // the top of the view instead of waiting for the first scroll event.
+  useMountEffect(() => {
+    let frame = 0;
+    let attempts = 0;
+    const seed = () => {
+      const container = scrollContainerRef?.current;
+      if (container?.querySelector("[data-verse-key]")) {
+        handleScrollPositionRef.current();
+        return;
+      }
+      // Verses arrive with progressive rendering; retry for a short while.
+      if (attempts++ < 60) frame = requestAnimationFrame(seed);
+    };
+    frame = requestAnimationFrame(seed);
+    return () => cancelAnimationFrame(frame);
+  });
+
   const handleScrollPosition = useCallback(() => {
     const container = scrollContainerRef?.current;
     if (!container) return;
@@ -119,6 +160,10 @@ export function useReaderPosition({
       trackPageDebounced(page);
     }
   }, [scrollContainerRef, type, id, trackHistory]);
+
+  useLayoutEffect(() => {
+    handleScrollPositionRef.current = handleScrollPosition;
+  });
 
   const getNavSelection = useCallback((): ReaderNavSelection => {
     const container = scrollContainerRef?.current;

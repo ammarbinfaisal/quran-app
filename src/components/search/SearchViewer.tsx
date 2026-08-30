@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Home, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type { QuranSearchResponse } from "@/lib/search/types";
 import { runSearch } from "@/lib/search/client";
 import type { MushafWord as MushafWordType } from "@/lib/types";
@@ -94,49 +93,39 @@ export function SearchViewer() {
   return (
     <div className="flex h-full w-full flex-col bg-[var(--color-bg)]">
       <header className="sticky top-0 z-10 border-b border-[var(--color-muted)]/20 bg-[var(--color-bg)] px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="rounded-full p-2 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-muted)]/10"
-            aria-label="Home"
-          >
-            <Home className="h-5 w-5" />
-          </Link>
-
-          <label className="relative block flex-1">
-            <span className="sr-only">Search Quran</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
-            <input
-              value={input}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                setInput(newValue);
-                scheduleCommit(newValue);
+        <label className="relative block w-full">
+          <span className="sr-only">Search Quran</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
+          <input
+            value={input}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setInput(newValue);
+              scheduleCommit(newValue);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              commitNow(input, true);
+            }}
+            placeholder="Search Quran…"
+            className="w-full rounded-lg bg-[var(--color-surface)] py-2 pl-9 pr-9 text-sm text-[var(--color-text)] outline-none ring-1 ring-[var(--color-muted)]/20 focus:ring-[var(--color-accent)]/40"
+            autoComplete="off"
+            inputMode="search"
+          />
+          {hasInput ? (
+            <button
+              type="button"
+              onClick={() => {
+                setInput("");
+                commitNow("");
               }}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                commitNow(input, true);
-              }}
-              placeholder="Search Quran…"
-              className="w-full rounded-lg bg-[var(--color-surface)] py-2 pl-9 pr-9 text-sm text-[var(--color-text)] outline-none ring-1 ring-[var(--color-muted)]/20 focus:ring-[var(--color-accent)]/40"
-              autoComplete="off"
-              inputMode="search"
-            />
-            {hasInput ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setInput("");
-                  commitNow("");
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-2 text-[var(--color-muted)] active:bg-black/5"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
-          </label>
-        </div>
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-2 text-[var(--color-muted)] active:bg-black/5"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </label>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 pb-28">

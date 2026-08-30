@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 
 const SETTINGS_TABS = [
   { id: "display", label: "Display" },
-  { id: "content", label: "Content" },
+  { id: "translation", label: "Translation" },
+  { id: "audio", label: "Audio" },
   { id: "data", label: "Data" },
   { id: "help", label: "Help" },
 ] as const;
@@ -42,11 +43,11 @@ function SettingsTabButton({
       aria-selected={selected}
       onClick={onClick}
       className={cn(
-        "min-h-11 flex-1 rounded-lg px-2 py-2 text-sm font-semibold outline-none transition",
+        "min-h-11 shrink-0 whitespace-nowrap border-b-2 px-1 pb-2 pt-1 text-sm font-semibold outline-none transition-colors",
         "focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40",
         selected
-          ? "bg-[var(--color-accent)] text-[var(--color-bg)]"
-          : "bg-[var(--color-bg)] text-[var(--color-text)] ring-1 ring-[var(--color-muted)]/20 hover:bg-[var(--color-surface)]",
+          ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+          : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-text)]",
       )}
     >
       {children}
@@ -103,7 +104,7 @@ export function SettingsDrawer({
         <div
           role="tablist"
           aria-label="Settings tabs"
-          className="grid grid-cols-4 gap-2 px-4 pt-3 pb-2"
+          className="flex gap-5 overflow-x-auto border-b border-[var(--color-muted)]/20 px-4 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {SETTINGS_TABS.map((t) => (
             <SettingsTabButton
@@ -129,14 +130,15 @@ export function SettingsDrawer({
             </>
           )}
 
-          {tab === "content" && (
+          {tab === "translation" && (
             <>
               <TranslationPicker />
               <TafsirOrderPicker />
-              <AyahReciterPicker />
               <VerseCopySettings />
             </>
           )}
+
+          {tab === "audio" && <AyahReciterPicker />}
 
           {tab === "data" && (
             <>
