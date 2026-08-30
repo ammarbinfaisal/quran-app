@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
 
@@ -23,10 +23,27 @@ const execFileAsync = promisify(execFile);
 const USER_AGENT = "quran.tarteel.tv (scraper)";
 
 // Slow by default to be respectful. Set SCRAPE_FAST=1 for no delays.
+// SCRAPE_TRANSLATION_DELAY_MS / SCRAPE_NOTES_DELAY_MS / SCRAPE_NOTES_CONCURRENCY
+// override the defaults, so a full re-scrape can pick a polite middle ground
+// instead of choosing between ~17 hours and hammering the site.
 const FAST_MODE = !!process.env.SCRAPE_FAST;
-const TRANSLATION_DELAY_MS = FAST_MODE ? 0 : 100_000;
-const NOTES_DELAY_MS = FAST_MODE ? 0 : 200_000;
-const NOTES_CONCURRENCY = FAST_MODE ? 6 : 1;
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+const TRANSLATION_DELAY_MS = envInt(
+  "SCRAPE_TRANSLATION_DELAY_MS",
+  FAST_MODE ? 0 : 100_000,
+);
+const NOTES_DELAY_MS = envInt("SCRAPE_NOTES_DELAY_MS", FAST_MODE ? 0 : 200_000);
+const NOTES_CONCURRENCY = Math.max(
+  1,
+  envInt("SCRAPE_NOTES_CONCURRENCY", FAST_MODE ? 6 : 1),
+);
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
@@ -161,22 +178,64 @@ function parseNotesHtml(html: string): AbuIyaadNote[] {
     .filter((note: AbuIyaadNote | null): note is AbuIyaadNote => note !== null);
 }
 
+// Where curl-impersonate wrappers usually live. A system-wide install wins over
+// a copy unpacked in $HOME, and the highest Chrome version in a directory wins.
+const CURL_CHROME_SEARCH_DIRS = [
+  "/usr/local/bin",
+  "/opt/homebrew/bin",
+  "/usr/bin",
+  join(homedir(), "curl_chrome"),
+];
+
+async function findCurlChromeIn(dir: string): Promise<string | null> {
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return null;
+  }
+
+  const candidates = entries
+    .filter((entry: string) => /^curl_chrome\d+$/.test(entry))
+    .sort(
+      (a, b) =>
+        Number.parseInt(b.slice("curl_chrome".length), 10) -
+        Number.parseInt(a.slice("curl_chrome".length), 10),
+    );
+
+  return candidates.length > 0 ? join(dir, candidates[0]) : null;
+}
+
 async function resolveCurlChromeExecutable(): Promise<string> {
   const fromEnv = process.env.CURL_CHROME_BIN;
   if (fromEnv) {
     return fromEnv.startsWith("~/") ? join(homedir(), fromEnv.slice(2)) : fromEnv;
   }
 
-  const dir = join(homedir(), "curl_chrome");
-  const candidates = (await readdir(dir))
-    .filter((entry: string) => /^curl_chrome\d+$/.test(entry))
-    .sort((a, b) => Number.parseInt(b.slice("curl_chrome".length), 10) - Number.parseInt(a.slice("curl_chrome".length), 10));
-
-  if (candidates.length === 0) {
-    throw new Error(`No curl_chrome* executable found in ${dir}`);
+  for (const dir of CURL_CHROME_SEARCH_DIRS) {
+    const found = await findCurlChromeIn(dir);
+    if (found) return found;
   }
 
-  return join(dir, candidates[0]);
+  throw new Error(
+    `No curl_chrome* executable found in any of: ${CURL_CHROME_SEARCH_DIRS.join(", ")}. ` +
+      `Install curl-impersonate or set CURL_CHROME_BIN.`,
+  );
+}
+
+// A curl_chrome* wrapper already passes a full set of Chrome headers. Adding our
+// own accept/user-agent on top sends them twice, and the site's IIS front end
+// answers that with "HTTP Error 400. The request is badly formed." — every page
+// comes back empty. Only forward headers the wrapper does not already set.
+const IMPERSONATION_OWNED_HEADERS = new Set([
+  "accept",
+  "accept-encoding",
+  "accept-language",
+  "user-agent",
+]);
+
+function isImpersonationWrapper(executable: string): boolean {
+  return /curl_(chrome|edge|safari)/.test(executable);
 }
 
 async function runCurlChrome(
@@ -185,6 +244,13 @@ async function runCurlChrome(
   url: string,
   headers: string[] = [],
 ): Promise<string> {
+  const effectiveHeaders = isImpersonationWrapper(executable)
+    ? headers.filter((header) => {
+        const name = header.split(":")[0]?.trim().toLowerCase();
+        return name ? !IMPERSONATION_OWNED_HEADERS.has(name) : true;
+      })
+    : headers;
+
   const args = [
     "-sS",
     "-L",
@@ -192,7 +258,7 @@ async function runCurlChrome(
     cookieFile,
     "-c",
     cookieFile,
-    ...headers.flatMap((header) => ["-H", header]),
+    ...effectiveHeaders.flatMap((header) => ["-H", header]),
     url,
   ];
   const { stdout } = await execFileAsync(executable, args, { maxBuffer: 32 * 1024 * 1024 });
@@ -252,7 +318,12 @@ async function run() {
       let start = 1;
       let keepGoing = true;
 
-      while (keepGoing) {
+      // The translation is partial and its gaps fall mid-surah: al-Baqarah has
+      // 2:1-24, then nothing until 2:41, then more up to 2:286. Paging until the
+      // first empty page therefore stops at the first gap and silently discards
+      // everything after it — this is what truncated the data in f8f34259.
+      // Walk the whole surah by verse count instead, and let empty pages pass.
+      while (keepGoing && start <= SURAH_VERSE_COUNTS[surah]) {
         try {
           const url = `https://www.thenoblequran.com/q/includes/cfm/displaysura.cfm?sura=${surah}&start=${start}`;
           const html = await runCurlChrome(executable, cookieFile, url, [
@@ -261,14 +332,16 @@ async function run() {
             `user-agent: ${USER_AGENT}`,
           ]);
 
+          // An empty response is a gap in the translation, not the end of the
+          // surah — keep paging.
           if (html.trim().length === 0 || html.includes("No verses found")) {
-            keepGoing = false;
-            break;
+            start += 10;
+            await sleep(TRANSLATION_DELAY_MS);
+            continue;
           }
 
           const $ = cheerio.load(html);
           const prevCum = QURAN_CUMULATIVE[surah - 1];
-          let foundAny = false;
 
           $("[id^='rafiam']").each((_: number, element: Element) => {
             const id = $(element).attr("id");
@@ -283,22 +356,21 @@ async function run() {
             if (segments.length === 0) return;
 
             translationResult[`${surah}:${ayah}`] = segments;
-            foundAny = true;
           });
 
-          if (!foundAny) {
-            keepGoing = false;
-          } else {
-            start += 10;
-            await sleep(TRANSLATION_DELAY_MS);
-          }
+          // A page with no parseable verses is another gap; keep paging.
+          start += 10;
+          await sleep(TRANSLATION_DELAY_MS);
         } catch (error) {
           console.error(`\nError fetching sura ${surah} start ${start}:`, error);
           keepGoing = false;
         }
       }
 
-      console.log(" Done.");
+      const captured = Object.keys(translationResult).filter((k) =>
+        k.startsWith(`${surah}:`),
+      ).length;
+      console.log(` ${captured}/${SURAH_VERSE_COUNTS[surah]} verses.`);
     }
 
     const verseKeys = Object.keys(translationResult).sort((a, b) => {
@@ -336,7 +408,31 @@ async function run() {
     });
 
     const publicDataDir = join(process.cwd(), "public", "data");
-    await writeFile(join(publicDataDir, "abu-iyaad.json"), JSON.stringify(translationResult));
+    const translationPath = join(publicDataDir, "abu-iyaad.json");
+
+    // Refuse to shrink the dataset. A run that captures fewer verses than the
+    // file already holds is a scrape failure (a pagination bug, a blocked
+    // session, a site change), not the translation losing content — and
+    // overwriting anyway is what silently dropped 1294 verses in f8f34259.
+    // SCRAPE_ALLOW_SHRINK=1 overrides when the loss is genuinely intended.
+    let existingCount = 0;
+    try {
+      existingCount = Object.keys(
+        JSON.parse(await readFile(translationPath, "utf8")),
+      ).length;
+    } catch {
+      // No existing file (or unreadable) — nothing to protect.
+    }
+
+    if (verseKeys.length < existingCount && !process.env.SCRAPE_ALLOW_SHRINK) {
+      throw new Error(
+        `Refusing to overwrite ${translationPath}: scraped ${verseKeys.length} verses ` +
+          `but the existing file has ${existingCount}. Investigate the scrape, or set ` +
+          `SCRAPE_ALLOW_SHRINK=1 to write anyway.`,
+      );
+    }
+
+    await writeFile(translationPath, JSON.stringify(translationResult));
     await writeFile(join(publicDataDir, "abu-iyaad-notes.json"), JSON.stringify(notesResult));
 
     console.log(`Saved ${verseKeys.length} translation keys and ${Object.keys(notesResult).length} note keys.`);
