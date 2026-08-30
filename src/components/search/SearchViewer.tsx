@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Home, Search, X } from "lucide-react";
 import type { QuranSearchResponse } from "@/lib/search/types";
 import { runSearch } from "@/lib/search/client";
@@ -19,14 +19,38 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import type { MushafCode } from "@/lib/types";
 import { useMushafPage } from "@/hooks/useMushafPage";
 import { DATA_USAGE_POLICIES } from "@/lib/dataUsage";
+import { SEARCH_MIN_QUERY_LETTERS } from "@/lib/search/constants";
+import { countSearchLetters } from "@/lib/search/normalize";
 
-const URL_SYNC_DEBOUNCE_MS = 300;
+/** Idle time after the last keystroke before the query is committed to the URL (and searched). */
+const SEARCH_DEBOUNCE_MS = 400;
 const SEARCH_RESULTS_LIMIT = 50;
 
+function searchPath(query: string): string {
+  return query ? `/search?q=${encodeURIComponent(query)}` : "/search";
+}
+
+function currentUrlQuery(): string {
+  return (new URL(window.location.href).searchParams.get("q") ?? "").trim();
+}
+
+/**
+ * Commits a typed query to the URL, which is what drives the search. While
+ * typing, queries under the letter minimum clear the URL instead; Enter
+ * (`force`) searches whatever was typed. Pure address-bar update: Next syncs
+ * useSearchParams with the native History API, so unlike router.replace this
+ * costs no RSC round trip per keystroke burst.
+ */
+function commitSearchQuery(raw: string, force = false) {
+  const trimmed = raw.trim();
+  const next = force || countSearchLetters(trimmed) >= SEARCH_MIN_QUERY_LETTERS ? trimmed : "";
+  if (next === currentUrlQuery()) return;
+  window.history.replaceState(null, "", searchPath(next));
+}
+
 export function SearchViewer() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const urlQ = searchParams.get("q") ?? "";
+  const urlQ = (searchParams.get("q") ?? "").trim();
   const { prefs } = usePreferences();
   const mushafCode = prefs.mushafCode;
 
@@ -37,12 +61,27 @@ export function SearchViewer() {
 
   if (syncedUrlQ !== urlQ) {
     setSyncedUrlQ(urlQ);
-    setInput(urlQ);
+    // Adopt external URL changes (back/forward, shared link) only; our own
+    // debounced commit must not clobber what is being typed, e.g. the trailing
+    // space of "و " on the way to "و ما".
+    if (urlQ !== input.trim()) setInput(urlQ);
   }
 
-  const trimmedInput = input.trim();
-  const hasInput = trimmedInput.length > 0;
-  const urlSyncTimerRef = useRef<number>(0);
+  const hasInput = input.trim().length > 0;
+  const inputLetters = countSearchLetters(input);
+  const debounceRef = useRef<number>(0);
+
+  const scheduleCommit = useCallback((raw: string) => {
+    window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => commitSearchQuery(raw), SEARCH_DEBOUNCE_MS);
+  }, []);
+
+  const commitNow = useCallback((raw: string, force = false) => {
+    window.clearTimeout(debounceRef.current);
+    commitSearchQuery(raw, force);
+  }, []);
+
+  useMountEffect(() => () => window.clearTimeout(debounceRef.current));
 
   const handleWordTap = useCallback((target: WordTapTarget) => {
     setSelectedTap(target);
@@ -72,23 +111,11 @@ export function SearchViewer() {
               onChange={(e) => {
                 const newValue = e.target.value;
                 setInput(newValue);
-                const trimmed = newValue.trim();
-                const current = urlQ.trim();
-                if (urlSyncTimerRef.current) window.clearTimeout(urlSyncTimerRef.current);
-                if (trimmed === current) return;
-                urlSyncTimerRef.current = window.setTimeout(() => {
-                  if (!trimmed) {
-                    if (current) router.replace("/search");
-                    return;
-                  }
-                  router.replace(`/search?q=${encodeURIComponent(trimmed)}`);
-                }, URL_SYNC_DEBOUNCE_MS);
+                scheduleCommit(newValue);
               }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
-                if (!trimmedInput) return;
-                if (urlSyncTimerRef.current) window.clearTimeout(urlSyncTimerRef.current);
-                router.replace(`/search?q=${encodeURIComponent(trimmedInput)}`);
+                commitNow(input, true);
               }}
               placeholder="Search Quran…"
               className="w-full rounded-lg bg-[var(--color-surface)] py-2 pl-9 pr-9 text-sm text-[var(--color-text)] outline-none ring-1 ring-[var(--color-muted)]/20 focus:ring-[var(--color-accent)]/40"
@@ -100,10 +127,7 @@ export function SearchViewer() {
                 type="button"
                 onClick={() => {
                   setInput("");
-                  if (urlSyncTimerRef.current) window.clearTimeout(urlSyncTimerRef.current);
-                  if (urlQ.trim()) {
-                    router.replace("/search");
-                  }
+                  commitNow("");
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-2 text-[var(--color-muted)] active:bg-black/5"
                 aria-label="Clear search"
@@ -116,15 +140,22 @@ export function SearchViewer() {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 pb-28">
-        {urlQ.trim().length === 0 ? (
+        {!urlQ ? (
           <div className="flex h-40 flex-col items-center justify-center text-center text-sm text-[var(--color-muted)]">
-            <p>Type to search the Quran.</p>
-            <p className="mt-1 text-xs opacity-70">Clearing the search returns you home.</p>
+            <p>
+              {inputLetters > 0 && inputLetters < SEARCH_MIN_QUERY_LETTERS
+                ? `Type at least ${SEARCH_MIN_QUERY_LETTERS} letters, or press Enter to search now.`
+                : "Type to search the Quran."}
+            </p>
+            <p className="mt-1 text-xs opacity-70">
+              Prefixes may be written apart: <span dir="rtl">“و ما”</span> also finds{" "}
+              <span dir="rtl">“وما”</span>.
+            </p>
           </div>
         ) : (
           <SearchResultsPanel
             key={`search:${urlQ}:${mushafCode}`}
-            query={urlQ.trim()}
+            query={urlQ}
             mushafCode={mushafCode}
             onWordTap={handleWordTap}
           />

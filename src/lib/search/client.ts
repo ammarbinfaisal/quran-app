@@ -1,9 +1,14 @@
 "use client";
 
-import { dbGet, dbPut } from "@/lib/offline/storage";
+import { dbDelete, dbGet, dbPut } from "@/lib/offline/storage";
 import { parseSearchIndex, type SearchIndex } from "./format";
 import { searchIndex } from "./engine";
-import { SEARCH_INDEX_KEY, SEARCH_INDEX_STORE, SEARCH_INDEX_URL } from "./constants";
+import {
+  SEARCH_INDEX_KEY,
+  SEARCH_INDEX_LEGACY_KEYS,
+  SEARCH_INDEX_STORE,
+  SEARCH_INDEX_URL,
+} from "./constants";
 import type { QuranSearchResponse } from "./types";
 
 // Tiering mirrors src/lib/mushaf/loader.ts: memory -> in-flight -> IndexedDB -> network.
@@ -17,6 +22,24 @@ async function readStoredIndex(): Promise<ArrayBuffer | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Drops indexes in older formats left by earlier mushaf downloads. Returns true
+ * when one was present, i.e. this user had opted into offline search.
+ */
+async function dropLegacyIndexes(): Promise<boolean> {
+  let found = false;
+  for (const key of SEARCH_INDEX_LEGACY_KEYS) {
+    try {
+      if ((await dbGet<unknown>(SEARCH_INDEX_STORE, key)) === undefined) continue;
+      found = true;
+      await dbDelete(SEARCH_INDEX_STORE, key);
+    } catch {
+      // best effort
+    }
+  }
+  return found;
 }
 
 /** True when the index has been downloaded (bundled with the mushaf download). */
@@ -45,11 +68,16 @@ export function loadClientSearchIndex(options: { allowNetwork: boolean }): Promi
   inflight = (async () => {
     try {
       let buffer = await readStoredIndex();
-      if (!buffer && options.allowNetwork) {
-        try {
-          buffer = await downloadSearchIndex();
-        } catch {
-          buffer = null;
+      if (!buffer) {
+        // A stale format means the user downloaded the mushaf for offline use;
+        // replace it in place so offline search keeps working after this visit.
+        const upgrading = await dropLegacyIndexes();
+        if (options.allowNetwork || upgrading) {
+          try {
+            buffer = await downloadSearchIndex();
+          } catch {
+            buffer = null;
+          }
         }
       }
       if (!buffer) return null;
