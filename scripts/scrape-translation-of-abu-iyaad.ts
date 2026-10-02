@@ -2,11 +2,16 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
-
-type CompactSeg = string | { a: string };
+import {
+  QURAN_CUMULATIVE,
+  SURAH_VERSE_COUNTS,
+  validateAbuIyaadTranslations,
+  type AbuIyaadTranslations,
+  type CompactSeg,
+} from "./validate-abu-iyaad-translations";
 
 interface AbuIyaadNote {
   number: string;
@@ -21,12 +26,15 @@ interface AbuIyaadNote {
 const execFileAsync = promisify(execFile);
 
 const USER_AGENT = "quran.tarteel.tv (scraper)";
+const SOURCE_ROOT = "https://www.thenoblequran.com/q/";
+const SOURCE_PAGE_SIZE = 5;
 
 // Slow by default to be respectful. Set SCRAPE_FAST=1 for no delays.
 const FAST_MODE = !!process.env.SCRAPE_FAST;
 const TRANSLATION_DELAY_MS = FAST_MODE ? 0 : 100_000;
 const NOTES_DELAY_MS = FAST_MODE ? 0 : 200_000;
 const NOTES_CONCURRENCY = FAST_MODE ? 6 : 1;
+const ALLOW_DATASET_SHRINK = !!process.env.ALLOW_DATASET_SHRINK;
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
@@ -48,27 +56,6 @@ const NAMED: Record<string, string> = {
   mdash: "\u2014",
   hellip: "\u2026",
 };
-
-const SURAH_VERSE_COUNTS = [
-  0,
-  7, 286, 200, 176, 120, 165, 206, 75, 129, 109,
-  123, 111, 43, 52, 99, 128, 111, 110, 98, 135,
-  112, 78, 118, 64, 77, 227, 93, 88, 69, 60,
-  34, 30, 73, 54, 45, 83, 182, 88, 75, 85,
-  54, 53, 89, 59, 37, 35, 38, 29, 18, 45,
-  60, 49, 62, 55, 78, 96, 29, 22, 24, 13,
-  14, 11, 11, 18, 12, 12, 30, 52, 52, 44,
-  28, 28, 20, 56, 40, 31, 50, 40, 46, 42,
-  29, 19, 36, 25, 22, 17, 19, 26, 30, 20,
-  15, 21, 11, 8, 8, 19, 5, 8, 8, 11,
-  11, 8, 3, 9, 5, 4, 7, 3, 6, 3,
-  5, 4, 5, 6,
-];
-
-const QURAN_CUMULATIVE: number[] = [0];
-for (let surah = 1; surah <= 114; surah++) {
-  QURAN_CUMULATIVE[surah] = QURAN_CUMULATIVE[surah - 1] + SURAH_VERSE_COUNTS[surah];
-}
 
 function decodeEntities(value: string): string {
   return value.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);?/g, (match, entity) => {
@@ -161,22 +148,27 @@ function parseNotesHtml(html: string): AbuIyaadNote[] {
     .filter((note: AbuIyaadNote | null): note is AbuIyaadNote => note !== null);
 }
 
-async function resolveCurlChromeExecutable(): Promise<string> {
+async function resolveCurlChromeExecutable(): Promise<string | null> {
+  if (process.env.SCRAPE_NATIVE_FETCH) return null;
+
   const fromEnv = process.env.CURL_CHROME_BIN;
   if (fromEnv) {
     return fromEnv.startsWith("~/") ? join(homedir(), fromEnv.slice(2)) : fromEnv;
   }
 
   const dir = join(homedir(), "curl_chrome");
-  const candidates = (await readdir(dir))
-    .filter((entry: string) => /^curl_chrome\d+$/.test(entry))
+  const candidates = await readdir(dir)
+    .catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    });
+  const executables = candidates
+    .filter((entry) => /^curl_chrome\d+$/.test(entry))
     .sort((a, b) => Number.parseInt(b.slice("curl_chrome".length), 10) - Number.parseInt(a.slice("curl_chrome".length), 10));
 
-  if (candidates.length === 0) {
-    throw new Error(`No curl_chrome* executable found in ${dir}`);
-  }
+  if (executables.length === 0) return null;
 
-  return join(dir, candidates[0]);
+  return join(dir, executables[0]);
 }
 
 async function runCurlChrome(
@@ -187,6 +179,7 @@ async function runCurlChrome(
 ): Promise<string> {
   const args = [
     "-sS",
+    "--fail-with-body",
     "-L",
     "-b",
     cookieFile,
@@ -199,12 +192,55 @@ async function runCurlChrome(
   return stdout;
 }
 
-async function initSession(executable: string, cookieFile: string): Promise<void> {
-  await execFileAsync(
-    executable,
-    ["-sS", "-L", "-c", cookieFile, "https://www.thenoblequran.com/q/"],
-    { maxBuffer: 8 * 1024 * 1024 },
-  );
+let nativeCookieHeader = "";
+
+function headersFromCurlStyle(headers: string[]): Record<string, string> {
+  return Object.fromEntries(headers.map((header) => {
+    const separator = header.indexOf(":");
+    return [header.slice(0, separator).trim(), header.slice(separator + 1).trim()];
+  }));
+}
+
+async function runNativeFetch(url: string, headers: string[] = []): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      ...headersFromCurlStyle(headers),
+      ...(nativeCookieHeader ? { cookie: nativeCookieHeader } : {}),
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed with ${response.status} ${response.statusText}: ${url}`);
+  }
+  return response.text();
+}
+
+async function runRequest(
+  executable: string | null,
+  cookieFile: string,
+  url: string,
+  headers: string[] = [],
+): Promise<string> {
+  if (executable) return runCurlChrome(executable, cookieFile, url, headers);
+  return runNativeFetch(url, headers);
+}
+
+async function initSession(executable: string | null, cookieFile: string): Promise<void> {
+  if (executable) {
+    await execFileAsync(
+      executable,
+      ["-sS", "--fail-with-body", "-L", "-c", cookieFile, SOURCE_ROOT],
+      { maxBuffer: 8 * 1024 * 1024 },
+    );
+    return;
+  }
+
+  const response = await fetch(SOURCE_ROOT, { headers: { "user-agent": USER_AGENT } });
+  if (!response.ok) {
+    throw new Error(`Could not establish source session: ${response.status} ${response.statusText}`);
+  }
+  nativeCookieHeader = response.headers.getSetCookie()
+    .map((cookie) => cookie.split(";", 1)[0])
+    .join("; ");
 }
 
 async function mapWithConcurrency<T, R>(
@@ -229,16 +265,35 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+async function readJsonFile<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
+async function atomicWriteJson(path: string, value: unknown): Promise<void> {
+  const temporaryPath = `${path}.${process.pid}.tmp`;
+  try {
+    await writeFile(temporaryPath, JSON.stringify(value));
+    await rename(temporaryPath, path);
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
+}
+
 async function run() {
-  const translationResult: Record<string, CompactSeg[]> = {};
+  const translationResult: AbuIyaadTranslations = {};
   const notesResult: Record<string, AbuIyaadNote[]> = {};
 
   const executable = await resolveCurlChromeExecutable();
   const tempDir = await mkdtemp(join(tmpdir(), "abu-iyaad-"));
   const cookieFile = join(tempDir, "cookies.txt");
+  const publicDataDir = join(process.cwd(), "public", "data");
+  const translationsPath = join(publicDataDir, "abu-iyaad.json");
+  const notesPath = join(publicDataDir, "abu-iyaad-notes.json");
+  const existingTranslations = await readJsonFile<AbuIyaadTranslations>(translationsPath);
+  const existingNotes = await readJsonFile<Record<string, AbuIyaadNote[]>>(notesPath);
 
   try {
-    console.log(`Using ${executable}`);
+    console.log(executable ? `Using ${executable}` : "Using native fetch");
     console.log(FAST_MODE
       ? "Fast mode (no delays)"
       : `Slow mode: ${TRANSLATION_DELAY_MS / 1000}s between translation pages, ${NOTES_DELAY_MS / 1000}s between notes (concurrency ${NOTES_CONCURRENCY})`,
@@ -249,57 +304,63 @@ async function run() {
 
     for (let surah = 1; surah <= 114; surah++) {
       process.stdout.write(`Fetching sura ${surah}...`);
-      let start = 1;
-      let keepGoing = true;
+      const countBeforeSurah = Object.keys(translationResult).length;
 
-      while (keepGoing) {
-        try {
-          const url = `https://www.thenoblequran.com/q/includes/cfm/displaysura.cfm?sura=${surah}&start=${start}`;
-          const html = await runCurlChrome(executable, cookieFile, url, [
-            "accept: text/html, */*; q=0.01",
-            "referer: https://www.thenoblequran.com/q/",
-            `user-agent: ${USER_AGENT}`,
-          ]);
+      for (let start = 1; start <= SURAH_VERSE_COUNTS[surah]; start += SOURCE_PAGE_SIZE) {
+        const url = `${SOURCE_ROOT}includes/cfm/displaysura.cfm?sura=${surah}&start=${start}`;
+        const html = await runRequest(executable, cookieFile, url, [
+          "accept: text/html, */*; q=0.01",
+          `referer: ${SOURCE_ROOT}`,
+          `user-agent: ${USER_AGENT}`,
+        ]).catch((error) => {
+          throw new Error(`Failed to fetch sura ${surah} start ${start}`, { cause: error });
+        });
 
-          if (html.trim().length === 0 || html.includes("No verses found")) {
-            keepGoing = false;
-            break;
+        const $ = cheerio.load(html);
+        const previousCumulative = QURAN_CUMULATIVE[surah - 1];
+
+        $("[id^='rafiam']").each((_: number, element: Element) => {
+          const id = $(element).attr("id");
+          const match = id?.match(/^rafiam(\d+)$/);
+          if (!match) return;
+
+          const quranPosition = Number.parseInt(match[1], 10);
+          const ayah = quranPosition - previousCumulative;
+          const pageEnd = Math.min(start + SOURCE_PAGE_SIZE - 1, SURAH_VERSE_COUNTS[surah]);
+          if (ayah < start || ayah > pageEnd) {
+            throw new Error(
+              `Source returned ${id} (sura ${surah}:${ayah}) for requested range ${start}-${pageEnd}`,
+            );
           }
 
-          const $ = cheerio.load(html);
-          const prevCum = QURAN_CUMULATIVE[surah - 1];
-          let foundAny = false;
+          const segments = parseVerseHtml(($(element).html() ?? "").replace(/\s+/g, " "));
+          if (segments.length === 0) return;
 
-          $("[id^='rafiam']").each((_: number, element: Element) => {
-            const id = $(element).attr("id");
-            const match = id?.match(/^rafiam(\d+)$/);
-            if (!match) return;
-
-            const quranPosition = Number.parseInt(match[1], 10);
-            const ayah = quranPosition - prevCum;
-            if (ayah < 1 || ayah > SURAH_VERSE_COUNTS[surah]) return;
-
-            const segments = parseVerseHtml(($(element).html() ?? "").replace(/\s+/g, " "));
-            if (segments.length === 0) return;
-
-            translationResult[`${surah}:${ayah}`] = segments;
-            foundAny = true;
-          });
-
-          if (!foundAny) {
-            keepGoing = false;
-          } else {
-            start += 10;
-            await sleep(TRANSLATION_DELAY_MS);
+          const verseKey = `${surah}:${ayah}`;
+          if (translationResult[verseKey]) {
+            throw new Error(`Source returned duplicate translation key ${verseKey}`);
           }
-        } catch (error) {
-          console.error(`\nError fetching sura ${surah} start ${start}:`, error);
-          keepGoing = false;
-        }
+          translationResult[verseKey] = segments;
+        });
+
+        await sleep(TRANSLATION_DELAY_MS);
       }
 
-      console.log(" Done.");
+      const countAfterSurah = Object.keys(translationResult).length;
+      console.log(` ${countAfterSurah - countBeforeSurah} translations.`);
     }
+
+    const minimumTranslationCount = ALLOW_DATASET_SHRINK
+      ? 1
+      : Object.keys(existingTranslations).length;
+    const validationReport = validateAbuIyaadTranslations(
+      translationResult,
+      minimumTranslationCount,
+    );
+    console.log(
+      `Validated ${validationReport.verseCount} translations with ` +
+      `${validationReport.consecutiveDuplicateCount} consecutive duplicates.`,
+    );
 
     const verseKeys = Object.keys(translationResult).sort((a, b) => {
       const [aSurah, aAyah] = a.split(":").map(Number);
@@ -314,9 +375,9 @@ async function run() {
       const url = `https://www.thenoblequran.com/q/includes/cfm/search.cfm?q=${query}&shownotes=1`;
 
       try {
-        const html = await runCurlChrome(executable, cookieFile, url, [
+        const html = await runRequest(executable, cookieFile, url, [
           "accept: text/html, */*; q=0.01",
-          "referer: https://www.thenoblequran.com/q/",
+          `referer: ${SOURCE_ROOT}`,
           "x-requested-with: XMLHttpRequest",
           `user-agent: ${USER_AGENT}`,
         ]);
@@ -325,7 +386,7 @@ async function run() {
           notesResult[verseKey] = notes;
         }
       } catch (error) {
-        console.error(`Failed to fetch notes for ${verseKey}:`, error);
+        throw new Error(`Failed to fetch notes for ${verseKey}`, { cause: error });
       }
 
       if ((index + 1) % 100 === 0 || index + 1 === verseKeys.length) {
@@ -335,9 +396,15 @@ async function run() {
       await sleep(NOTES_DELAY_MS);
     });
 
-    const publicDataDir = join(process.cwd(), "public", "data");
-    await writeFile(join(publicDataDir, "abu-iyaad.json"), JSON.stringify(translationResult));
-    await writeFile(join(publicDataDir, "abu-iyaad-notes.json"), JSON.stringify(notesResult));
+    if (!ALLOW_DATASET_SHRINK && Object.keys(notesResult).length < Object.keys(existingNotes).length) {
+      throw new Error(
+        `Refusing to replace ${Object.keys(existingNotes).length} note entries with ` +
+        `${Object.keys(notesResult).length}; set ALLOW_DATASET_SHRINK=1 to override`,
+      );
+    }
+
+    await atomicWriteJson(translationsPath, translationResult);
+    await atomicWriteJson(notesPath, notesResult);
 
     console.log(`Saved ${verseKeys.length} translation keys and ${Object.keys(notesResult).length} note keys.`);
   } finally {

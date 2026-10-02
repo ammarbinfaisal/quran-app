@@ -1,4 +1,4 @@
-const CACHE_NAME = "quran-assets-r5";
+const CACHE_NAME = "quran-assets-r6";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.webmanifest",
@@ -95,6 +95,31 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".woff2");
 
   if (!isSameOrigin && !isQuranCdnFont) return;
+
+  const isAbuIyaadData =
+    isSameOrigin && url.pathname.startsWith("/data/abu-iyaad");
+
+  // Translation and notes can be refreshed independently of the app shell.
+  // Prefer current data online, retaining the precached response for offline use.
+  if (isAbuIyaadData) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(event.request);
+          if (networkResponse && networkResponse.ok) {
+            const cloned = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          }
+          return networkResponse;
+        } catch {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          return new Response("Offline", { status: 503, statusText: "Offline" });
+        }
+      })(),
+    );
+    return;
+  }
 
   // Hashed Next.js static assets are immutable for a build. Cache them so a
   // cached offline HTML document can actually hydrate.

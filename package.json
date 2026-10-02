@@ -14,6 +14,7 @@
     "test:e2e": "bunx --bun playwright test",
     "verify:mushaf-hashes": "bun scripts/verify-mushaf-text-hashes.ts",
     "verify:mushaf-boundaries": "bun scripts/verify-mushaf-boundaries.ts",
+    "verify:abu-iyaad-translations": "bun scripts/validate-abu-iyaad-translations.ts",
     "perf:mushaf-scroll": "bunx --bun playwright test tests/perf/mushaf-scroll.perf.spec.ts",
     "generate:mushaf-assets": "bun scripts/generate-mushaf-assets.ts",
     "generate:mushaf-assets:sample": "bun scripts/generate-mushaf-assets.ts --seed-sample",

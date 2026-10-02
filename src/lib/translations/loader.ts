@@ -17,9 +17,9 @@ import { loadAbuIyaadData, loadAbuIyaadSegments } from "./abu-iyaad";
 import { fetchVersePages } from "@/lib/navigation/maps";
 
 const STORE = "translations";
-// "v3:" prefix distinguishes pre-parsed TranslationContent from old raw-string entries
-// and from the previous "v2:" cache that may hold empty/stale Abu Iyaad results.
-const TRANSLATION_CACHE_PREFIX = "v3:";
+// Bump this whenever bundled translation data changes so IndexedDB cannot
+// serve translations cached from an older static dataset.
+const TRANSLATION_CACHE_PREFIX = "v4:";
 
 type ApiTranslationId = Exclude<TranslationId, "abu-iyaad">;
 

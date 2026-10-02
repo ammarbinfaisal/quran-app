@@ -35,13 +35,20 @@ if ! bun scripts/scrape-translation-of-abu-iyaad.ts >> "$LOG_FILE" 2>&1; then
   exit 1
 fi
 
+if ! bun run verify:abu-iyaad-translations >> "$LOG_FILE" 2>&1; then
+  log "Translation validation failed. Skipping push."
+  exit 1
+fi
+
+bun scripts/generate-abu-iyaad-keys.ts >> "$LOG_FILE" 2>&1
+
 log "Scrape complete. Checking for changes..."
 
-if git diff --quiet public/data/abu-iyaad.json public/data/abu-iyaad-notes.json public/data/abu-iyaad-surahs.json 2>/dev/null; then
+if git diff --quiet public/data/abu-iyaad.json public/data/abu-iyaad-notes.json public/data/abu-iyaad-surahs.json src/lib/translations/abuIyaadKeys.ts 2>/dev/null; then
   log "No changes detected, skipping push."
 else
   log "Changes detected, committing and pushing..."
-  git add public/data/abu-iyaad.json public/data/abu-iyaad-notes.json public/data/abu-iyaad-surahs.json
+  git add public/data/abu-iyaad.json public/data/abu-iyaad-notes.json public/data/abu-iyaad-surahs.json src/lib/translations/abuIyaadKeys.ts
   git commit --no-gpg-sign -m "Update Abu Iyaad translations and notes data (auto-scrape)"
   git push
   log "Pushed to remote."
