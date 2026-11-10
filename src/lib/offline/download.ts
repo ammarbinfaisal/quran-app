@@ -14,13 +14,16 @@ import { AYAH_RECITERS } from "@/lib/ayahRecitation";
 import { getQcfFontUrl } from "@/lib/mushaf/fonts";
 import { MUSHAF_ASSET_REV } from "@/lib/mushaf/assetRev";
 import { ensureCurrentMushafAssetRevision } from "@/lib/offline/mushafRevision";
+import { TRANSLATION_CACHE_PREFIX } from "@/lib/translations/loader";
 import { compactToContent, parseTranslationSegments, segmentsToContent, type TranslationSegment, type TranslationContent, type CompactSeg } from "@/lib/footnotes";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const V2 = "v2:";
+// Must match the loader's IndexedDB key prefix, otherwise downloaded
+// translations are never read back.
+const CACHE_PREFIX = TRANSLATION_CACHE_PREFIX;
 
 /** Zero-padded page number, e.g. 1 -> "001" */
 function pad(page: number): string {
@@ -167,7 +170,7 @@ export async function downloadTranslation(
           const data = (await res.json()) as Record<string, TranslationSegment[]>;
           const toStore: Array<[string, TranslationContent]> = [];
           for (const [verseKey, segments] of Object.entries(data)) {
-            toStore.push([`${V2}${translationId}:${verseKey}`, segmentsToContent(segments)]);
+            toStore.push([`${CACHE_PREFIX}${translationId}:${verseKey}`, segmentsToContent(segments)]);
           }
           await dbPutMany("translations", toStore);
           wrote = true;
@@ -182,7 +185,7 @@ export async function downloadTranslation(
         for (const entry of entries) {
           const rawHtml = entry.text ?? "";
           const segments = parseTranslationSegments(rawHtml, translationId);
-          toStore.push([`${V2}${translationId}:${entry.verseKey}`, segmentsToContent(segments)]);
+          toStore.push([`${CACHE_PREFIX}${translationId}:${entry.verseKey}`, segmentsToContent(segments)]);
         }
         await dbPutMany("translations", toStore);
       }
@@ -231,7 +234,7 @@ export async function downloadAbuIyaad(
   };
 
   for (const [verseKey, segs] of entries) {
-    batch.push([`${V2}abu-iyaad:${verseKey}`, compactToContent(segs)]);
+    batch.push([`${CACHE_PREFIX}abu-iyaad:${verseKey}`, compactToContent(segs)]);
     done++;
     if (batch.length >= 400) {
       await flush();
@@ -251,11 +254,12 @@ export async function downloadAbuIyaad(
 }
 
 export async function removeTranslation(translationId: TranslationId): Promise<void> {
-  const prefix = `${translationId}:`;
-  const v2Prefix = `${V2}${translationId}:`;
+  // Match unversioned keys and every versioned prefix (v2:, v4:, v5:, ...)
+  // so entries left over from older cache versions are removed too.
+  const keyPattern = new RegExp(`^(v\\d+:)?${translationId}:`);
   const keys = await dbGetAllKeys("translations");
   for (const key of keys) {
-    if (key.startsWith(prefix) || key.startsWith(v2Prefix)) {
+    if (keyPattern.test(key)) {
       await dbDelete("translations", key);
     }
   }

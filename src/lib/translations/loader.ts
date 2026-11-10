@@ -14,12 +14,17 @@ import {
   type TranslationContent,
 } from "@/lib/footnotes";
 import { loadAbuIyaadData, loadAbuIyaadSegments } from "./abu-iyaad";
+import { ABU_IYAAD_KEYS } from "./abuIyaadKeys";
 import { fetchVersePages } from "@/lib/navigation/maps";
 
 const STORE = "translations";
 // Bump this whenever bundled translation data changes so IndexedDB cannot
 // serve translations cached from an older static dataset.
-const TRANSLATION_CACHE_PREFIX = "v4:";
+// v5: production briefly served a stale abu-iyaad.json in which verses without
+// an Abu Iyaad translation (e.g. 7:181) carried a neighbouring verse's text.
+export const TRANSLATION_CACHE_PREFIX = "v5:";
+
+const EMPTY_CONTENT: TranslationContent = { segments: [], plain: "" };
 
 type ApiTranslationId = Exclude<TranslationId, "abu-iyaad">;
 
@@ -38,6 +43,12 @@ export async function loadTranslation(
   verseKey: string,
   translationId: TranslationId,
 ): Promise<TranslationContent> {
+  // Abu Iyaad has not translated every verse. Never serve text (from any
+  // cache) for a verse the bundled dataset does not contain.
+  if (translationId === "abu-iyaad" && !ABU_IYAAD_KEYS.has(verseKey)) {
+    return EMPTY_CONTENT;
+  }
+
   const cacheKey = `${TRANSLATION_CACHE_PREFIX}${translationId}:${verseKey}`;
 
   // Check IDB for a pre-parsed result
